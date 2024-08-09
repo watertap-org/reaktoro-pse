@@ -1,0 +1,23 @@
+[build-system]
+requires = [
+    "setuptools >= 64",
+    "setuptools_scm >= 7",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reaktoro-pse"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    "pyomo",
+]
+[project.optional-dependencies]
+testing = [
+    "pytest>=8",
+]
+
+[tool.setuptools_scm]
+# https://setuptools-scm.readthedocs.io/en/v8.1.0/extending/
+version_scheme = "only-version"
+local_scheme = "node-and-date"
