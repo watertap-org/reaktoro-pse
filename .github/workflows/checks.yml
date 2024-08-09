@@ -1,0 +1,103 @@
+name: Checks
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  pull_request:
+    branches: [main]
+
+env:
+  PYTEST_ADDOPTS: --color=yes
+  PIP_PROGRESS_BAR: "off"
+
+defaults:
+  run:
+    # -l: login shell, needed when using Conda:
+    shell: bash -l {0}
+
+jobs:
+
+  code-formatting:
+    name: Check code is formatted (Black)
+    # OS and/or Python version don't make a difference, so we choose ubuntu and 3.12 as defaults
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Black
+        # unlike the other jobs, we don't need to install all the dev dependencies,
+        # but we still want to specify the Black version to use in requirements-dev.txt for local development
+        # so we extract the relevant line and pass it to a simple `pip install`
+        run: |
+          black_requirement="$(grep '^black==' requirements-dev.txt)"
+          pip install "$black_requirement"
+      - name: Run Black to verify that the committed code is formatted
+        run: |
+          black --check .
+
+  pytest:
+    name: pytest (${{ matrix.os }}/${{ matrix.python-version }}/${{ matrix.install-mode }})
+    runs-on: ${{ matrix.os-version }}
+    needs: [code-formatting]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-mode:
+          - dev
+          # - standard
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+        os:
+          - linux
+          - win64
+          # - macos
+        include:
+          - os: linux
+            os-version: ubuntu-22.04
+          - os: win64
+            os-version: windows-2022
+          # - os: macos
+          #   os-version: macos-14
+          - install-mode: dev
+            python-version: "3.11"  # choice of Python version is arbitrary among those in matrix
+            coverage: "true"
+
+    steps:
+      - if: matrix.install-mode == 'dev'
+        uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+          miniforge-version: latest
+          channels: conda-forge
+          activate-environment: ${{ matrix.install-mode == 'dev' && 'reaktoro-pse-dev' || 'reaktoro-pse' }}
+      - name: Install conda-forge dependencies
+        run: |
+          conda install reaktoro=2.12 cyipopt=1.4.1
+      - if: matrix.install-mode == 'dev'
+        name: Install (dev)
+        run: |
+          pip install -r requirements-dev.txt
+      - if: matrix.install-mode == 'standard'
+        name: Install (standard)
+        run: |
+          pip install "git+${{ format('{0}/{1}@{2}', github.server_url, github.repository, github.ref) }}"
+      - if: matrix.coverage
+        name: Enable coverage for pytest
+        run: echo PYTEST_ADDOPTS="$PYTEST_ADDOPTS --cov --cov-report=xml" >> $GITHUB_ENV
+      - name: Run pytest
+        run: |
+          pip install pytest  # ensure pytest is installed (should do nothing if already present from requirements-dev.txt)
+          pytest --pyargs reaktoro_pse --verbose
+      - name: Upload coverage report as job artifact
+        if: matrix.coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.os }}
+          path: coverage.xml
+          if-no-files-found: error
