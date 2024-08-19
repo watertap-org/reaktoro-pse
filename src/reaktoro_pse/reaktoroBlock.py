@@ -384,6 +384,16 @@ class reaktorBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
+        "presolve_during_initialization",
+        ConfigValue(
+            default=False,
+            domain=bool,
+            description="Option to pre-solve to low tolerance first, before primary solve but only during initialization",
+            doc="""In some cases reaktoro might fail to solve to high tolerance first,
+            a presolve at low tolerance can enable the reaktoro solve to high tolerance, this will only presolve during initialization""",
+        ),
+    )
+    CONFIG.declare(
         "presolve",
         ConfigValue(
             default=False,
@@ -572,13 +582,18 @@ class reaktorBlockData(ProcessBlockData):
             hessian_type=self.config.hessian_type,
         )
         """ build block"""
-
+        scaling = self.config.jacobian_user_scaling
+        scaling_type=self.config.jacobian_scaling_type
         block.rktBlockBuilder = reaktoroBlockBuilder(block, block.rktSolver, build_on_init=False)
-        block.rktBlockBuilder.configure_jacobian_scaling(jacobian_scaling_type=self.config.jacobian_scaling_type,
-                                                   user_scaling=self.config.jacobian_user_scaling)
+        block.rktBlockBuilder.configure_jacobian_scaling(jacobian_scaling_type=scaling_type,
+                                                   user_scaling=scaling)
         block.rktBlockBuilder.build_reaktoro_block()
 
     def initialize(self):
+        if self.config.presolve_during_initialization or self.config.presolve:
+            presolve=True
+        else:
+            presolve=False
         if self.config.build_speciation_block:
-            self.speciation_block.rktBlockBuilder.initialize()
-        self.rktBlockBuilder.initialize()
+            self.speciation_block.rktBlockBuilder.initialize(presolve)
+        self.rktBlockBuilder.initialize(presolve)

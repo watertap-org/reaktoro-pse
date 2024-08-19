@@ -85,7 +85,6 @@ def build_simple_precipitation():
             ("speciesAmount", "Calcite"),
             ("speciesAmount", "Anhydrite"),
             ("molarEnthalpy", None),
-            ("pH", None),
         ],
         initialize=1e-5,
     )
@@ -205,6 +204,7 @@ def build_simple_precipitation():
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
         convert_to_rkt_species=True,
+        dissolve_species_in_reaktoro=False,
         jacobian_user_scaling={("molarEnthalpy", None): 1},
     )
 
@@ -220,9 +220,11 @@ def build_simple_precipitation():
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
         convert_to_rkt_species=True,
+        dissolve_species_in_reaktoro=False,
+        # build_speciation_block=True,
         jacobian_user_scaling={("molarEnthalpy", None): 1},
-        build_speciation_block=True,
-        presolve=True,  # when solids are include, presolving can help with stability
+        # presolve_during_initialization=True,
+        # presolve=True,  # when solids are include, presolving can help with stability
     )
     m.eq_treated_properties = reaktorBlock(
         composition=m.treated_composition,
@@ -234,6 +236,7 @@ def build_simple_precipitation():
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
         convert_to_rkt_species=True,
+        dissolve_species_in_reaktoro=False,
         jacobian_user_scaling={("molarEnthalpy", None): 1},
         # presolve=True, # when solids are include, presolving can help with stability
     )
@@ -247,6 +250,7 @@ def build_simple_precipitation():
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
         convert_to_rkt_species=True,
+        dissolve_species_in_reaktoro=False,
         jacobian_user_scaling={("molarEnthalpy", None): 1},
         # presolve=True, # when solids are include, presolving can help with stability
     )
@@ -331,6 +335,7 @@ def initialize(m):
 
     m.eq_treated_properties.initialize()
     m.eq_cooled_treated_properties.initialize()
+    m.display()
     solve(m)
     m.display()
 

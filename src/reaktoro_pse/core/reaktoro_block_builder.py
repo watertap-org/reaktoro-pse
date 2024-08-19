@@ -179,10 +179,10 @@ class reaktoroBlockBuilder:
                     == self.block.reaktoro_model.outputs[(prop, prop_index)]
                 )
 
-    def initialize(self):
+    def initialize(self,presolveDuringInitialization=False):
         self.initialize_input_variables_and_constraints()
         self.rktSolver.rktBase.equilibrate_state()
-        self.rktSolver.solve_reaktoro_block()#presolve=True)
+        self.rktSolver.solve_reaktoro_block(presolve=presolveDuringInitialization)
         self.initialize_output_variables_and_constraints()
         _log.info(f"Initialized rkt block")
 
@@ -208,6 +208,7 @@ class reaktoroBlockBuilder:
                 rkt_var = self.block.reaktoro_model.outputs[key]
                 output_constraint = self.block.output_constraints[key]
                 calculate_variable_from_constraint(rkt_var, output_constraint)
+
                 if iscale.get_scaling_factor(rkt_var) is None:
                     iscale.set_scaling_factor(rkt_var, 1 / abs(obj.value))
             val = obj.pyomoVar.value
