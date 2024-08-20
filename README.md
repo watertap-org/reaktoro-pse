@@ -14,6 +14,7 @@ reaktoro-pse depends on the following packages and/or versions:
 ### Prerequisites
 
 - A Conda distribution compatible with `conda-forge`, e.g. [Miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#download)
+- Git (needed by [setuptools_scm](https://setuptools-scm.readthedocs.io/en/latest/) to set the version dynamically during installation of the Python package distribution)
 
 ### Installation
 
