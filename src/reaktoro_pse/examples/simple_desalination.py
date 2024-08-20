@@ -125,18 +125,18 @@ def initialize(m):
 
 
 def setup_optimization(m):
-    m.objective = Objective(expr=(1 - m.water_recovery) * 100 + m.acid_addition)
+    m.objective = Objective(expr=(1 - m.water_recovery) * 10 + m.acid_addition)
     m.desal_properties[("scalingTendency", "Calcite")].setub(1)
     m.desal_properties[("scalingTendency", "Gypsum")].setub(1)
     m.water_recovery.unfix()
-    m.acid_addition.unfix()
+    # m.acid_addition.unfix()
 
 
 def solve(m):
     cy_solver = get_solver(solver="cyipopt-watertap")
     # cy_solver.options["max_iter"] = 200
     # only enable if avaialbe !
-    # cy_solver.options["linear_solver"] = "ma27"
+    cy_solver.options["linear_solver"] = "ma27"
     result = cy_solver.solve(m, tee=True)
     return result
 

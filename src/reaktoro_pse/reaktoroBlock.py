@@ -178,11 +178,29 @@ class reaktorBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "activity_model",
+        "aqueous_phase_activity_model",
         ConfigValue(
-            default="ActivityModelPitzer",
+            default="ActivityModelIdealAqueous",
             domain=str,
-            description="Activity model",
+            description="Activity model for aquous phase",
+            doc="Defines which activity model to use in reaktoro",
+        ),
+    )
+    CONFIG.declare(
+        "gas_phase_activity_model",
+        ConfigValue(
+            default="ActivityModelIdealGas",
+            domain=str,
+            description="Activity model for gas phase",
+            doc="Defines which activity model to use in reaktoro",
+        ),
+    )
+    CONFIG.declare(
+        "mineral_phase_activity_model",
+        ConfigValue(
+            default="ActivityModelIdealSolution",
+            domain=str,
+            description="Activity model for mineral phase",
             doc="Defines which activity model to use in reaktoro",
         ),
     )
@@ -511,8 +529,11 @@ class reaktorBlockData(ProcessBlockData):
         block.rktState.set_database(
             dbtype=self.config.database, database=self.config.database_file
         )
+        block.rktState.set_aqueous_phase_activity_model(self.config.aqueous_phase_activity_model)
+        block.rktState.set_gas_phase_activity_model(self.config.gas_phase_activity_model)
+    
+        # block.rktState.set_mineral_phase_activity_model(self.config.mineral_phase_activity_model)
         block.rktState.build_state()
-        block.rktState.equilibrate_state()
         """ configure inputs """
         block.rktInputs = reaktoroInputSpec(block.rktState)
         if speciation_block == False:
@@ -595,5 +616,7 @@ class reaktorBlockData(ProcessBlockData):
         else:
             presolve=False
         if self.config.build_speciation_block:
+            self.speciation_block.rktState.equilibrate_state()
             self.speciation_block.rktBlockBuilder.initialize(presolve)
+        self.rktState.equilibrate_state()
         self.rktBlockBuilder.initialize(presolve)

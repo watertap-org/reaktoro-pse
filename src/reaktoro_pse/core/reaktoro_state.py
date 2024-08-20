@@ -99,15 +99,29 @@ class reaktoroState:
         """register possible gas phases"""
         if isinstance(gas_phases, str):
             gas_phases = [gas_phases]
-        self.rktGasPhases.append(rkt.GaseousPhase(rkt.speciate(gas_phases)))
+        self.rktGasPhases.append(rkt.GaseousPhase(gas_phases))
 
     def set_database(self, dbtype="PhreeqcDatabase", database="pitzer.dat"):
         """set data base of reaktoro"""
         self.rktDatabase = getattr(rkt, dbtype)(database)
 
-    def set_activity_model(self, activity_model="ActivityModelPitzer"):
+    def set_aqueous_phase_activity_model(
+        self, activity_model="ActivityModelIdealAqueous"
+    ):
         """set activity model of reaktoro"""
         self.rktAqueousPhase.set(getattr(rkt, activity_model)())
+
+    def set_gas_phase_activity_model(self, activity_model="ActivityModelIdealGas"):
+        """set activity model of reaktoro"""
+        for phase in self.rktGasPhases:
+            phase.set(getattr(rkt, activity_model)())
+
+    def set_mineral_phase_activity_model(
+        self, activity_model="ActivityModelIdealSolution"
+    ):
+        """set activity model of reaktoro"""
+        for phase in self.phases:
+            phase.set(getattr(rkt, activity_model)())
 
     def build_state(self):
         """this will build reaktor states"""

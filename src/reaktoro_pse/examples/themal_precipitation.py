@@ -85,6 +85,8 @@ def build_simple_precipitation():
             ("speciesAmount", "Calcite"),
             ("speciesAmount", "Anhydrite"),
             ("molarEnthalpy", None),
+            ("pH", None),
+            # ("vaporPressure", "H2O(g)"),
         ],
         initialize=1e-5,
     )
@@ -221,7 +223,7 @@ def build_simple_precipitation():
         species_to_rkt_species_dict=translation_dict,
         convert_to_rkt_species=True,
         dissolve_species_in_reaktoro=False,
-        # build_speciation_block=True,
+        build_speciation_block=True,
         jacobian_user_scaling={("molarEnthalpy", None): 1},
         # presolve_during_initialization=True,
         # presolve=True,  # when solids are include, presolving can help with stability
@@ -230,7 +232,7 @@ def build_simple_precipitation():
         composition=m.treated_composition,
         temperature=m.precipitator_temperature,
         pressure=m.feed_pressure,  # assume all systems operate at same pressure - not
-        pH=m.feed_pH,
+        pH=m.precipitation_properties[("pH", None)],
         outputs=m.treated_properties,
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
@@ -244,7 +246,7 @@ def build_simple_precipitation():
         composition=m.treated_composition,
         temperature=m.cooled_treated_temperature,
         pressure=m.feed_pressure,  # assume all systems operate at same pressure - not
-        pH=m.feed_pH,
+        pH=m.precipitation_properties[("pH", None)],
         outputs=m.cooled_treated_properties,
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use

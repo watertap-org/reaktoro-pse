@@ -186,8 +186,14 @@ class reaktoroBlockBuilder:
         self.initialize_output_variables_and_constraints()
         _log.info(f"Initialized rkt block")
 
+    
     def initialize_output_variables_and_constraints(self):
-
+        def get_sf(val):
+            if val==0:
+                return 1
+            else:
+                return abs(val)
+            
         for key, obj in self.rktSolver.rktOutputSpec.userOutputs.items():
             ''' update vars scaling in pyomo build ocnstraints 
             these are updated to actual value when we call solve_rektoro_block'''
@@ -199,22 +205,24 @@ class reaktoroBlockBuilder:
                     val = pyoPropObj.value
                     pyoPropObj.set_pyomo_var_value(val)
                     if iscale.get_scaling_factor(pyoPropObj.pyomoVar) is None:
-                        iscale.set_scaling_factor(pyoPropObj.pyomoVar, 1 )#/ val)
+                        iscale.set_scaling_factor(pyoPropObj.pyomoVar, 1 / get_sf(val))
                 output_constraint = self.block.output_constraints[key]
                 calculate_variable_from_constraint(obj.pyomoVar, output_constraint)
-                iscale.constraint_scaling_transform(output_constraint, 1) # / obj.pyomoVar.value)
+                iscale.constraint_scaling_transform(output_constraint, 1 /  get_sf(obj.pyomoVar.value))
             else:
                 obj.set_pyomo_var_value(obj.value)
                 rkt_var = self.block.reaktoro_model.outputs[key]
                 output_constraint = self.block.output_constraints[key]
+                # obj.pyomo_var.display()
+                # rkt_var.display()
                 calculate_variable_from_constraint(rkt_var, output_constraint)
 
                 if iscale.get_scaling_factor(rkt_var) is None:
-                    iscale.set_scaling_factor(rkt_var, 1 / abs(obj.value))
+                    iscale.set_scaling_factor(rkt_var, 1 / get_sf(obj.value))
             val = obj.pyomoVar.value
             ''' scale user provided vars if they are not scaled'''
             if iscale.get_scaling_factor(obj.pyomoVar) is None:
-                iscale.set_scaling_factor(obj.pyomoVar, 1 / abs(val))
+                iscale.set_scaling_factor(obj.pyomoVar, 1 / get_sf(val))
           
         ''' update jacobian scaling '''
         self.get_jacobian_scaling()

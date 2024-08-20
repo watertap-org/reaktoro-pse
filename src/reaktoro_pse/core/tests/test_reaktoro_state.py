@@ -36,7 +36,7 @@ def build_rkt_state_with_species():
         composition=m.composition, temperature=m.temp, pressure=m.pressure, pH=m.pH
     )
     rkt_state.set_database()
-    rkt_state.set_activity_model()
+    rkt_state.set_aqueous_phase_activity_model()
     return m, rkt_state
 
 
@@ -66,7 +66,7 @@ def build_rkt_state_with_species_no_ph():
         composition=m.composition, temperature=m.temp, pressure=m.pressure
     )
     rkt_state.set_database()
-    rkt_state.set_activity_model()
+    rkt_state.set_aqueous_phase_activity_model()
     return m, rkt_state
 
 
@@ -100,7 +100,7 @@ def build_rkt_state_with_elements():
         composition_is_elements=True,
     )
     rkt_state.set_database()
-    rkt_state.set_activity_model()
+    rkt_state.set_aqueous_phase_activity_model()
     return rkt_state
 
 
@@ -149,13 +149,18 @@ def test_state_with_solids(build_rkt_state_with_species):
 
 def test_state_with_gas(build_rkt_state_with_species):
     m, rkt_state = build_rkt_state_with_species
-    rkt_state.register_gas_phases("CO2")
+    rkt_state.register_gas_phases("CO2(g)")
+    rkt_state.set_gas_phase_activity_model()
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    print(rkt_state.rktState)
+    print(rkt_state.rktState.props())
     assert (
         pytest.approx(float(rkt_state.rktState.props().speciesAmount("CO2(g)")), 1e-5)
         == 1e-16
+    )
+    assert (
+        pytest.approx(float(rkt_state.rktState.props().speciesActivity("CO2(g)")), 1e-5)
+        == 9.9426e-01
     )
 
 

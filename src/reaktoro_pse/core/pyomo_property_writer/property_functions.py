@@ -1,7 +1,4 @@
-from pyomo.environ import (
-    log10,
-    log,
-)
+from pyomo.environ import log10, log, exp
 
 
 def build_scaling_tendency_constraint(rktOutputObj):
@@ -19,6 +16,19 @@ def build_ph_constraint(rktOutputObj):
     build_properties = rktOutputObj.pyomoBuildOptions.properties
     return (
         -build_properties[("speciesActivityLn", "H+")].pyomoVar / log(10)
+        == user_output_var
+    )
+
+
+def build_vapor_pressure_constraint(rktOutputObj):
+    user_output_var = rktOutputObj.pyomoVar
+    build_properties = rktOutputObj.pyomoBuildOptions.properties
+    print("build_vapor_pressure_constraint", rktOutputObj.propertyIndex)
+    return (
+        exp(
+            build_properties[("speciesActivityLn", rktOutputObj.propertyIndex)].pyomoVar
+        )
+        * 101325
         == user_output_var
     )
 

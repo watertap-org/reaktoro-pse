@@ -1,7 +1,8 @@
 import reaktoro as rkt
 import reaktoro_pse.core.util_classes.rktInputs as rktInputs
 from reaktoro_pse.core.reaktoro_state import reaktoroState
-__author__ = "Alexander Dudchenko, Ben Knueven"
+
+__author__ = "Alexander Dudchenko"
 
 ''' class to setup input constraints, and specs for reaktoro solver class'''
 
@@ -17,7 +18,7 @@ class reaktoroInputSpec:
         ''' execute default configuration options, user can update settings '''
         self.assert_charge_neutrality()
         self.default_chemical_speciation()
-
+        self.register_aqueous_solvent()
 
 
     def register_chemical_additions(self, chemical_dict, index=None):
@@ -36,7 +37,11 @@ class reaktoroInputSpec:
 
     def assert_charge_neutrality(self, assert_neutrality=True, ion="Cl"):
         self.assertChargeNeutrality = assert_neutrality
-        self.neutralityIon = ion
+        self.neutralityIon = ion    
+    
+    def register_aqueous_solvent(self,aqueous_solvent='H2O'):
+        ''' defines aqueous species for system - used to set as open variable for finding new eq state'''
+        self.aqueousSolvent=aqueous_solvent
 
     def configure_specs(self, dissolve_species_in_rkt=True):
         """configures specification for the problem
@@ -265,10 +270,27 @@ class reaktoroInputSpec:
 
         # existing_constraints = spec_object.namesConstraints()
         # existing_variables = spec_object.namesControlVariables()
-        for chem in self.rktBase.rktState.system().species():
-            if chem.name() not in str(spec_object.namesControlVariables()):
-                spec_object.openTo(chem.name())
-                write_empty_con(spec_object, chem.name())
+        # for chem in self.rktBase.rktState.system().species():
+        #     print('chem', chem.name())#,chem.symbols()) 
+        #     if any(el in chem.name() for el in ['H2O']) and chem.name() not in str(spec_object.namesControlVariables()):
+        #         spec_object.openTo(chem.name())
+        #         write_empty_con(spec_object, chem.name())
+        if self.rktInputs.convertToRktSpecies:
+            aq_phase= rktInputs.specie_to_rkt_species(self.aqueousSolvent)
+        else:
+            aq_phase=self.aqueousSolvent
+        if aq_phase not in str(spec_object.namesControlVariables()):
+            spec_object.openTo(aq_phase)
+            write_empty_con(spec_object, aq_phase)
+        # spec_object.openTo("H2O(g)")
+        # write_empty_con(spec_object, "H2O(g)")
+        # supported_species =[specie.name() for specie in self.rktBase.rktState.system().species()]
+        # # print(self.rktBase.userInputs)
+        # for specie in self.rktBase.rktInputs.speciesList:
+        #     print(specie)
+        #     if specie not in str(spec_object.namesControlVariables()) and specie in supported_species:
+        #         spec_object.openTo(specie)
+        #         write_empty_con(spec_object, specie)
     #     existing_constraints = spec_object.namesConstraints()
     #     num_cons = len(existing_constraints)
     #     existing_variables = spec_object.namesInputs()

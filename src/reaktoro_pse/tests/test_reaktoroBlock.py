@@ -15,13 +15,10 @@ def build_rkt_state_with_species():
     m = ConcreteModel()
     m.temp = Var(initialize=293.15, units=pyunits.K)
     m.temp.fix()
-    # temp.construct()
     m.pressure = Var(initialize=1e5, units=pyunits.Pa)
     m.pressure.fix()
-    # pressure.construct()
     m.pH = Var(initialize=7, units=pyunits.dimensionless)
     m.pH.fix()
-    # pH.construct()
     m.composition = Var(
         ["H2O", "Mg", "Na", "Cl", "Ca", "HCO3"],
         initialize=1,
@@ -43,13 +40,10 @@ def build_rkt_state_with_indexed_species():
     m = ConcreteModel()
     m.temp = Var([0, 1], initialize=293.15, units=pyunits.K)
     m.temp.fix()
-    # temp.construct()
     m.pressure = Var([0, 1], initialize=1e5, units=pyunits.Pa)
     m.pressure.fix()
-    # pressure.construct()
     m.pH = Var([0, 1], initialize=7, units=pyunits.dimensionless)
     m.pH.fix()
-    # pH.construct()
     m.composition = Var(
         [0, 1],
         ["H2O", "Mg", "Na", "Cl", "Ca", "HCO3"],
@@ -77,7 +71,7 @@ def test_blockBuild(build_rkt_state_with_species):
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
-        activity_model="ActivityModelPitzer",
+        pH=m.pH,
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
         numerical_jac_type="average",
@@ -99,7 +93,54 @@ def test_blockBuild(build_rkt_state_with_species):
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
     m.display()
-    assert pytest.approx(m.composition["H2O"].value) == 1601.999
+    assert pytest.approx(m.composition["H2O"].value) == 68.0601837
+
+
+def test_blockBuild_solids_gas(build_rkt_state_with_species):
+    m = build_rkt_state_with_species
+    m.outputs.display()
+    m.solid_gas_outputs = Var(
+        [
+            # ("speciesAmount", "Calcite"),
+            ("vaporPressure", "H2O(g)"),
+            # ("speciesActivityLn", "H2O(g)"),
+        ],
+        initialize=0.5,
+    )
+    m.reaktoroBlock = reaktorBlock(
+        composition=m.composition,
+        temperature=m.temp,
+        pressure=m.pressure,
+        pH=m.pH,
+        # mineral_phases=["Calcite"],
+        gas_phases=["H2O(g)"],
+        gas_phase_activity_model="ActivityModelPengRobinsonPhreeqc",
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        numerical_jac_type="average",
+        numerical_jac_order=2,
+        numerical_jac_step=1e-8,
+        outputs=m.solid_gas_outputs,
+        convert_to_rkt_species=True,
+        presolve_during_initialization=True,
+    )
+    print("rkt block")
+    m.display()
+    print("rkt block")
+    m.reaktoroBlock.initialize()
+    cy_solver = get_solver(solver="cyipopt-watertap")
+    cy_solver.options["max_iter"] = 20
+    m.temp.fix(273.15 + 90)
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    m.display()
+    assert (
+        pytest.approx(m.solid_gas_outputs[("vaporPressure", "H2O(g)")].value)
+        == 66206.667
+    )
+    # assert (
+    #     pytest.approx(m.solid_gas_outputs[("speciesAmount", "Calcite")].value) == 0.0001
+    # )
 
 
 def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
@@ -113,7 +154,6 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
         pressure=m.pressure,
         chemical_addition=m.CaO,
         pH=m.pH,
-        activity_model="ActivityModelPitzer",
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
         numerical_jac_type="average",
@@ -122,6 +162,9 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
         outputs=m.outputs,
         convert_to_rkt_species=True,
         build_speciation_block=True,
+        # dissolve_species_in_reaktoro=False,
+        # presolve_during_initialization=True,
+        # presolve_tolerance=1e-16,
     )
     m.reaktoroBlock.initialize()
     cy_solver = get_solver(solver="cyipopt-watertap")
@@ -131,7 +174,99 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
     m.display()
+    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.7496301
     assert pytest.approx(m.pH.value, 1e-2) == 6.401
+
+    m.reaktoroBlock.display()
+    m.reaktoroBlock.speciation_block.outputs.display()
+    m.reaktoroBlock.speciation_block.reaktoro_model.display()
+    m.reaktoroBlock.reaktoro_model.display()
+
+
+def test_blockBuild_with_speciation_block_no_chem_addition(
+    build_rkt_state_with_species,
+):
+    m = build_rkt_state_with_species
+    m.outputs.display()
+    m.reaktoroBlock = reaktorBlock(
+        composition=m.composition,
+        temperature=m.temp,
+        pressure=m.pressure,
+        pH=m.pH,
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        numerical_jac_type="average",
+        numerical_jac_order=2,
+        numerical_jac_step=1e-8,
+        outputs=m.outputs,
+        convert_to_rkt_species=True,
+        build_speciation_block=True,
+        presolve_during_initialization=True,
+    )
+    m.reaktoroBlock.initialize()
+    cy_solver = get_solver(solver="cyipopt-watertap")
+    cy_solver.options["max_iter"] = 20
+    m.pH.unfix()
+    m.outputs[("scalingTendency", "Calcite")].fix(5)
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    m.display()
+    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == m.pH.value
+
+    m.reaktoroBlock.display()
+    m.reaktoroBlock.speciation_block.outputs.display()
+    m.reaktoroBlock.speciation_block.reaktoro_model.display()
+    m.reaktoroBlock.reaktoro_model.display()
+
+
+def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
+    build_rkt_state_with_species,
+):
+    translation_dict = {
+        "H2O": "H2O(aq)",
+        "Mg": "Mg+2",
+        "Na": "Na+",
+        "Cl": "Cl-",
+        "SO4": "SO4-2",
+        "Ca": "Ca+2",
+        "HCO3": "HCO3-",
+    }
+    m = build_rkt_state_with_species
+    m.outputs.display()
+    m.CaO = Var(["CaO"], initialize=0.002, units=pyunits.mol / pyunits.s)
+    m.CaO.fix()
+    m.reaktoroBlock = reaktorBlock(
+        composition=m.composition,
+        temperature=m.temp,
+        pressure=m.pressure,
+        pH=m.pH,
+        chemical_addition=m.CaO,
+        database="SupcrtDatabase",
+        database_file="supcrtbl",
+        numerical_jac_type="average",
+        numerical_jac_order=2,
+        numerical_jac_step=1e-8,
+        outputs=m.outputs,
+        convert_to_rkt_species=True,
+        species_to_rkt_species_dict=translation_dict,
+        build_speciation_block=True,
+        presolve_during_initialization=True,
+    )
+    for e, con in m.reaktoroBlock.rktInputs.constraintDict.items():
+        print(e, con)
+    m.reaktoroBlock.initialize()
+
+    m.display()
+    cy_solver = get_solver(solver="cyipopt-watertap")
+    cy_solver.options["max_iter"] = 20
+    m.pH.unfix()
+    m.outputs[("scalingTendency", "Calcite")].fix(5)
+    result = cy_solver.solve(m, tee=True)
+
+    m.display()
+    assert_optimal_termination(result)
+    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.899783669305352
+    assert pytest.approx(m.pH.value, 1e-2) == 6.0677628977
 
     m.reaktoroBlock.display()
     m.reaktoroBlock.speciation_block.outputs.display()
@@ -148,7 +283,6 @@ def test_indexed_blockBuild(build_rkt_state_with_indexed_species):
         temperature=m.temp,
         pressure=m.pressure,
         pH=m.pH,
-        activity_model="ActivityModelPitzer",
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
         numerical_jac_type="average",
@@ -186,7 +320,6 @@ def test_indexed_blockBuild_with_speciation_block(
         pressure=m.pressure,
         pH=m.pH,
         chemical_addition=m.CaO,
-        activity_model="ActivityModelPitzer",
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
         numerical_jac_type="average",
