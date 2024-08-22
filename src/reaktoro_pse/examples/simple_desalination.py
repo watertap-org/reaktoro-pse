@@ -11,6 +11,9 @@ from watertap.core.solvers import get_solver
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
+from pyomo.common.modeling import unique_component_name
+
+import pyomo.environ as pyo
 
 
 def main():
@@ -94,6 +97,8 @@ def build_simple_desal():
         pH=m.feed_pH,
         outputs=m.desal_properties,
         chemical_addition={"HCl": m.acid_addition},
+        aqueous_phase_activity_model="ActivityModelPitzer",
+        dissolve_species_in_reaktoro=False,
         convert_to_rkt_species=True,  # we can use default converter as its defined for default database
         build_speciation_block=True,  # we are modifying state so lets speciate inputs before adding acid to find final prop state.
     )
@@ -129,14 +134,38 @@ def setup_optimization(m):
     m.desal_properties[("scalingTendency", "Calcite")].setub(1)
     m.desal_properties[("scalingTendency", "Gypsum")].setub(1)
     m.water_recovery.unfix()
-    # m.acid_addition.unfix()
+    m.acid_addition.unfix()
+
+
+# def solve(m):
+#     # add dummy objective, if needed
+#     _dummy_objective = None
+#     n_obj = 0
+#     for c in m.component_data_objects(pyo.Objective, active=True):
+#         n_obj += 1
+#     # Add an objective if there isn't one
+#     if n_obj == 0:
+#         _dummy_objective = pyo.Objective(expr=0)
+#         name = unique_component_name(m, "objective")
+#         m.add_component(name, _dummy_objective)
+#     cy_solver = get_solver(solver="cyipopt")
+#     # cy_solver.options["max_iter"] = 200
+#     # only enable if avaialbe !
+#     # cy_solver.options["linear_solver"] = "ma27"
+#     try:
+#         result = cy_solver.solve(m, tee=True)
+#     finally:
+#         # delete the dummy objective
+#         if _dummy_objective is not None:
+#             m.del_component(_dummy_objective)
+#     return result
 
 
 def solve(m):
     cy_solver = get_solver(solver="cyipopt-watertap")
     # cy_solver.options["max_iter"] = 200
     # only enable if avaialbe !
-    cy_solver.options["linear_solver"] = "ma27"
+    # cy_solver.options["linear_solver"] = "ma27"
     result = cy_solver.solve(m, tee=True)
     return result
 

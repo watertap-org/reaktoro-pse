@@ -3,6 +3,9 @@ from pyomo.environ import Var, units as pyunits
 
 import reaktoro_pse.core.util_classes.rktInputs as rktInputs
 from pyomo.core.base.var import IndexedVar, Var
+import idaes.logger as idaeslog
+
+_log = idaeslog.getLogger(__name__)
 
 __author__ = "Alexander Dudchenko"
 
@@ -14,8 +17,9 @@ class reaktoroState:
     def __init__(self):
         """initialize for all parameters need to build reaktor solver"""
         self.rktInputs = rktInputs.rktInputs()
-        self.phases = []
-        self.rktGasPhases = []
+        self.mineralPhases = []
+        self.gasPhases = []
+        self.ionExchangePhases = []
 
     def register_inputs(
         self,
@@ -87,46 +91,104 @@ class reaktoroState:
         else:
             return var
 
+    def _process_phase(self, phase, default_phase):
+        if isinstance(phase, str):
+            return default_phase(phase)
+        else:
+            return phase
+
     def register_mineral_phases(self, mineral_phases=[]):
         """register possible mineral phases"""
-        if isinstance(mineral_phases, str):
+        if isinstance(mineral_phases, list) == False:
             mineral_phases = [mineral_phases]
 
         for mineral_phase in mineral_phases:
-            self.phases.append(rkt.MineralPhase(mineral_phase))
+            self.mineralPhases.append(
+                self._process_phase(mineral_phase, rkt.MineralPhase)
+            )
 
     def register_gas_phases(self, gas_phases=[]):
         """register possible gas phases"""
         if isinstance(gas_phases, str):
             gas_phases = [gas_phases]
-        self.rktGasPhases.append(rkt.GaseousPhase(gas_phases))
+        for gas_phase in gas_phases:
+            self.gasPhases.append(self._process_phase(gas_phase, rkt.GaseousPhase))
+
+    def register_ion_exchange_phase(self, ion_phase=[]):
+        """register possible ion exchange phases"""
+        if isinstance(ion_phase, str):
+            ion_phase = [ion_phase]
+        self.ionExchangePhases.append(
+            self._process_phase(ion_phase, rkt.IonExchangePhase)
+        )
 
     def set_database(self, dbtype="PhreeqcDatabase", database="pitzer.dat"):
         """set data base of reaktoro"""
         self.rktDatabase = getattr(rkt, dbtype)(database)
 
+    def _process_activity(self, activity_model, state_of_matter=None):
+        def get_func(activity_model, state_of_matter):
+            if isinstance(activity_model, str):
+                if state_of_matter is None:
+                    return getattr(rkt, activity_model)()
+                else:
+                    return getattr(rkt, activity_model)(state_of_matter)
+            else:
+                return activity_model
+
+        if isinstance(activity_model, list):
+            if state_of_matter is None:
+                activity_model = rkt.chain(
+                    *[get_func(am, state_of_matter) for am in activity_model]
+                )
+            else:
+                activity_model = rkt.chain(
+                    *[get_func(am, state_of_matter) for am in activity_model]
+                )
+        else:
+            activity_model = get_func(activity_model, state_of_matter)
+        return activity_model
+
     def set_aqueous_phase_activity_model(
         self, activity_model="ActivityModelIdealAqueous"
     ):
-        """set activity model of reaktoro"""
-        self.rktAqueousPhase.set(getattr(rkt, activity_model)())
+        """set activity model of aquous phases in reaktoro"""
+
+        activity_model = self._process_activity(activity_model)
+        self.rktAqueousPhase.set(activity_model)
 
     def set_gas_phase_activity_model(self, activity_model="ActivityModelIdealGas"):
-        """set activity model of reaktoro"""
-        for phase in self.rktGasPhases:
-            phase.set(getattr(rkt, activity_model)())
+        """set activity model of gas phases in reaktoro"""
+        # TODO: add support for massking rkt initialized activty models directly
+        activity_model = self._process_activity(activity_model)
+        for phase in self.gasPhases:
+            phase.set(activity_model)
 
     def set_mineral_phase_activity_model(
         self, activity_model="ActivityModelIdealSolution"
     ):
-        """set activity model of reaktoro"""
-        for phase in self.phases:
-            phase.set(getattr(rkt, activity_model)())
+        """set activity model of mineral phases in reaktoro"""
+        # TODO: add support for massking rkt initialized activty models directly
+        activity_model = self._process_activity(
+            activity_model, state_of_matter=rkt.StateOfMatter.Solid
+        )
+        for phase in self.mineralPhases:
+            phase.set(activity_model)
+
+    def set_ion_exchange_phase_activity_model(
+        self, activity_model="ActivityModelIonExchange"
+    ):
+        """set activity model of mineral phases in reaktoro"""
+        activity_model = self._process_activity(
+            activity_model,  # state_of_matter=rkt.StateOfMatter.Solid
+        )
+        for phase in self.ionExchangePhases:
+            phase.set(activity_model)
 
     def build_state(self):
         """this will build reaktor states"""
         self.rktSystem = rkt.ChemicalSystem(
-            self.rktDatabase, self.rktAqueousPhase, *self.phases, *self.rktGasPhases
+            self.rktDatabase, self.rktAqueousPhase, *self.mineralPhases, *self.gasPhases
         )
         self.rktState = rkt.ChemicalState(self.rktSystem)
         self.set_rkt_state()
@@ -134,23 +196,66 @@ class reaktoroState:
     def set_rkt_state(self):
         """sets initial rkt state using user provided inputs"""
         self.rktState.temperature(
-            self.rktInputs["temperature"].value, self.rktInputs["temperature"].mainUnit
+            self.rktInputs["temperature"].get_value(),
+            self.rktInputs["temperature"].mainUnit,
         )
         self.rktState.pressure(
-            self.rktInputs["pressure"].value, self.rktInputs["pressure"].mainUnit
+            self.rktInputs["pressure"].get_value(), self.rktInputs["pressure"].mainUnit
         )
 
         """ set apparant species if used """
-        if self.rktInputs.convertToRktSpecies:
+        if self.rktInputs.compositionIsElements == False:
             for species in self.rktInputs.speciesList:
                 if species in self.rktInputs:  # user might not provide all
-                    if self.rktInputs[species].value != 0:
-                        self.rktState.set(
-                            species,
-                            self.rktInputs[species].value,
-                            self.rktInputs[species].mainUnit,
-                        )
+                    if self.rktInputs[species].get_value() != 0:
+                        # print(
+                        #     "set sstate",
+                        #     species,
+                        #     self.rktInputs[species].get_value(),
+                        #     self.rktInputs[species].mainUnit,
+                        # )
+                        unit = self.rktInputs[species].mainUnit
+                        if unit == "dimensionless":
+                            self.rktState.set(
+                                species,
+                                self.rktInputs[species].get_value(),
+                                "mol",
+                            )
+                        else:
+                            self.rktState.set(
+                                species,
+                                self.rktInputs[species].get_value(),
+                                self.rktInputs[species].mainUnit,
+                            )
 
     def equilibrate_state(self):
         self.set_rkt_state()
         rkt.equilibrate(self.rktState)
+        # print(self.rktState)
+        # specs = rkt.EquilibriumSpecs(self.rktSystem)
+        # specs.temperature()
+        # specs.pressure()
+        # if self.rktInputs.get("pH") is not None:
+        #     specs.pH()
+        # # elif self.rktInputs.get("H+") is not None:
+        # #     specs.openTo("H+")
+        # specs.charge()
+        # specs.openTo("Cl")
+        # solver = rkt.EquilibriumSolver(specs)
+        # conditions = rkt.EquilibriumConditions(specs)
+        # conditions.temperature(
+        #     self.rktInputs["temperature"].get_value(),
+        #     self.rktInputs["temperature"].mainUnit,
+        # )
+        # conditions.pressure(
+        #     self.rktInputs["pressure"].get_value(), self.rktInputs["pressure"].mainUnit
+        # )
+        # conditions.charge(0.0)
+        # if self.rktInputs.get("pH") is not None:
+        #     conditions.pH(self.rktInputs["pH"].get_value())
+        # # elif self.rktInputs.get("H+") is not None:
+        # #     conditions.set("H+", self.rktInputs["H+"].get_value())
+        # result = solver.solve(self.rktState, conditions)
+        # self.rktState.props().update(self.rktState)
+        # assert result.succeeded()
+        _log.info("Equilibrated successfully")

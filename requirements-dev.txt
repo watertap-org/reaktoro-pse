@@ -2,4 +2,5 @@ black==24.8.0
 pytest-cov
 idaes-pse>=2.5.0
 watertap>=1.0.0
+pyomo>=6.8.0
 --editable .[testing]

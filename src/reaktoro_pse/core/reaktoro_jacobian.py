@@ -71,21 +71,23 @@ class jacboianRows:
             [("speciesStandardHeatCapacityConstP", s) for s in _jac_species]
         )
         # corrective molar volume * # _jac_phases
-        self.keys.extend([("molarVolume", p) for p in _jac_phases])
+        self.keys.extend([("correctiveMolarVolume", p) for p in _jac_phases])
         # temp derivative of corrective molar volume * # _jac_phases
-        self.keys.extend([("molarVolumeT", p) for p in _jac_phases])
+        self.keys.extend([("correctiveMolarVolumeT", p) for p in _jac_phases])
         # pres derivative of corrective molar volume * # _jac_phases
-        self.keys.extend([("molarVolumeP", p) for p in _jac_phases])
+        self.keys.extend([("correctiveMolarVolumeP", p) for p in _jac_phases])
         # mole frac derivative of corrective molar volume * # _jac_phases
         self.keys.extend(
-            [("molarVolumeI", s) for s in _jac_species]
+            [("speciesCorrectiveMolarVolumeI", s) for s in _jac_species]
         )  # not sure what this is
         # corrective gibbs free energy * # _jac_phases
-        self.keys.extend([("molarGibbsEnergy", p) for p in _jac_phases])
+        self.keys.extend([("correctiveMolarGibbsEnergy", p) for p in _jac_phases])
         # corrective molar enthalpy * # _jac_phases
-        self.keys.extend([("molarEnthalpy", p) for p in _jac_phases])
+        self.keys.extend([("correctiveMolarEnthalpy", p) for p in _jac_phases])
         # corrective isobaric molar heat capacity * # _jac_phases
-        self.keys.extend([("molarHeatCapacityConstP", p) for p in _jac_phases])
+        self.keys.extend(
+            [("correctiveMolarHeatCapacityConstP", p) for p in _jac_phases]
+        )
         # activity coefficients (ln) * # species
         self.keys.extend([("speciesActivityCoefficientLn", s) for s in _jac_species])
         # activities (ln) * # species
@@ -152,9 +154,12 @@ class jacboianRows:
 
     def display_available(self):
         available_dict = {}
+        _log.info("-----displaying available jacobian values-----")
         for i, key in enumerate(self.standardKeys):
-            print(key, self.availableInProps[i])
+            _log.info(f"{key}: {self.availableInProps[i]}")
             available_dict[key] = self.availableInProps[i]
+        _log.info("-----done-----")
+
         return available_dict
 
 
@@ -230,7 +235,16 @@ class reaktoroJacobianSpec:
             else:
                 obj.jacobianType = jacType.numeric
             _jac_types.append(f"{key}: {obj.jacobianType}")
-        _log.info(f"Jacobian outputs are: {_jac_types}")
+
+    def display_jacobian_output_types(self):
+        """used for displaying jac output types"""
+        out_types = {}
+        _log.info("-----displaying jacobian outputs and types-----")
+        for key, obj in self.rktOutputSpec.rktOutputs.items():
+            _log.info(f"{key}: Jac type: {obj.jacobianType}")
+            out_types[key] = obj.jacobianType
+        _log.info("-----done-----")
+        return out_types
 
     def check_existing_jacobian_props(self):
         """check if jacobian is available in current properties and identfy function to use

@@ -113,18 +113,27 @@ class rktInputs(dict):
         self._set_species(var_name, rkt_input)
         return super().__setitem__(var_name, rkt_input)
 
+    def auto_convert_to_rkt_species(self, var_name):
+        if self.convertToRktSpecies:
+            var_name = self.convert_to_rkt_species(var_name)
+        return var_name
+
+    def convert_to_rkt_species(self, var_name):
+        if self.conversion_method == "default":
+            var_name = specie_to_rkt_species(var_name)
+        elif isinstance(self.conversion_method, dict):
+            var_name = self.conversion_method[var_name]
+        else:
+            raise TypeError(
+                f"Conversion method of {type(self.conversion_method)} is not supported)"
+            )
+        return var_name
+
     def _set_species(self, var_name, var):
         if var_name not in ["pH", "temperature", "pressure"]:
             if var_name not in self.speciesList:
                 if self.convertToRktSpecies:
-                    if self.conversion_method == "default":
-                        var_name = specie_to_rkt_species(var_name)
-                    elif isinstance(self.conversion_method, dict):
-                        var_name = self.conversion_method[var_name]
-                    else:
-                        raise TypeError(
-                            f"Conversion method of {type(self.conversion_method)} is not supported)"
-                        )
+                    var_name = self.convert_to_rkt_species(var_name)
                     super().__setitem__(var_name, var)
                 self.speciesList.append(var_name)
 

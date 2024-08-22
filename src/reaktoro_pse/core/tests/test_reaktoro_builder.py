@@ -94,7 +94,7 @@ def test_build_with_rkt_dissolution(build_with_dissolve_in_rkt):
     m.rktBlock.outputs[("scalingTendency", "Calcite")].fix(5)
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
-    assert pytest.approx(m.pH.value, 1e-3) == 7.2108
+    assert pytest.approx(m.pH.value, 1e-3) == 6.5257440
     assert (
         pytest.approx(m.rktBlock.outputs[("scalingTendency", "Calcite")].value, 1e-3)
         == m.rktBlock.outputs[("scalingTendencyDirect", "Calcite")].value
@@ -115,7 +115,7 @@ def test_build_with_pyomo_dissolution(build_with_dissolve_in_pyomo):
     m.rktBlock.outputs[("scalingTendency", "Calcite")].fix(5)
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
-    assert pytest.approx(m.pH.value, 1e-3) == 7.2108
+    assert pytest.approx(m.pH.value, 1e-3) == 6.5257440
     assert (
         pytest.approx(m.rktBlock.outputs[("scalingTendency", "Calcite")].value, 1e-3)
         == m.rktBlock.outputs[("scalingTendencyDirect", "Calcite")].value

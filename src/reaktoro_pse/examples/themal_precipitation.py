@@ -18,7 +18,6 @@ def main():
     initialize(m)
     setup_optimization(m)
     solve(m)
-    m.display()
     return m
 
 
@@ -77,6 +76,7 @@ def build_simple_precipitation():
     m.feed_properties = Var(
         [
             ("molarEnthalpy", None),
+            ("vaporPressure", "H2O(g)"),
         ],
         initialize=1,
     )
@@ -86,7 +86,7 @@ def build_simple_precipitation():
             ("speciesAmount", "Anhydrite"),
             ("molarEnthalpy", None),
             ("pH", None),
-            # ("vaporPressure", "H2O(g)"),
+            ("vaporPressure", "H2O(g)"),
         ],
         initialize=1e-5,
     )
@@ -99,6 +99,7 @@ def build_simple_precipitation():
     m.cooled_treated_properties = Var(
         [
             ("molarEnthalpy", None),
+            ("vaporPressure", "H2O(g)"),
         ],
         initialize=1,
     )
@@ -186,6 +187,7 @@ def build_simple_precipitation():
      - once again refer to reaktoro documentation on specific data base and species to define translation dictionory 
      - this dict should connect the name of species you are supplying to name of species 
      in the data base file"""
+
     translation_dict = {
         "H2O": "H2O(aq)",
         "Mg": "Mg+2",
@@ -202,6 +204,10 @@ def build_simple_precipitation():
         pressure=m.feed_pressure,
         pH=m.feed_pH,
         outputs=m.feed_properties,
+        aqueous_phase_activity_model="ActivityModelPitzer",
+        mineral_phases=["Calcite", "Anhydrite"],
+        gas_phases=["H2O(g)"],
+        gas_phase_activity_model="ActivityModelRedlichKwong",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
@@ -217,16 +223,20 @@ def build_simple_precipitation():
         pressure=m.feed_pressure,  # assume all systems operate at same pressure - not
         pH=m.feed_pH,
         outputs=m.precipitation_properties,
+        aqueous_phase_activity_model="ActivityModelPitzer",
         mineral_phases=["Calcite", "Anhydrite"],
+        gas_phases=["H2O(g)"],
+        gas_phase_activity_model="ActivityModelRedlichKwong",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
         convert_to_rkt_species=True,
         dissolve_species_in_reaktoro=False,
         build_speciation_block=True,
-        jacobian_user_scaling={("molarEnthalpy", None): 1},
-        # presolve_during_initialization=True,
-        # presolve=True,  # when solids are include, presolving can help with stability
+        epsilon=1e-20,  # we reduced epsilon from 1e-32 to 1e-20 as otherwise reaktoro struggles to solve the problem
+        jacobian_user_scaling={
+            ("molarEnthalpy", None): 1,
+        },
     )
     m.eq_treated_properties = reaktorBlock(
         composition=m.treated_composition,
@@ -234,6 +244,10 @@ def build_simple_precipitation():
         pressure=m.feed_pressure,  # assume all systems operate at same pressure - not
         pH=m.precipitation_properties[("pH", None)],
         outputs=m.treated_properties,
+        aqueous_phase_activity_model="ActivityModelPitzer",
+        mineral_phases=["Calcite", "Anhydrite"],
+        gas_phases=["H2O(g)"],
+        gas_phase_activity_model="ActivityModelRedlichKwong",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
@@ -248,6 +262,10 @@ def build_simple_precipitation():
         pressure=m.feed_pressure,  # assume all systems operate at same pressure - not
         pH=m.precipitation_properties[("pH", None)],
         outputs=m.cooled_treated_properties,
+        aqueous_phase_activity_model="ActivityModelPitzer",
+        mineral_phases=["Calcite", "Anhydrite"],
+        gas_phases=["H2O(g)"],
+        gas_phase_activity_model="ActivityModelRedlichKwong",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
@@ -337,13 +355,13 @@ def initialize(m):
 
     m.eq_treated_properties.initialize()
     m.eq_cooled_treated_properties.initialize()
-    m.display()
+    # m.display()
     solve(m)
-    m.display()
+    # m.display()
 
 
 def setup_optimization(m):
-    m.Q_heating.fix(310000)
+    m.Q_heating.fix(165000)
     m.precipitator_temperature.unfix()
 
 
@@ -354,17 +372,29 @@ def solve(m):
     # cy_solver.options["linear_solver"] = "ma27"
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
-    display(m)
+    display_results(m)
     return result
 
 
-def display(m):
+def display_results(m):
     print("result")
     print(
         f"Feed temp {m.feed_temperature.value-273.15}, precipitator temp {m.precipitator_temperature.value-273.15}, treated temp {m.cooled_treated_temperature.value-273.15}."
     )
     print(
+        f"""Feed vapor pressure {m.feed_properties[("vaporPressure", "H2O(g)")].value} (Pa)"""
+    )
+    print(
+        f"""Precipitator vapor pressure {m.precipitation_properties[("vaporPressure", "H2O(g)")].value} (Pa),"""
+    )
+    print(
+        f"""Treated vapor pressure {m.cooled_treated_properties[("vaporPressure", "H2O(g)")].value} (Pa)."""
+    )
+    print(
         f"Q heating {m.Q_heating.value/1000} kJ/s, Q recoverable {m.Q_recoverable.value/1000} kJ/s"
+    )
+    print(
+        f"Specific heat input {m.Q_heating.value/1000/(m.precipitator_temperature.value-m.feed_temperature.value)/(55*18.015/1000)} kJ/K/kg"
     )
     print(
         f'Calcite precipitation {m.precipitation_properties[("speciesAmount", "Calcite")].value} mol/s'

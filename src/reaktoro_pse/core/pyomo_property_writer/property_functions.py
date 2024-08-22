@@ -23,7 +23,6 @@ def build_ph_constraint(rktOutputObj):
 def build_vapor_pressure_constraint(rktOutputObj):
     user_output_var = rktOutputObj.pyomoVar
     build_properties = rktOutputObj.pyomoBuildOptions.properties
-    print("build_vapor_pressure_constraint", rktOutputObj.propertyIndex)
     return (
         exp(
             build_properties[("speciesActivityLn", rktOutputObj.propertyIndex)].pyomoVar

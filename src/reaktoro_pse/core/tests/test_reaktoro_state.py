@@ -1,4 +1,5 @@
 import pytest
+import reaktoro as rkt
 import reaktoro_pse.core.reaktoro_state as rktState
 
 from pyomo.environ import ConcreteModel, Var, units as pyunits
@@ -135,15 +136,33 @@ def test_state_with_species(build_rkt_state_with_species):
     )
 
 
+def test_chian_activity(build_rkt_state_with_species):
+    m, rkt_state = build_rkt_state_with_species
+
+    rkt_state.set_aqueous_phase_activity_model(
+        ["ActivityModelHKF", rkt.ActivityModelSetschenow("H2O", 0.123)]
+    )
+
+    rkt_state.build_state()
+    rkt_state.equilibrate_state()
+    props = rkt_state.rktState.props()
+    for species in rkt_state.rktSystem.species():
+        print(f"{species.name():<20}{props.speciesActivityCoefficient(species.name())}")
+    assert (
+        pytest.approx(float(props.speciesActivityCoefficient("H2O")), 1e-2) == 1.25736
+    )
+
+
 def test_state_with_solids(build_rkt_state_with_species):
     m, rkt_state = build_rkt_state_with_species
     rkt_state.register_mineral_phases("Calcite")
+    rkt_state.set_mineral_phase_activity_model()
     rkt_state.build_state()
     rkt_state.equilibrate_state()
     print(rkt_state.rktState)
     assert (
         pytest.approx(float(rkt_state.rktState.props().speciesAmount("Calcite")), 1e-5)
-        == 0.00861693780618118
+        == 0.008835542753970915
     )
 
 
@@ -160,7 +179,7 @@ def test_state_with_gas(build_rkt_state_with_species):
     )
     assert (
         pytest.approx(float(rkt_state.rktState.props().speciesActivity("CO2(g)")), 1e-5)
-        == 9.9426e-01
+        == 1.0
     )
 
 

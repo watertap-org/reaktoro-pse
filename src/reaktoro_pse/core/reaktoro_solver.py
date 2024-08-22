@@ -52,8 +52,8 @@ class reaktoroSolver:
         existing_variables = (
             self.rktInputSpec.rktEquilibriumSpecs.namesControlVariables()
         )
-        _log.info(f"rktSolver inputs: {existing_variables}")
-        _log.info(f"rktSolver constraints: {existing_constraints}")
+        _log.debug(f"rktSolver inputs: {existing_variables}")
+        _log.debug(f"rktSolver constraints: {existing_constraints}")
         self.rktSolver = rkt.EquilibriumSolver(self.rktInputSpec.rktEquilibriumSpecs)
         self.rktConditions = rkt.EquilibriumConditions(
             self.rktInputSpec.rktEquilibriumSpecs
@@ -68,9 +68,11 @@ class reaktoroSolver:
 
     def set_solver_options(
         self,
-        tolerance=1e-32,
+        epsilon=1e-32,
+        tolerance=1e-8,
         presolve=False,
-        presolve_tolerance=1e-12,
+        presolve_tolerance=1e-8,
+        presolve_epsilon=1e-12,
         max_iters=500,
         presolve_max_iters=500,
         hessian_type="J.tJ",
@@ -84,10 +86,17 @@ class reaktoroSolver:
         presolve_tolerance -- presolve tolerance if enabled (default: 1e-12)
         presolve_max_iters -- maximum iterations for presolve call if enabled (default: 200)
         """
-        self.rktSolverOptions.epsilon = tolerance
+        self.rktSolverOptions.epsilon = epsilon
         self.rktSolverOptions.optima.maxiters = max_iters
-        self.rktPresolveOptions.epsilon = presolve_tolerance
+
+        # self.rktSolverOptions.optima.output.active = True
+        self.rktSolverOptions.optima.convergence.tolerance = tolerance
+
+        self.rktPresolveOptions.epsilon = presolve_epsilon
         self.rktPresolveOptions.optima.maxiters = presolve_max_iters
+
+        # self.rktPresolveOptions.optima.output.active = True
+        self.rktPresolveOptions.optima.convergence.tolerance = presolve_tolerance
         self.presolve = presolve
         self.rktSolver.setOptions(self.rktSolverOptions)
         self.hessian_type = hessian_type
@@ -97,13 +106,15 @@ class reaktoroSolver:
     def update_specs(self, params):
         for input_key in self.rktInputSpec.rktInputs.rktInputList:
             input_obj = self.rktInputSpec.rktInputs[input_key]
-
             if params is None:
                 value = input_obj.get_value(update_temp=True)
             else:
                 value = params.get(input_key)
                 input_obj.currentValue = value
             unit = input_obj.mainUnit
+            # _log.info(
+            #     f"spec-input: {input_obj.get_rkt_input_name()},{input_key},{value},{unit}"
+            # )
             if input_key == "temperature":
                 self.rktConditions.temperature(value, unit)
             elif input_key == "pressure":
@@ -148,7 +159,7 @@ class reaktoroSolver:
         self.outputs = self.get_outputs()
         self.jacobianMatrix = self.get_jacobian()
         if result.succeeded() == False or display:
-            print(
+            _log.info(
                 f"warning, solve was not successful for {self.blockName}, fail# {self._sequential_fails}"
             )
             self._sequential_fails += 1
@@ -160,7 +171,10 @@ class reaktoroSolver:
         return self.jacobianMatrix, self.outputs
 
     def try_solve(self, presolve=False):
+        # for inPut in self.rktInputSpec.rktEquilibriumSpecs.namesInputs():
+        #     _log.info(f"input value: {inPut} : {self.rktConditions.inputValue(inPut)}")
         if self.presolve or presolve:
+            # _log.info("pre-solving")
             """solve to loose tolerance first if selected"""
             self.rktSolver.setOptions(self.rktPresolveOptions)
             self.rktSolver.solve(
@@ -169,11 +183,14 @@ class reaktoroSolver:
                 self.rktConditions,
             )
             self.rktSolver.setOptions(self.rktSolverOptions)
-
+        # _log.info("solving")
+        # _log.info(self.rktBase.rktState)
         result = self.rktSolver.solve(
             self.rktBase.rktState,
             self.rktSensitivity,
             self.rktConditions,
         )
         self.rktOutputSpec.update_supported_props()
+        # _log.info(self.rktBase.rktState)
+        # _log.info(result.succeeded())
         return result
