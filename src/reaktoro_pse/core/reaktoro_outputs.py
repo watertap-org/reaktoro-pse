@@ -4,7 +4,7 @@ import json
 from reaktoro_pse.core.reaktoro_state import reaktoroState
 import reaktoro_pse.core.pyomo_property_writer.property_functions as propFuncs
 
-# disabling warnings 
+# disabling warnings
 
 __author__ = "Alexander Dudchenko"
 
@@ -32,7 +32,9 @@ class rktOutput:
         if property_type != propTypes.pyomoBuiltProperties:
             self.set_get_function(get_function)  # function for getting reaktoro value
         else:
-            self.set_poyomo_build_option(get_function)  # class that contains information for building pyomo constraints if any
+            self.set_poyomo_build_option(
+                get_function
+            )  # class that contains information for building pyomo constraints if any
         self.pyomoVar = pyomo_var  # pyomo var to reference if any - will be built if not user provided
         self.value = value  # manually specified value
         self.jacobianValue = (
@@ -49,26 +51,28 @@ class rktOutput:
         if update_values:
             self.value = value
         return value
-    
-    def set_poyomo_build_option(self,func):
-        self.pyomoBuildOptions=func
 
-    def set_get_function(self,func):
-        self.get_function=func
-    
-    def set_property_type(self,prop):
-        self.propertyType=prop
-    
+    def set_poyomo_build_option(self, func):
+        self.pyomoBuildOptions = func
+
+    def set_get_function(self, func):
+        self.get_function = func
+
+    def set_property_type(self, prop):
+        self.propertyType = prop
+
     def set_pyomo_var(self, var):
         self.pyomoVar = var
 
     def set_pyomo_var_value(self, value):
         self.pyomoVar.value = value
-    
+
     def get_pyomo_var_value(self, value):
         return self.pyomoVar.value
-    def set_jacobian_value(self,value):
-        self.jacobianValue=value
+
+    def set_jacobian_value(self, value):
+        self.jacobianValue = value
+
 
 class pyomoBuildOptions:
     def __init__(self):
@@ -183,8 +187,12 @@ class pyomoProperties:
     def vaporPressure(self, property_index=None):
         """build direct pH caclautions from chem props"""
         required_props = pyomoBuildOptions()
-        required_props.register_property(propTypes.chemProp, "speciesActivityLn", property_index)
-        required_props.register_build_function(propFuncs.build_vapor_pressure_constraint)
+        required_props.register_property(
+            propTypes.chemProp, "speciesActivityLn", property_index
+        )
+        required_props.register_build_function(
+            propFuncs.build_vapor_pressure_constraint
+        )
         return required_props
 
 
@@ -303,8 +311,8 @@ class reaktoroOutputSpec:
                 pyomo_var=pyomo_var,
             )
             for index, prop in get_function.properties.items():
-                ''' chcek if prop already exists if it does ont add it outputs
-                otherwise overwrite it'''
+                """chcek if prop already exists if it does ont add it outputs
+                otherwise overwrite it"""
                 if index not in self.rktOutputs:
                     self.rktOutputs[index] = prop
                 else:
@@ -393,11 +401,11 @@ class reaktoroOutputSpec:
     """ start of possible call function to extract values from reactoro properties"""
 
     def _get_prop_phase_name_val(self, prop_type, prop_name, prop_index):
-        """get prop based on phase, used for chem_props.phaseProp"""       
+        """get prop based on phase, used for chem_props.phaseProp"""
         value = getattr(prop_type.phaseProps(prop_index), prop_name)()
 
         return float(value)
-    
+
     def _get_prop_name_val(self, prop_type, prop_name, prop_index=None):
         """get prop based on name/index and execute value call"""
         if prop_index is None:

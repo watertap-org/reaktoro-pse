@@ -10,15 +10,14 @@ from reaktoro_pse.core.reaktoro_inputs import (
 from reaktoro_pse.core.reaktoro_outputs import (
     reaktoroOutputSpec,
 )
-from reaktoro_pse.core.reaktoro_jacobian import (
-    reaktoroJacobianSpec,jacType
-)
+from reaktoro_pse.core.reaktoro_jacobian import reaktoroJacobianSpec, jacType
 from reaktoro_pse.core.reaktoro_solver import (
     reaktoroSolver,
 )
 
 from reaktoro_pse.core.reaktoro_block_builder import (
-    reaktoroBlockBuilder,jacScalingTypes
+    reaktoroBlockBuilder,
+    jacScalingTypes,
 )
 import reaktoro as rkt
 from reaktoro_pse.core.reaktoro_gray_box import hessTypes
@@ -127,7 +126,7 @@ class reaktorBlockData(ProcessBlockData):
     CONFIG.declare(
         "aqueous_solvent_specie",
         ConfigValue(
-            default='H2O',
+            default="H2O",
             domain=str,
             description="Defines aqueous specie to use when speciating system",
             doc="""When speciating, the H2O is fixed, while H and O is unfixed to allow system to equilibrate,
@@ -148,7 +147,7 @@ class reaktorBlockData(ProcessBlockData):
         "mineral_phases",
         ConfigValue(
             default=None,
-            domain=IsInstance((str, list,rkt)),
+            domain=IsInstance((str, list, rkt)),
             description="List or str representing mineral phases",
             doc="Mineral phases supported by selected data base",
         ),
@@ -157,7 +156,7 @@ class reaktorBlockData(ProcessBlockData):
         "gas_phases",
         ConfigValue(
             default=None,
-            domain=IsInstance((str, list,rkt)),
+            domain=IsInstance((str, list, rkt)),
             description="List or str for gas phases or elemetns that make up gas phases",
             doc="Gas phases supported by selected data base",
         ),
@@ -166,7 +165,7 @@ class reaktorBlockData(ProcessBlockData):
         "ion_exchange_phases",
         ConfigValue(
             default=None,
-            domain=IsInstance((str, list,rkt)),
+            domain=IsInstance((str, list, rkt)),
             description="List or str for gas phases or elemetns that make up gas phases",
             doc="Gas phases supported by selected data base",
         ),
@@ -196,7 +195,7 @@ class reaktorBlockData(ProcessBlockData):
     CONFIG.declare(
         "species_to_rkt_species_dict",
         ConfigValue(
-            default='default',
+            default="default",
             domain=IsInstance((dict, str)),
             description="Dictionary for translating user supplied species to RKT species specific to selected database",
             doc="""
@@ -217,7 +216,7 @@ class reaktorBlockData(ProcessBlockData):
         "aqueous_phase_activity_model",
         ConfigValue(
             default="ActivityModelIdealAqueous",
-            domain=IsInstance(str,rkt),
+            domain=IsInstance(str, rkt),
             description="Activity model for aquous phase",
             doc="Defines which activity model to use in reaktoro",
         ),
@@ -226,7 +225,7 @@ class reaktorBlockData(ProcessBlockData):
         "gas_phase_activity_model",
         ConfigValue(
             default="ActivityModelIdealGas",
-            domain=IsInstance(str,rkt),
+            domain=IsInstance(str, rkt),
             description="Activity model for gas phase",
             doc="Defines which activity model to use in reaktoro",
         ),
@@ -235,7 +234,7 @@ class reaktorBlockData(ProcessBlockData):
         "mineral_phase_activity_model",
         ConfigValue(
             default="ActivityModelIdealSolution",
-            domain=IsInstance(str,rkt),
+            domain=IsInstance(str, rkt),
             description="Activity model for mineral phase",
             doc="Defines which activity model to use in reaktoro",
         ),
@@ -244,7 +243,7 @@ class reaktorBlockData(ProcessBlockData):
         "ion_exchange_phase_activity_model",
         ConfigValue(
             default="ActivityModelIonExchange",
-            domain=IsInstance(str,rkt),
+            domain=IsInstance(str, rkt),
             description="Activity model for mineral phase",
             doc="Defines which activity model to use in reaktoro",
         ),
@@ -363,7 +362,7 @@ class reaktorBlockData(ProcessBlockData):
         "numerical_jac_type",
         ConfigValue(
             default=jacType.center_difference,
-            domain=IsInstance((str,jacType)),
+            domain=IsInstance((str, jacType)),
             description="Defines method for numerical jacobian approximations",
             doc="""Derivatives for many of the properties in reaktro are not directly available, 
             thus we numerically propagate derivatives from chemical state to methods for estimation of these properties. 
@@ -403,7 +402,7 @@ class reaktorBlockData(ProcessBlockData):
         "jacobian_scaling_type",
         ConfigValue(
             default=jacScalingTypes.variable_scaling,
-            domain=IsInstance((str,jacScalingTypes)),
+            domain=IsInstance((str, jacScalingTypes)),
             description="Defines how to scale Jacobian matrix",
             doc="""
             Defines methods for jacobian scaling:
@@ -417,7 +416,7 @@ class reaktorBlockData(ProcessBlockData):
         "jacobian_user_scaling",
         ConfigValue(
             default=None,
-            domain=IsInstance((float,list, dict)),
+            domain=IsInstance((float, list, dict)),
             description="Manual scaling factors for jacobian",
             doc="""
             Applies user provided jacobian scaling values:
@@ -500,14 +499,13 @@ class reaktorBlockData(ProcessBlockData):
             domain=float,
             description="Tolerance for reaktoro pre-solve",
             doc="""Defines what is considered to be 0 for ion composition""",
-
         ),
     )
     CONFIG.declare(
         "hessian_type",
         ConfigValue(
             default="Jt.J",
-            domain=IsInstance((str,hessTypes)),
+            domain=IsInstance((str, hessTypes)),
             description="Hessian type to use for reaktor gray box",
             doc="""Hessian type to use, some might provide better stability
                 options (Jt.J, BFGS, BFGS-mod,BFGS-damp, BFGS-ipopt""",
@@ -518,50 +516,62 @@ class reaktorBlockData(ProcessBlockData):
         super().build()
         """ configure state"""
         if self.config.build_speciation_block:
-            ''' create spectitation block and then property block'''
-            self.speciation_block=Block()
+            """create spectitation block and then property block"""
+            self.speciation_block = Block()
             self.build_rkt_state(self.speciation_block, speciation_block=True)
             self.build_rkt_inputs(self.speciation_block, speciation_block=True)
             self.build_rkt_outputs(self.speciation_block, speciation_block=True)
             self.build_rkt_jacobian(self.speciation_block)
             self.build_rkt_solver(self.speciation_block, speciation_block=True)
-            self.build_gray_box(self.speciation_block)          
+            self.build_gray_box(self.speciation_block)
 
-            self.build_rkt_state(self, speciation_block=False,speciation_block_built=True,
-                                                  input_composition=self.speciation_block.outputs)
-            self.build_rkt_inputs(self, speciation_block=False,speciation_block_built=True)
+            self.build_rkt_state(
+                self,
+                speciation_block=False,
+                speciation_block_built=True,
+                input_composition=self.speciation_block.outputs,
+            )
+            self.build_rkt_inputs(
+                self, speciation_block=False, speciation_block_built=True
+            )
             self.build_rkt_outputs(self, speciation_block=False)
             self.build_rkt_jacobian(self)
             self.build_rkt_solver(self, speciation_block=False)
-            self.build_gray_box(self)    
+            self.build_gray_box(self)
         else:
-            ''' create property block only '''
+            """create property block only"""
             self.build_rkt_state(self)
             self.build_rkt_inputs(self)
             self.build_rkt_outputs(self)
             self.build_rkt_jacobian(self)
             self.build_rkt_solver(self)
-            self.build_gray_box(self)  
+            self.build_gray_box(self)
 
-    def build_rkt_state(self, block, speciation_block=False, speciation_block_built=False, input_composition=None):
-        """ this will buld our rkt state specified block. 
+    def build_rkt_state(
+        self,
+        block,
+        speciation_block=False,
+        speciation_block_built=False,
+        input_composition=None,
+    ):
+        """this will buld our rkt state specified block.
         The keyword arguments are for automatic configuration of speciation and property blocks
-         
+
         Keywords:
         block -- pyomo block to build the model on
-        speciation_block -- sets to build speciation block which by default does not 
+        speciation_block -- sets to build speciation block which by default does not
             add mineral or gas phases (unless configured to do so), and only outputs speciesAmount from the rktModel
         speciation_block_built -- this should only be True if speciation block was built, in this case the model
-            will build user requested outputs, not provide user supplied pH and disable charge neutrality 
-        input_composition -- if alternate input composition should be used rather one provided by config (used to pass in 
+            will build user requested outputs, not provide user supplied pH and disable charge neutrality
+        input_composition -- if alternate input composition should be used rather one provided by config (used to pass in
             speciesAmount output from speciation_block)
 
-         """
-        
+        """
+
         """ defining which indexes shold be indexed 
          if block is not indexed, index is None 
          if specific input is set to be not Indexed the index will be set to None"""
-        
+
         index = self.index()
         composition_indexed = index
         temperature_indexed = index
@@ -579,15 +589,15 @@ class reaktorBlockData(ProcessBlockData):
         if input_composition is None:
             input_composition = self.config.composition
 
-        convert_to_rkt_species=self.config.convert_to_rkt_species 
-        pH=self.config.pH       
-        if speciation_block==False:
+        convert_to_rkt_species = self.config.convert_to_rkt_species
+        pH = self.config.pH
+        if speciation_block == False:
             if speciation_block_built:
-                """ specitition block already used pH to calcualte 
+                """specitition block already used pH to calcualte
                 state and we are getitng back exact species as inputs"""
-                pH=None
-                convert_to_rkt_species=False
-                composition_indexed=None # passing speciation output directly 
+                pH = None
+                convert_to_rkt_species = False
+                composition_indexed = None  # passing speciation output directly
         block.rktState = reaktoroState()
         block.rktState.register_inputs(
             composition=input_composition,
@@ -603,48 +613,61 @@ class reaktorBlockData(ProcessBlockData):
             pH_index=pH_indexed,
         )
 
-        ''' register phases'''
+        """ register phases"""
         if speciation_block == False or self.config.build_speciation_block_with_phases:
-            """ dont add phases if we are speciating """
+            """dont add phases if we are speciating"""
             if self.config.gas_phases is not None:
                 block.rktState.register_gas_phases(self.config.gas_phases)
             if self.config.mineral_phases is not None:
                 block.rktState.register_mineral_phases(self.config.mineral_phases)
         if self.config.ion_exchange_phases is not None:
             block.rktState.register_ion_exchange_phase(self.config.ion_exchange_phases)
-            block.rktState.register_ion_exchange_phase(self.config.ion_exchange_phase_activity_model)
-        ''' setup activity models - if no phases present they will do nothing '''
-        block.rktState.set_aqueous_phase_activity_model(self.config.aqueous_phase_activity_model)
-        block.rktState.set_gas_phase_activity_model(self.config.gas_phase_activity_model)
-        block.rktState.set_mineral_phase_activity_model(self.config.mineral_phase_activity_model)
+            block.rktState.register_ion_exchange_phase(
+                self.config.ion_exchange_phase_activity_model
+            )
+        """ setup activity models - if no phases present they will do nothing """
+        block.rktState.set_aqueous_phase_activity_model(
+            self.config.aqueous_phase_activity_model
+        )
+        block.rktState.set_gas_phase_activity_model(
+            self.config.gas_phase_activity_model
+        )
+        block.rktState.set_mineral_phase_activity_model(
+            self.config.mineral_phase_activity_model
+        )
 
-        ''' setup database '''
+        """ setup database """
         block.rktState.set_database(
             dbtype=self.config.database, database=self.config.database_file
         )
-        ''' build state '''
+        """ build state """
         block.rktState.build_state()
-    
-    def build_rkt_inputs(self, block, speciation_block=False, speciation_block_built=False,):
-        """ this will buld our rkt inputs specified block. 
+
+    def build_rkt_inputs(
+        self,
+        block,
+        speciation_block=False,
+        speciation_block_built=False,
+    ):
+        """this will buld our rkt inputs specified block.
         The keyword arguments are for automatic configuration of speciation and property blocks
-         
+
         Keywords:
         block -- pyomo block to build the model on
-        speciation_block -- sets to build speciation block which by default does not 
+        speciation_block -- sets to build speciation block which by default does not
             add mineral or gas phases (unless configured to do so), and only outputs speciesAmount from the rktModel
         speciation_block_built -- this should only be True if speciation block was built, in this case the model
-            will build user requested outputs, not provide user supplied pH and disable charge neutrality 
+            will build user requested outputs, not provide user supplied pH and disable charge neutrality
         """
-        ''' get index for chemicals - refer to build_rkt_state on indexing notes'''
+        """ get index for chemicals - refer to build_rkt_state on indexing notes"""
         chemical_addition_indexed = self.index()
         if self.config.chemical_addition_indexed == False:
             chemical_addition_indexed = None
 
         block.rktInputs = reaktoroInputSpec(block.rktState)
 
-        ''' add chemical only if its not a specitation block (normal mode)'''
-        if speciation_block == False:            
+        """ add chemical only if its not a specitation block (normal mode)"""
+        if speciation_block == False:
             if self.config.chemical_addition is not None:
                 block.rktInputs.register_chemical_additions(
                     self.config.chemical_addition, index=chemical_addition_indexed
@@ -655,69 +678,78 @@ class reaktorBlockData(ProcessBlockData):
                         chemical = chemical[-1]
                     block.rktInputs.register_chemical(chemical, speciation)
 
-        ''' register aqueous solvent phase'''
+        """ register aqueous solvent phase"""
         block.rktInputs.register_aqueous_solvent(self.config.aqueous_solvent_specie)
 
-        ''' register char neutrality'''
-        if speciation_block_built == False or self.config.assert_charge_neutrality_on_all_blocks:
-            """ only ensure charge neutrality when doing first calculation """
-            block.rktInputs.assert_charge_neutrality(assert_neutrality=self.config.assert_charge_neutrality,
-                                            ion = self.config.charge_neutrality_ion)
+        """ register char neutrality"""
+        if (
+            speciation_block_built == False
+            or self.config.assert_charge_neutrality_on_all_blocks
+        ):
+            """only ensure charge neutrality when doing first calculation"""
+            block.rktInputs.assert_charge_neutrality(
+                assert_neutrality=self.config.assert_charge_neutrality,
+                ion=self.config.charge_neutrality_ion,
+            )
             block.rktInputs.configure_specs(
                 dissolve_species_in_rkt=self.config.dissolve_species_in_reaktoro,
-                exact_speciation=self.config.exact_speciation
+                exact_speciation=self.config.exact_speciation,
             )
         else:
-            ''' if we have built a speciation block, the feed should be charge neutral and 
-            exact speciation is provided'''
-            block.rktInputs.assert_charge_neutrality(assert_neutrality=False,
-                            ion = self.config.charge_neutrality_ion)
-    
+            """if we have built a speciation block, the feed should be charge neutral and
+            exact speciation is provided"""
+            block.rktInputs.assert_charge_neutrality(
+                assert_neutrality=False, ion=self.config.charge_neutrality_ion
+            )
+
             block.rktInputs.configure_specs(
                 dissolve_species_in_rkt=self.config.dissolve_species_in_reaktoro,
-                exact_speciation=True
+                exact_speciation=True,
             )
-    
-    def build_rkt_outputs(self,  block, speciation_block=False):
-        """ this will build rkt outputs specified block. 
+
+    def build_rkt_outputs(self, block, speciation_block=False):
+        """this will build rkt outputs specified block.
         The keyword arguments are for automatic configuration of speciation and property blocks
-         
+
         Keywords:
         block -- pyomo block to build the model on
-        speciation_block -- sets to build speciation block which by default does not 
+        speciation_block -- sets to build speciation block which by default does not
             add mineral or gas phases (unless configured to do so), and only outputs speciesAmount from the rktModel
         """
 
         """ configure outputs """
-        index =self.index()
+        index = self.index()
 
         block.rktOutputs = reaktoroOutputSpec(block.rktState)
         if self.config.outputs is None:
             raise ValueError("Outputs must be provided!")
         if speciation_block:
-            """ when speciating we only want species amounts as output"""
-            block.rktOutputs.register_output('speciesAmount', get_all_indexes=True)
+            """when speciating we only want species amounts as output"""
+            block.rktOutputs.register_output("speciesAmount", get_all_indexes=True)
         else:
-            """ build user requested outputs"""
+            """build user requested outputs"""
             for output_key, output_var in self.config.outputs.items():
                 if index is None or index in output_key:
                     if isinstance(output_key, tuple):
-                        if len(output_key)==2:
+                        if len(output_key) == 2:
                             output_key, output_prop = output_key
-                        if len(output_key)==3:
+                        if len(output_key) == 3:
                             _, output_key, output_prop = output_key
                     else:
                         output_prop = None
                     if isinstance(output_var, bool):
-                        block.rktOutputs.register_output(output_key, get_all_indexes=output_var)
+                        block.rktOutputs.register_output(
+                            output_key, get_all_indexes=output_var
+                        )
                     else:
                         block.rktOutputs.register_output(
                             output_key, output_prop, pyomo_var=output_var
                         )
-    def build_rkt_jacobian(self,block):
-        """ this will build rkt jacboian on specified block. 
+
+    def build_rkt_jacobian(self, block):
+        """this will build rkt jacboian on specified block.
         The keyword arguments are for automatic configuration of speciation and property blocks
-         
+
         Keywords:
         block -- pyomo block to build the model on
         """
@@ -728,23 +760,28 @@ class reaktorBlockData(ProcessBlockData):
             order=self.config.numerical_jac_order,
             step_size=self.config.numerical_jac_step,
         )
-    
-    def build_rkt_solver(self,block,speciation_block=False):
-        """ this will build rkt outputs specified block. 
+
+    def build_rkt_solver(self, block, speciation_block=False):
+        """this will build rkt outputs specified block.
         The keyword arguments are for automatic configuration of speciation and property blocks
-         
+
         Keywords:
         block -- pyomo block to build the model on
-        speciation_block -- sets to build speciation block which by default does not 
+        speciation_block -- sets to build speciation block which by default does not
             add mineral or gas phases (unless configured to do so), and only outputs speciesAmount from the rktModel
         """
 
         """config solver """
-        name=str(self)
+        name = str(self)
         if speciation_block:
-            name=f"{name}_speciation_block"
-        block.rktSolver = reaktoroSolver(block.rktState, block.rktInputs, block.rktOutputs, block.rktJacobian,
-                                   block_name=name)
+            name = f"{name}_speciation_block"
+        block.rktSolver = reaktoroSolver(
+            block.rktState,
+            block.rktInputs,
+            block.rktOutputs,
+            block.rktJacobian,
+            block_name=name,
+        )
         block.rktSolver.set_solver_options(
             tolerance=self.config.tolerance,
             epsilon=self.config.epsilon,
@@ -755,34 +792,37 @@ class reaktorBlockData(ProcessBlockData):
             presolve_max_iters=self.config.presolve_max_iters,
             hessian_type=self.config.hessian_type,
         )
-    
-    def build_gray_box(self,block):
-        """ this will build rkt outputs specified block. 
+
+    def build_gray_box(self, block):
+        """this will build rkt outputs specified block.
         The keyword arguments are for automatic configuration of speciation and property blocks
-         
+
         Keywords:
         block -- pyomo block to build the model on
         """
         """ build block"""
         scaling = self.config.jacobian_user_scaling
-        scaling_type=self.config.jacobian_scaling_type
-        block.rktBlockBuilder = reaktoroBlockBuilder(block, block.rktSolver, build_on_init=False)
-        block.rktBlockBuilder.configure_jacobian_scaling(jacobian_scaling_type=scaling_type,
-                                                   user_scaling=scaling)
+        scaling_type = self.config.jacobian_scaling_type
+        block.rktBlockBuilder = reaktoroBlockBuilder(
+            block, block.rktSolver, build_on_init=False
+        )
+        block.rktBlockBuilder.configure_jacobian_scaling(
+            jacobian_scaling_type=scaling_type, user_scaling=scaling
+        )
         block.rktBlockBuilder.build_reaktoro_block()
 
     def display_jacobian_outputs(self):
         if self.config.build_speciation_block:
-            _log.info('-----Displaying information for speciation block ------')
+            _log.info("-----Displaying information for speciation block ------")
             self.speciation_block.rktJacobian.rktRows.display_jacobian_output_types()
-        _log.info('-----Displaying information for property block ------')
+        _log.info("-----Displaying information for property block ------")
         self.rktJacobian.rktRows.display_jacobian_output_types()
 
     def initialize(self):
         if self.config.presolve_during_initialization or self.config.presolve:
-            presolve=True
+            presolve = True
         else:
-            presolve=False
+            presolve = False
         if self.config.build_speciation_block:
             self.speciation_block.rktState.equilibrate_state()
             self.speciation_block.rktBlockBuilder.initialize(presolve)
