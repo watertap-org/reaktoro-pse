@@ -1,16 +1,16 @@
 import pytest
 from reaktoro_pse.core.reaktoro_jacobian import (
-    reaktoroJacobianSpec,
+    ReaktoroJacobianSpec,
 )
 from reaktoro_pse.core.reaktoro_outputs import (
-    reaktoroOutputSpec,
+    ReaktoroOutputSpec,
 )
 
 from reaktoro_pse.core.reaktoro_inputs import (
-    reaktoroInputSpec,
+    ReaktoroInputSpec,
 )
 from reaktoro_pse.core.reaktoro_solver import (
-    reaktoroSolver,
+    ReaktoroSolver,
 )
 from reaktoro_pse.core.tests.test_reaktoro_state import (
     build_rkt_state_with_species,
@@ -25,22 +25,22 @@ def build_standard_state(build_rkt_state_with_species):
     rkt_state.register_mineral_phases("Calcite")
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    rkt_inputs = reaktoroInputSpec(rkt_state)
+    rkt_inputs = ReaktoroInputSpec(rkt_state)
     rkt_inputs.configure_specs(dissolve_species_in_rkt=True)
-    rkt_outputs = reaktoroOutputSpec(rkt_state)
+    rkt_outputs = ReaktoroOutputSpec(rkt_state)
 
     rkt_outputs.register_output("speciesAmount", get_all_indexes=True)
     rkt_outputs.register_output("scalingTendency", "Calcite")
     rkt_outputs.register_output("pH")
-    rkt_jacobian = reaktoroJacobianSpec(rkt_state, rkt_outputs)
-    rkt_solver = reaktoroSolver(rkt_state, rkt_inputs, rkt_outputs, rkt_jacobian)
+    rkt_jacobian = ReaktoroJacobianSpec(rkt_state, rkt_outputs)
+    rkt_solver = ReaktoroSolver(rkt_state, rkt_inputs, rkt_outputs, rkt_jacobian)
     return rkt_solver
 
 
 def test_solver(build_standard_state):
     rkt_solver = build_standard_state
-    rkt_inputs = rkt_solver.rktInputSpec.rktInputs.rktInputList
-    rkt_outputs = list(rkt_solver.rktOutputSpec.rktOutputs.keys())
+    rkt_inputs = rkt_solver.input_specs.rkt_inputs.rkt_input_list
+    rkt_outputs = list(rkt_solver.output_specs.rkt_outputs.keys())
     print(rkt_inputs, rkt_outputs)
     jacobian, outputs = rkt_solver.solve_reaktoro_block()
     print(outputs)

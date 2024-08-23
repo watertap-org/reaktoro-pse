@@ -3,14 +3,14 @@ from pyomo.contrib.pynumero.interfaces.external_grey_box import (
     ExternalGreyBoxBlock,
 )
 import numpy as np
-from reaktoro_pse.core.reaktoro_outputs import propTypes
+from reaktoro_pse.core.reaktoro_outputs import PropTypes
 
 from reaktoro_pse.core.reaktoro_solver import (
-    reaktoroSolver,
+    ReaktoroSolver,
 )
 
 from reaktoro_pse.core.reaktoro_gray_box import (
-    reaktoroGrayBox,
+    ReaktoroGrayBox,
 )
 
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
@@ -27,27 +27,27 @@ __author__ = "Alexander Dudchenko"
 _log = idaeslog.getLogger(__name__)
 
 
-class jacScalingTypes:
+class JacScalingTypes:
     variable_scaling = "variable_scaling"
     jacobian_matrix = "jacobian_matrix"
     manual_scaling = "manual_scaling"
 
 
-class reaktoroBlockBuilder:
-    def __init__(self, block, rktSolver, build_on_init=True):
+class ReaktoroBlockBuilder:
+    def __init__(self, block, reaktoro_solver, build_on_init=True):
         self.block = block
         # TODO: add check to make sure block is a pyomo block, or model
-        self.rktSolver = rktSolver
-        if isinstance(self.rktSolver, reaktoroSolver) == False:
-            raise TypeError("Reaktoro block builder requires a reaktoroSolver class")
+        self.solver = reaktoro_solver
+        if isinstance(self.solver, ReaktoroSolver) == False:
+            raise TypeError("Reaktoro block builder requires a ReaktoroSolver class")
         self.configure_jacobian_scaling()
         if build_on_init:  # option to support legacy implementation
             self.build_reaktoro_block()
 
     def build_reaktoro_block(self):
         """build reaktoro model"""
-        external_model = reaktoroGrayBox()
-        external_model.configure(self.rktSolver)
+        external_model = ReaktoroGrayBox()
+        external_model.configure(self.solver)
         self.block.reaktoro_model = ExternalGreyBoxBlock(external_model=external_model)
         self.build_input_constraints()
         self.build_output_constraints()
@@ -63,74 +63,72 @@ class reaktoroBlockBuilder:
         user_scaling -- either a single value or array with length of rkt outputs defining scaling
         """
         if jacobian_scaling_type is None:
-            self.jacobianScalingType = jacScalingTypes.variable_scaling
+            self.jacobian_scaling_type = JacScalingTypes.variable_scaling
         else:
-            self.jacobianScalingType = jacobian_scaling_type
+            self.jacobian_scaling_type = jacobian_scaling_type
         if isinstance(user_scaling, float):
-            self.rktSolver.jacobianScalingValues = (
-                np.ones(len(self.rktSolver.rktOutputSpec.rktOutputs)) + user_scaling
+            self.solver.jacobian_scaling_values = (
+                np.ones(len(self.solver.output_specs.rkt_outputs)) + user_scaling
             )
-            self.jacobianScalingType = jacScalingTypes.manual_scaling
+            self.jacobian_scaling_type = JacScalingTypes.manual_scaling
         elif isinstance(user_scaling, list):
-            self.rktSolver.jacobianScalingValues = user_scaling
-            self.jacobianScalingType = jacScalingTypes.manual_scaling
+            self.solver.jacobian_scaling_values = user_scaling
+            self.jacobian_scaling_type = JacScalingTypes.manual_scaling
         else:
-            self.rktSolver.jacobianScalingValues = np.ones(
-                len(self.rktSolver.rktOutputSpec.rktOutputs.keys())
+            self.solver.jacobian_scaling_values = np.ones(
+                len(self.solver.output_specs.rkt_outputs.keys())
             )
         if isinstance(user_scaling, dict):
-            self.userScaling = user_scaling
+            self.user_scaling = user_scaling
         else:
-            self.userScaling = {}
+            self.user_scaling = {}
 
     def build_input_constraints(self):
 
-        if self.rktSolver.rktInputSpec.dissolveSpeciesInRkt:
+        if self.solver.input_specs.dissolve_species_in_rkt:
 
-            @self.block.Constraint(self.rktSolver.rktInputSpec.rktInputs.rktInputList)
+            @self.block.Constraint(self.solver.input_specs.rkt_inputs.rkt_input_list)
             def input_constraints(fs, key):
                 return (
                     self.block.reaktoro_model.inputs[key]
-                    == self.rktSolver.rktInputSpec.rktInputs[key].pyomoVar
+                    == self.solver.input_specs.rkt_inputs[key].pyomo_var
                 )
 
         else:
             """only build these if we are summing species to elements in pyomo"""
-            constraint_dict = self.rktSolver.rktInputSpec.constraintDict
+            constraint_dict = self.solver.input_specs.constraint_dict
             # self.block.inputs = Var(
             #     list(constraint_dict.keys()), initialize=1, bounds=(0, None)
             # )
             self._input_constraint_scaling = {}
             """ connect rektor model vars to our inputs"""
             for element in constraint_dict:
-                self.rktSolver.rktInputSpec.rktInputs[element].set_pyomoVar(
+                self.solver.input_specs.rkt_inputs[element].set_pyomo_var(
                     self.block.reaktoro_model.inputs[element]
                 )
 
             @self.block.Expression(constraint_dict)
             def inputs(fs, element):
                 sum_species = []
-                # print(self.rktInputSpec.rktInputs.rktInputs.keys())
+                # print(self.input_specs.rkt_inputs.rkt_inputs.keys())
                 for mol, specie in constraint_dict[element]:
-                    if specie in self.rktSolver.rktInputSpec.userInputs:
-                        pyo_obj = self.rktSolver.rktInputSpec.userInputs[
+                    if specie in self.solver.input_specs.user_inputs:
+                        pyo_obj = self.solver.input_specs.user_inputs[specie].pyomo_var
+                    elif specie in self.solver.input_specs.rkt_chemical_inputs:
+                        pyo_obj = self.solver.input_specs.rkt_chemical_inputs[
                             specie
-                        ].pyomoVar
-                    elif specie in self.rktSolver.rktInputSpec.rktChemicalInputs:
-                        pyo_obj = self.rktSolver.rktInputSpec.rktChemicalInputs[
-                            specie
-                        ].pyomoVar
+                        ].pyomo_var
                     else:
                         raise KeyError(f"specie {specie} not found in input dicts")
                     sum_species.append(mol * pyo_obj)
                 return sum(sum_species)
 
             for element in constraint_dict:
-                self.rktSolver.rktInputSpec.rktInputs[element].set_pyomoVar(
+                self.solver.input_specs.rkt_inputs[element].set_pyomo_var(
                     self.block.reaktoro_model.inputs[element]
                 )
 
-            @self.block.Constraint(self.rktSolver.rktInputSpec.rktInputs.rktInputList)
+            @self.block.Constraint(self.solver.input_specs.rkt_inputs.rkt_input_list)
             def input_constraints(fs, key):
                 if key in constraint_dict:
                     return (
@@ -139,7 +137,7 @@ class reaktoroBlockBuilder:
                 else:
                     return (
                         self.block.reaktoro_model.inputs[key]
-                        == self.rktSolver.rktInputSpec.userInputs[key].pyomoVar
+                        == self.solver.input_specs.user_inputs[key].pyomo_var
                     )
 
     def build_output_constraints(self):
@@ -149,42 +147,42 @@ class reaktoroBlockBuilder:
         add them to new_output_var dict, which will be used to create new output variables on the block
         """
         new_output_vars = {}
-        for key, obj in self.rktSolver.rktOutputSpec.userOutputs.items():
-            if propTypes.pyomoBuiltProperties == obj.propertyType:
+        for key, obj in self.solver.output_specs.user_outputs.items():
+            if PropTypes.pyomo_built_prop == obj.property_type:
                 for (
                     pyoPropKey,
                     pyoPropObj,
-                ) in obj.pyomoBuildOptions.properties.items():
+                ) in obj.pyomo_build_options.properties.items():
                     pyoPropObj.set_pyomo_var(
                         self.block.reaktoro_model.outputs[pyoPropKey]
                     )
-            # NOTE: We do not set rktOutputs to reaktoro_model outputs as they
+            # NOTE: We do not set rkt_outputs to reaktoro_model outputs as they
             # same as user inputs - we want RKt model to update "user provided vars"
             # rather then pyomo vars in reaktoro model (e.g. reaktor_block.outputs)
-            if obj.pyomoVar is None:
+            if obj.pyomo_var is None:
                 new_output_vars[key] = obj
         if new_output_vars != {}:
             self.block.outputs = Var(new_output_vars.keys(), initialize=1)
             for key, obj in new_output_vars.items():
                 obj.set_pyomo_var(self.block.outputs[key])
 
-        @self.block.Constraint(self.rktSolver.rktOutputSpec.userOutputs)
+        @self.block.Constraint(self.solver.output_specs.user_outputs)
         def output_constraints(fs, prop, prop_index):
-            prop_object = self.rktSolver.rktOutputSpec.userOutputs[(prop, prop_index)]
-            if prop_object.propertyType == propTypes.pyomoBuiltProperties:
-                return prop_object.pyomoBuildOptions.build_constraint_function(
+            prop_object = self.solver.output_specs.user_outputs[(prop, prop_index)]
+            if prop_object.property_type == PropTypes.pyomo_built_prop:
+                return prop_object.pyomo_build_options.build_constraint_function(
                     prop_object
                 )
             else:
                 return (
-                    prop_object.pyomoVar
+                    prop_object.pyomo_var
                     == self.block.reaktoro_model.outputs[(prop, prop_index)]
                 )
 
     def initialize(self, presolveDuringInitialization=False):
         self.initialize_input_variables_and_constraints()
-        self.rktSolver.rktBase.equilibrate_state()
-        self.rktSolver.solve_reaktoro_block(presolve=presolveDuringInitialization)
+        self.solver.state.equilibrate_state()
+        self.solver.solve_reaktoro_block(presolve=presolveDuringInitialization)
         self.initialize_output_variables_and_constraints()
         _log.info(f"Initialized rkt block")
 
@@ -195,22 +193,22 @@ class reaktoroBlockBuilder:
             else:
                 return abs(val)
 
-        for key, obj in self.rktSolver.rktOutputSpec.userOutputs.items():
+        for key, obj in self.solver.output_specs.user_outputs.items():
             """update vars scaling in pyomo build ocnstraints
             these are updated to actual value when we call solve_rektoro_block"""
-            if propTypes.pyomoBuiltProperties == obj.propertyType:
+            if PropTypes.pyomo_built_prop == obj.property_type:
                 for (
                     pyoPropKey,
                     pyoPropObj,
-                ) in obj.pyomoBuildOptions.properties.items():
+                ) in obj.pyomo_build_options.properties.items():
                     val = pyoPropObj.value
                     pyoPropObj.set_pyomo_var_value(val)
-                    if iscale.get_scaling_factor(pyoPropObj.pyomoVar) is None:
-                        iscale.set_scaling_factor(pyoPropObj.pyomoVar, 1 / get_sf(val))
+                    if iscale.get_scaling_factor(pyoPropObj.pyomo_var) is None:
+                        iscale.set_scaling_factor(pyoPropObj.pyomo_var, 1 / get_sf(val))
                 output_constraint = self.block.output_constraints[key]
-                calculate_variable_from_constraint(obj.pyomoVar, output_constraint)
+                calculate_variable_from_constraint(obj.pyomo_var, output_constraint)
                 iscale.constraint_scaling_transform(
-                    output_constraint, 1 / get_sf(obj.pyomoVar.value)
+                    output_constraint, 1 / get_sf(obj.pyomo_var.value)
                 )
             else:
                 obj.set_pyomo_var_value(obj.value)
@@ -222,43 +220,43 @@ class reaktoroBlockBuilder:
 
                 if iscale.get_scaling_factor(rkt_var) is None:
                     iscale.set_scaling_factor(rkt_var, 1 / get_sf(obj.value))
-            val = obj.pyomoVar.value
+            val = obj.pyomo_var.value
             """ scale user provided vars if they are not scaled"""
-            if iscale.get_scaling_factor(obj.pyomoVar) is None:
-                iscale.set_scaling_factor(obj.pyomoVar, 1 / get_sf(val))
+            if iscale.get_scaling_factor(obj.pyomo_var) is None:
+                iscale.set_scaling_factor(obj.pyomo_var, 1 / get_sf(val))
 
         """ update jacobian scaling """
         self.get_jacobian_scaling()
 
     def get_jacobian_scaling(self):
-        if self.jacobianScalingType == jacScalingTypes.variable_scaling:
+        if self.jacobian_scaling_type == JacScalingTypes.variable_scaling:
             for i, (key, obj) in enumerate(
-                self.rktSolver.rktOutputSpec.rktOutputs.items()
+                self.solver.output_specs.rkt_outputs.items()
             ):
-                out_sf = iscale.get_scaling_factor(obj.pyomoVar, default=1)
-                self.rktSolver.jacobianScalingValues[i] = 1 / out_sf
-        elif self.jacobianScalingType == jacScalingTypes.jacobian_matrix:
-            self.rktSolver.jacobianScalingValues = (
+                out_sf = iscale.get_scaling_factor(obj.pyomo_var, default=1)
+                self.solver.jacobian_scaling_values[i] = 1 / out_sf
+        elif self.jacobian_scaling_type == JacScalingTypes.jacobian_matrix:
+            self.solver.jacobian_scaling_values = (
                 np.sum(np.abs(self.jacobian_matrix) ** 2, axis=1) ** 0.5
             )
-        for i, (key, obj) in enumerate(self.rktSolver.rktOutputSpec.rktOutputs.items()):
-            if key in self.userScaling:
-                scale = self.userScaling[key]
-                self.rktSolver.jacobianScalingValues[i] = scale
+        for i, (key, obj) in enumerate(self.solver.output_specs.rkt_outputs.items()):
+            if key in self.user_scaling:
+                scale = self.user_scaling[key]
+                self.solver.jacobian_scaling_values[i] = scale
 
         _log.info(
-            f"Jacobian output order: {list(self.rktSolver.rktOutputSpec.rktOutputs.keys())}"
+            f"Jacobian output order: {list(self.solver.output_specs.rkt_outputs.keys())}"
         )
-        _log.info(f"Jacobian scaleing: {self.rktSolver.jacobianScalingValues}")
+        _log.info(f"Jacobian scaleing: {self.solver.jacobian_scaling_values}")
 
     def initialize_input_variables_and_constraints(self):
         """intialize input variables and constraints"""
-        if self.rktSolver.rktInputSpec.dissolveSpeciesInRkt == False:
-            for element in self.rktSolver.rktInputSpec.constraintDict:
+        if self.solver.input_specs.dissolve_species_in_rkt == False:
+            for element in self.solver.input_specs.constraint_dict:
                 val = value(self.block.inputs[element])
-                self.rktSolver.rktInputSpec.rktInputs[element].set_pyomo_var_value(val)
-        for key in self.rktSolver.rktInputSpec.rktInputs.rktInputList:
-            pyo_var = self.rktSolver.rktInputSpec.rktInputs[key].pyomoVar
+                self.solver.input_specs.rkt_inputs[element].set_pyomo_var_value(val)
+        for key in self.solver.input_specs.rkt_inputs.rkt_input_list:
+            pyo_var = self.solver.input_specs.rkt_inputs[key].pyomo_var
             self.block.reaktoro_model.inputs[key] = pyo_var.value
             sf = iscale.get_scaling_factor(pyo_var)
             if sf == None:

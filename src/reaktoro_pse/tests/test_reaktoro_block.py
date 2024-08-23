@@ -1,5 +1,6 @@
 import pytest
-from reaktoro_pse.reaktoroBlock import reaktorBlock
+
+from reaktoro_pse.reaktoro_block import ReaktoroBlock
 
 from pyomo.environ import (
     ConcreteModel,
@@ -67,7 +68,7 @@ def build_rkt_state_with_indexed_species():
 def test_blockBuild(build_rkt_state_with_species):
     m = build_rkt_state_with_species
     m.outputs.display()
-    m.reaktoroBlock = reaktorBlock(
+    m.reaktoroBlock = ReaktoroBlock(
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
@@ -107,7 +108,7 @@ def test_blockBuild_solids_gas(build_rkt_state_with_species):
         ],
         initialize=0.5,
     )
-    m.reaktoroBlock = reaktorBlock(
+    m.reaktoroBlock = ReaktoroBlock(
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
@@ -146,7 +147,7 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
     m.CaO = Var(["CaO"], initialize=0.001, units=pyunits.mol / pyunits.s)
     m.CaO.fix()
     m.outputs.display()
-    m.reaktoroBlock = reaktorBlock(
+    m.reaktoroBlock = ReaktoroBlock(
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
@@ -186,7 +187,7 @@ def test_blockBuild_with_speciation_block_no_chem_addition(
 ):
     m = build_rkt_state_with_species
     m.outputs.display()
-    m.reaktoroBlock = reaktorBlock(
+    m.reaktoroBlock = ReaktoroBlock(
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
@@ -233,7 +234,7 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
     m.outputs.display()
     m.CaO = Var(["CaO"], initialize=0.002, units=pyunits.mol / pyunits.s)
     m.CaO.fix()
-    m.reaktoroBlock = reaktorBlock(
+    m.reaktoroBlock = ReaktoroBlock(
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
@@ -250,7 +251,7 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
         build_speciation_block=True,
         presolve_during_initialization=True,
     )
-    for e, con in m.reaktoroBlock.rktInputs.constraintDict.items():
+    for e, con in m.reaktoroBlock.rkt_inputs.constraint_dict.items():
         print(e, con)
     m.reaktoroBlock.initialize()
 
@@ -275,7 +276,7 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
 def test_indexed_blockBuild(build_rkt_state_with_indexed_species):
     m = build_rkt_state_with_indexed_species
     m.outputs.display()
-    m.reaktoroBlock = reaktorBlock(
+    m.reaktoroBlock = ReaktoroBlock(
         [0, 1],
         composition=m.composition,
         temperature=m.temp,
@@ -311,7 +312,7 @@ def test_indexed_blockBuild_with_speciation_block(
     m.CaO = Var([0, 1], ["CaO"], initialize=0.01, units=pyunits.mol / pyunits.s)
     m.CaO.fix()
     m.outputs.display()
-    m.reaktoroBlock = reaktorBlock(
+    m.reaktoroBlock = ReaktoroBlock(
         [0, 1],
         composition=m.composition,
         temperature=m.temp,

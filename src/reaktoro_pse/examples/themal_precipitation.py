@@ -1,4 +1,5 @@
-from reaktoro_pse.reaktoroBlock import reaktorBlock
+from reaktoro_pse.reaktoro_block import ReaktoroBlock
+
 
 from pyomo.environ import (
     ConcreteModel,
@@ -198,7 +199,7 @@ def build_simple_precipitation():
         "HCO3": "HCO3-",
     }
     """ need to get feed enthalpy"""
-    m.eq_feed_properties = reaktorBlock(
+    m.eq_feed_properties = ReaktoroBlock(
         composition=m.feed_composition,
         temperature=m.feed_temperature,
         pressure=m.feed_pressure,
@@ -217,7 +218,7 @@ def build_simple_precipitation():
     )
 
     # """ need to get precipitator enthalpy to find required power input """
-    m.eq_precipitation_properties = reaktorBlock(
+    m.eq_precipitation_properties = ReaktoroBlock(
         composition=m.precipitator_composition,
         temperature=m.precipitator_temperature,
         pressure=m.feed_pressure,  # assume all systems operate at same pressure - not
@@ -238,7 +239,7 @@ def build_simple_precipitation():
             ("molarEnthalpy", None): 1,
         },
     )
-    m.eq_treated_properties = reaktorBlock(
+    m.eq_treated_properties = ReaktoroBlock(
         composition=m.treated_composition,
         temperature=m.precipitator_temperature,
         pressure=m.feed_pressure,  # assume all systems operate at same pressure - not
@@ -256,7 +257,7 @@ def build_simple_precipitation():
         jacobian_user_scaling={("molarEnthalpy", None): 1},
         # presolve=True, # when solids are include, presolving can help with stability
     )
-    m.eq_cooled_treated_properties = reaktorBlock(
+    m.eq_cooled_treated_properties = ReaktoroBlock(
         composition=m.treated_composition,
         temperature=m.cooled_treated_temperature,
         pressure=m.feed_pressure,  # assume all systems operate at same pressure - not

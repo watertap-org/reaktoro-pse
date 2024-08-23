@@ -1,10 +1,10 @@
 import pytest
 from reaktoro_pse.core.reaktoro_jacobian import (
-    reaktoroJacobianSpec,
-    jacType,
+    ReaktoroJacobianSpec,
+    JacType,
 )
 from reaktoro_pse.core.reaktoro_outputs import (
-    reaktoroOutputSpec,
+    ReaktoroOutputSpec,
 )
 from reaktoro_pse.core.tests.test_reaktoro_state import (
     build_rkt_state_with_species,
@@ -20,11 +20,11 @@ def build_standard_state(build_rkt_state_with_species):
     rkt_state.register_mineral_phases("Calcite")
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    rkt_outputs = reaktoroOutputSpec(rkt_state)
+    rkt_outputs = ReaktoroOutputSpec(rkt_state)
 
     rkt_outputs.register_output("speciesAmount", get_all_indexes=True)
     rkt_outputs.register_output("pH")
-    rkt_jacobian = reaktoroJacobianSpec(rkt_state, rkt_outputs)
+    rkt_jacobian = ReaktoroJacobianSpec(rkt_state, rkt_outputs)
     return rkt_jacobian
 
 
@@ -32,7 +32,7 @@ def test_available_and_eval_jacobian(build_standard_state):
     """testing setting out outputs"""
     rkt_jac = build_standard_state
     rkt_jac.update_jacobian_absolute_values()
-    av_dict = rkt_jac.jacRows.display_available()
+    av_dict = rkt_jac.jac_rows.display_available()
     print(av_dict)
     expected_dict = {
         ("temperature", None): True,
@@ -398,15 +398,15 @@ def test_available_and_eval_jacobian(build_standard_state):
 
     d = {}
     for key, available in av_dict.items():
-        d[key] = rkt_jac.jacRows.get_value(key)
+        d[key] = rkt_jac.jac_rows.get_value(key)
     print(d)
     for key, available in av_dict.items():
         assert expected_dict[key] == available
         if available == False:
-            assert rkt_jac.jacRows.get_value(key) == 0
+            assert rkt_jac.jac_rows.get_value(key) == 0
         else:
             assert (
-                pytest.approx(rkt_jac.jacRows.get_value(key), 1e-3)
+                pytest.approx(rkt_jac.jac_rows.get_value(key), 1e-3)
                 == expected_values[key]
             )
     types_jac = rkt_jac.display_jacobian_output_types()
@@ -430,7 +430,7 @@ def test_available_and_eval_jacobian(build_standard_state):
     for key, t in types_jac.items():
         assert t == expected_types[key]
     assert len(types_jac) == len(expected_types)
-    #     jac_values[key] = rkt_jac.jacRows.get_value(prop, key)
+    #     jac_values[key] = rkt_jac.jac_rows.get_value(prop, key)
     # print(jac_values)
 
 
@@ -438,13 +438,13 @@ def test_jacboian_output_types(build_standard_state):
 
     rkt_jac = build_standard_state
 
-    # print(rkt_jac.rktOutputSpec.rktOutputs.keys())
+    # print(rkt_jac.output_specs.rkt_outputs.keys())
     assert (
-        rkt_jac.rktOutputSpec.rktOutputs[("speciesAmount", "H+")].jacobianType
-        == jacType.exact
+        rkt_jac.output_specs.rkt_outputs[("speciesAmount", "H+")].jacobian_type
+        == JacType.exact
     )
     assert (
-        rkt_jac.rktOutputSpec.rktOutputs[("pH", None)].jacobianType == jacType.numeric
+        rkt_jac.output_specs.rkt_outputs[("pH", None)].jacobian_type == JacType.numeric
     )
 
 
@@ -452,23 +452,23 @@ def test_numeric_setup(build_standard_state):
     rkt_jac = build_standard_state
     for order in [2, 4, 6]:
         rkt_jac.configure_numerical_jacobian(jacobian_type="average", order=order)
-        assert len(rkt_jac.numericalSteps) == order + 1
-        assert len(rkt_jac.chemPropStates) == order + 1
-        assert len(rkt_jac.aqueousPropStates) == order + 1
+        assert len(rkt_jac.numerical_steps) == order + 1
+        assert len(rkt_jac.chem_prop_states) == order + 1
+        assert len(rkt_jac.aqueous_prop_states) == order + 1
     for order in [2, 4, 6, 8, 10]:
         rkt_jac.configure_numerical_jacobian(
             jacobian_type="center_difference", order=order
         )
-        assert len(rkt_jac.cdfMultipliers) == order
-        assert pytest.approx(sum(rkt_jac.cdfMultipliers), 1e-3) == 0
-        assert len(rkt_jac.chemPropStates) == order
-        assert len(rkt_jac.aqueousPropStates) == order
+        assert len(rkt_jac.cdf_multipliers) == order
+        assert pytest.approx(sum(rkt_jac.cdf_multipliers), 1e-3) == 0
+        assert len(rkt_jac.chem_prop_states) == order
+        assert len(rkt_jac.aqueous_prop_states) == order
 
 
 def test_jacobian_matrix(build_standard_state):
     rkt_jac = build_standard_state
 
-    dummyMatrix = np.ones((len(rkt_jac.jacRows.keys), 2))
+    dummyMatrix = np.ones((len(rkt_jac.jac_rows.keys), 2))
     dummyMatrix[:, 1] = 10
     rkt_jac.update_jacobian_absolute_values()
     jac_dict, jac_matrix = rkt_jac.process_jacobian_matrix(dummyMatrix, 0, 100)

@@ -1,4 +1,4 @@
-from reaktoro_pse.reaktoroBlock import reaktorBlock
+from reaktoro_pse.reaktoro_block import ReaktoroBlock
 
 from pyomo.environ import (
     ConcreteModel,
@@ -90,7 +90,7 @@ def build_simple_desal():
         expr=m.water_recovery == m.desal_product_flow / m.feed_composition["H2O"]
     )
 
-    m.eq_desal_properties = reaktorBlock(
+    m.eq_desal_properties = ReaktoroBlock(
         composition=m.desal_composition,
         temperature=m.feed_temperature,
         pressure=m.feed_pressure,
@@ -99,8 +99,10 @@ def build_simple_desal():
         chemical_addition={"HCl": m.acid_addition},
         aqueous_phase_activity_model="ActivityModelPitzer",
         dissolve_species_in_reaktoro=False,
-        convert_to_rkt_species=True,  # we can use default converter as its defined for default database
-        build_speciation_block=True,  # we are modifying state so lets speciate inputs before adding acid to find final prop state.
+        # we can use default converter as its defined for default database
+        convert_to_rkt_species=True,
+        # we are modifying state so lets speciate inputs before adding acid to find final prop state.
+        build_speciation_block=True,
     )
     scale_model(m)
     return m

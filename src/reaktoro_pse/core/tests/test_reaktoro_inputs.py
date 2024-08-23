@@ -1,4 +1,4 @@
-import reaktoro_pse.core.reaktoro_inputs as rktInputSpec
+import reaktoro_pse.core.reaktoro_inputs as RktInputspec
 
 from pyomo.environ import Var, units as pyunits
 from reaktoro_pse.core.tests.test_reaktoro_state import (
@@ -16,11 +16,11 @@ def test_with_rkt_sum(build_rkt_state_with_species):
     m, rkt_state = build_rkt_state_with_species
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    rkt_input = rktInputSpec.reaktoroInputSpec(rkt_state)
+    rkt_input = RktInputspec.ReaktoroInputSpec(rkt_state)
     rkt_input.configure_specs(dissolve_species_in_rkt=True)
-    input_names = rkt_input.rktEquilibriumSpecs.namesControlVariables()
+    input_names = rkt_input.equilibrium_specs.namesControlVariables()
     print(input_names)
-    input_constraints = rkt_input.rktEquilibriumSpecs.namesConstraints()
+    input_constraints = rkt_input.equilibrium_specs.namesConstraints()
     print(input_constraints)
     expected_names = [
         "[Cl]",
@@ -65,8 +65,8 @@ def test_with_rkt_sum(build_rkt_state_with_species):
         "Ca",
     ]
     for ei in expected_inputs:
-        assert ei in rkt_input.rktInputs.keys()
-        assert ei in rkt_input.userInputs.keys()
+        assert ei in rkt_input.rkt_inputs.keys()
+        assert ei in rkt_input.user_inputs.keys()
     rkt_expected_inputs = [
         "inputCO3-2",
         "inputCO2",
@@ -77,8 +77,8 @@ def test_with_rkt_sum(build_rkt_state_with_species):
     ]
     for ei in rkt_expected_inputs:
         key = ei.replace("input", "")
-        assert ei == rkt_input.rktInputs[key].get_rkt_input_name()
-    assert len(rkt_input.rktInputs.keys()) == len(expected_inputs)
+        assert ei == rkt_input.rkt_inputs[key].get_rkt_input_name()
+    assert len(rkt_input.rkt_inputs.keys()) == len(expected_inputs)
     expected_con_dict = {
         "C": [(1.0, "CO3-2"), (1.0, "CO2")],
         "Na": [(1, "Na")],
@@ -87,7 +87,7 @@ def test_with_rkt_sum(build_rkt_state_with_species):
     }
     expected_active_species = ["CO3-2", "CO2", "Na", "Mg", "Ca"]
     for ion, ecd in expected_con_dict.items():
-        rkt_ecd = rkt_input.constraintDict[ion]
+        rkt_ecd = rkt_input.constraint_dict[ion]
         # order might change....
         expected_ecds = len(ecd)
         counted_ecds = 0
@@ -96,13 +96,13 @@ def test_with_rkt_sum(build_rkt_state_with_species):
                 counted_ecds += 1
         assert counted_ecds == expected_ecds
     for eas in expected_active_species:
-        assert eas in rkt_input.rktActiveSpecies
-    assert len(rkt_input.rktActiveSpecies) == len(expected_active_species)
-    assert len(rkt_input.constraintDict) == len(expected_con_dict)
+        assert eas in rkt_input.active_species
+    assert len(rkt_input.active_species) == len(expected_active_species)
+    assert len(rkt_input.constraint_dict) == len(expected_con_dict)
 
     """ check charge neutrality enabled"""
-    assert rkt_input.assertChargeNeutrality == True
-    assert rkt_input.neutralityIon == "Cl"
+    assert rkt_input.assert_charge_neutrality == True
+    assert rkt_input.neutrality_ion == "Cl"
 
 
 def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
@@ -111,15 +111,15 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
     m, rkt_state = build_rkt_state_with_species_no_ph
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    rkt_input = rktInputSpec.reaktoroInputSpec(rkt_state)
+    rkt_input = RktInputspec.ReaktoroInputSpec(rkt_state)
     # lime = Var(initialize=0.01, units=pyunits.mol / pyunits.s)
     # lime.construct()
 
     # rkt_input.register_chemical_addition("CaO", lime)
-    rkt_input.assert_charge_neutrality(False)
+    rkt_input.register_charge_neutrality(False)
     rkt_input.configure_specs(dissolve_species_in_rkt=True)
-    input_names = rkt_input.rktEquilibriumSpecs.namesControlVariables()
-    input_constraints = rkt_input.rktEquilibriumSpecs.namesConstraints()
+    input_names = rkt_input.equilibrium_specs.namesControlVariables()
+    input_constraints = rkt_input.equilibrium_specs.namesConstraints()
     print("inputtn", input_names)
     print("input_c", input_constraints)
     expected_names = ["[C]", "[Na]", "[Mg]", "[Cl]", "[Ca]", "[H2O]", "[H]", "[O]"]
@@ -152,9 +152,9 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
         "Cl",
     ]
     for ei in expected_inputs:
-        assert ei in rkt_input.rktInputs.keys()
+        assert ei in rkt_input.rkt_inputs.keys()
         # assert ei in rkt_input.userInputs.keys()
-    assert len(rkt_input.rktInputs.keys()) == len(expected_inputs)
+    assert len(rkt_input.rkt_inputs.keys()) == len(expected_inputs)
     expected_con_dict = {
         "C": [(1.0, "CO3-2")],
         "Na": [(1, "Na")],
@@ -164,7 +164,7 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
     }
     expected_active_species = ["CO3-2", "Na", "Mg", "Ca", "Cl"]
     for ion, ecd in expected_con_dict.items():
-        rkt_ecd = rkt_input.constraintDict[ion]
+        rkt_ecd = rkt_input.constraint_dict[ion]
         # order might change....
         expected_ecds = len(ecd)
         counted_ecds = 0
@@ -173,13 +173,13 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
                 counted_ecds += 1
         assert counted_ecds == expected_ecds
     for eas in expected_active_species:
-        assert eas in rkt_input.rktActiveSpecies
-    assert len(rkt_input.rktActiveSpecies) == len(expected_active_species)
-    assert len(rkt_input.constraintDict) == len(expected_con_dict)
+        assert eas in rkt_input.active_species
+    assert len(rkt_input.active_species) == len(expected_active_species)
+    assert len(rkt_input.constraint_dict) == len(expected_con_dict)
 
     """ check charge neutrality enabled"""
-    assert rkt_input.assertChargeNeutrality == False
-    assert rkt_input.neutralityIon == "Cl"
+    assert rkt_input.assert_charge_neutrality == False
+    assert rkt_input.neutrality_ion == "Cl"
 
 
 def test_with_pyomo_sum(build_rkt_state_with_species):
@@ -188,10 +188,10 @@ def test_with_pyomo_sum(build_rkt_state_with_species):
     m, rkt_state = build_rkt_state_with_species
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    rkt_input = rktInputSpec.reaktoroInputSpec(rkt_state)
+    rkt_input = RktInputspec.ReaktoroInputSpec(rkt_state)
     rkt_input.configure_specs(dissolve_species_in_rkt=False)
-    input_names = rkt_input.rktEquilibriumSpecs.namesControlVariables()
-    input_constraints = rkt_input.rktEquilibriumSpecs.namesConstraints()
+    input_names = rkt_input.equilibrium_specs.namesControlVariables()
+    input_constraints = rkt_input.equilibrium_specs.namesConstraints()
     print(input_names)
     print(input_constraints)
     expected_names = [
@@ -242,12 +242,12 @@ def test_with_pyomo_sum(build_rkt_state_with_species):
         "pH",
     ]
     for ei in expected_inputs:
-        assert ei in rkt_input.userInputs.keys()
-    assert len(rkt_input.userInputs.keys()) == len(expected_inputs)
+        assert ei in rkt_input.user_inputs.keys()
+    assert len(rkt_input.user_inputs.keys()) == len(expected_inputs)
     expected_inputs = ["temperature", "pressure", "pH", "C", "H2O", "Na", "Mg", "Ca"]
     for ei in expected_inputs:
-        assert ei in rkt_input.rktInputs.keys()
-    assert len(rkt_input.rktInputs.keys()) == len(expected_inputs)
+        assert ei in rkt_input.rkt_inputs.keys()
+    assert len(rkt_input.rkt_inputs.keys()) == len(expected_inputs)
     expected_con_dict = {
         "C": [(1.0, "CO3-2"), (1.0, "CO2")],
         "Na": [(1, "Na")],
@@ -256,7 +256,7 @@ def test_with_pyomo_sum(build_rkt_state_with_species):
     }
     expected_active_species = ["CO3-2", "CO2", "Na", "Mg", "Ca"]
     for ion, ecd in expected_con_dict.items():
-        rkt_ecd = rkt_input.constraintDict[ion]
+        rkt_ecd = rkt_input.constraint_dict[ion]
         # order might change....
         expected_ecds = len(ecd)
         counted_ecds = 0
@@ -265,9 +265,9 @@ def test_with_pyomo_sum(build_rkt_state_with_species):
                 counted_ecds += 1
         assert counted_ecds == expected_ecds
     for eas in expected_active_species:
-        assert eas in rkt_input.rktActiveSpecies
-    assert len(rkt_input.rktActiveSpecies) == len(expected_active_species)
-    assert len(rkt_input.constraintDict) == len(expected_con_dict)
+        assert eas in rkt_input.active_species
+    assert len(rkt_input.active_species) == len(expected_active_species)
+    assert len(rkt_input.constraint_dict) == len(expected_con_dict)
 
 
 def test_with_chemical(build_rkt_state_with_species):
@@ -275,7 +275,7 @@ def test_with_chemical(build_rkt_state_with_species):
     m, rkt_state = build_rkt_state_with_species
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    rkt_input = rktInputSpec.reaktoroInputSpec(rkt_state)
+    rkt_input = RktInputspec.ReaktoroInputSpec(rkt_state)
 
     lime = Var(initialize=0.01, units=pyunits.mol / pyunits.s)
     lime.construct()
@@ -290,7 +290,7 @@ def test_with_chemical(build_rkt_state_with_species):
     }
     expected_active_species = ["CaO", "CO3-2", "CO2", "Na", "Mg", "Ca"]
     for ion, ecd in expected_con_dict.items():
-        rkt_ecd = rkt_input.constraintDict[ion]
+        rkt_ecd = rkt_input.constraint_dict[ion]
         # order might change....
         expected_ecds = len(ecd)
         counted_ecds = 0
@@ -299,6 +299,6 @@ def test_with_chemical(build_rkt_state_with_species):
                 counted_ecds += 1
         assert counted_ecds == expected_ecds
     for eas in expected_active_species:
-        assert eas in rkt_input.rktActiveSpecies
-    assert len(rkt_input.rktActiveSpecies) == len(expected_active_species)
-    assert len(rkt_input.constraintDict) == len(expected_con_dict)
+        assert eas in rkt_input.active_species
+    assert len(rkt_input.active_species) == len(expected_active_species)
+    assert len(rkt_input.constraint_dict) == len(expected_con_dict)

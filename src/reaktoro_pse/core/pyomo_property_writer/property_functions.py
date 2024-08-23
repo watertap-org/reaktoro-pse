@@ -1,57 +1,63 @@
 from pyomo.environ import log10, log, exp
 
 
-def build_scaling_tendency_constraint(rktOutputObj):
-    user_output_var = rktOutputObj.pyomoVar
-    build_properties = rktOutputObj.pyomoBuildOptions.properties
+def build_scaling_tendency_constraint(rkt_output_object):
+    user_output_var = rkt_output_object.pyomo_var
+    build_properties = rkt_output_object.pyomo_build_options.properties
     return (
         user_output_var
         == 10
-        ** build_properties[("saturationIndex", rktOutputObj.propertyIndex)].pyomoVar
+        ** build_properties[
+            ("saturationIndex", rkt_output_object.property_index)
+        ].pyomo_var
     )
 
 
-def build_ph_constraint(rktOutputObj):
-    user_output_var = rktOutputObj.pyomoVar
-    build_properties = rktOutputObj.pyomoBuildOptions.properties
+def build_ph_constraint(rkt_output_object):
+    user_output_var = rkt_output_object.pyomo_var
+    build_properties = rkt_output_object.pyomo_build_options.properties
     return (
-        -build_properties[("speciesActivityLn", "H+")].pyomoVar / log(10)
+        -build_properties[("speciesActivityLn", "H+")].pyomo_var / log(10)
         == user_output_var
     )
 
 
-def build_vapor_pressure_constraint(rktOutputObj):
-    user_output_var = rktOutputObj.pyomoVar
-    build_properties = rktOutputObj.pyomoBuildOptions.properties
+def build_vapor_pressure_constraint(rkt_output_object):
+    user_output_var = rkt_output_object.pyomo_var
+    build_properties = rkt_output_object.pyomo_build_options.properties
     return (
         exp(
-            build_properties[("speciesActivityLn", rktOutputObj.propertyIndex)].pyomoVar
+            build_properties[
+                ("speciesActivityLn", rkt_output_object.property_index)
+            ].pyomo_var
         )
         * 101325
         == user_output_var
     )
 
 
-def build_osmotic_constraint(rktOutputObj):
-    user_output_var = rktOutputObj.pyomoVar
-    build_properties = rktOutputObj.pyomoBuildOptions.properties
+def build_osmotic_constraint(rkt_output_object):
+    user_output_var = rkt_output_object.pyomo_var
+    build_properties = rkt_output_object.pyomo_build_options.properties
     return (
         user_output_var
-        == -(8.31446261815324 * build_properties[("temperature", None)].pyomoVar)
+        == -(8.31446261815324 * build_properties[("temperature", None)].pyomo_var)
         / build_properties[
-            ("speciesStandardVolume", rktOutputObj.propertyIndex)
-        ].pyomoVar
-        * build_properties[("speciesActivityLn", rktOutputObj.propertyIndex)].pyomoVar
+            ("speciesStandardVolume", rkt_output_object.property_index)
+        ].pyomo_var
+        * build_properties[
+            ("speciesActivityLn", rkt_output_object.property_index)
+        ].pyomo_var
     )
 
 
-def build_direct_scaling_tendency_constraint(rktOutputObj):
+def build_direct_scaling_tendency_constraint(rkt_output_object):
     # https://reaktoro.org/api/namespaceReaktoro.html#a55b9a29cdf35e98a6b07e67ed2edbc25
-    user_output_var = rktOutputObj.pyomoVar
-    build_properties = rktOutputObj.pyomoBuildOptions.properties
-    build_options = rktOutputObj.pyomoBuildOptions.options
+    user_output_var = rkt_output_object.pyomo_var
+    build_properties = rkt_output_object.pyomo_build_options.properties
+    build_options = rkt_output_object.pyomo_build_options.options
     # TODO: Needs to add temperature unit verificaiton and pressure unit verification
-    temperature_var = build_properties[("temperature", None)].pyomoVar
+    temperature_var = build_properties[("temperature", None)].pyomo_var
     if build_options["logk_type"] == "Analytical":
         A_params = build_options["logk_paramters"]
         log_k = [A_params["A1"]]
@@ -79,7 +85,7 @@ def build_direct_scaling_tendency_constraint(rktOutputObj):
     log_k.append(
         -(
             build_options["delta_V"]
-            * (build_properties[("pressure", None)].pyomoVar - 101325)
+            * (build_properties[("pressure", None)].pyomo_var - 101325)
             / (log(10) * 8.31446261815324 * temperature_var)
         )
     )
@@ -87,7 +93,7 @@ def build_direct_scaling_tendency_constraint(rktOutputObj):
     activities = []
     for key, obj in build_properties.items():
         if "speciesActivityLn" in key:
-            activities.append(obj.pyomoVar * obj.stoichiometricCoeff / log(10))
+            activities.append(obj.pyomo_var * obj.stoichiometric_coeff / log(10))
     return user_output_var == 10 ** (
         sum(activities)
         + sum(

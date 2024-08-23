@@ -2,15 +2,15 @@ import reaktoro as rkt
 
 import numpy as np
 
-from reaktoro_pse.core.reaktoro_state import reaktoroState
+from reaktoro_pse.core.reaktoro_state import ReaktoroState
 from reaktoro_pse.core.reaktoro_outputs import (
-    reaktoroOutputSpec,
+    ReaktoroOutputSpec,
 )
 from reaktoro_pse.core.reaktoro_inputs import (
-    reaktoroInputSpec,
+    ReaktoroInputSpec,
 )
 from reaktoro_pse.core.reaktoro_jacobian import (
-    reaktoroJacobianSpec,
+    ReaktoroJacobianSpec,
 )
 import cyipopt
 import idaes.logger as idaeslog
@@ -22,45 +22,41 @@ _log = idaeslog.getLogger(__name__)
 """class to setup reaktor solver for reaktoro"""
 
 
-class reaktoroSolver:
+class ReaktoroSolver:
     def __init__(
         self,
-        reaktoroBase,
-        rktInputSpec,
-        rktOutputSpec,
-        rktJacobianSpec,
+        reaktoro_state,
+        reaktoro_input_specs,
+        reaktoro_output_specs,
+        reaktoro_jacobian_specs,
         block_name=None,
     ):
         self.blockName = block_name
-        self.rktBase = reaktoroBase
-        if isinstance(self.rktBase, reaktoroState) == False:
+        self.state = reaktoro_state
+        if isinstance(self.state, ReaktoroState) == False:
             raise TypeError("Reator jacobian require rektoroState class")
-        self.rktInputSpec = rktInputSpec
-        if isinstance(self.rktInputSpec, reaktoroInputSpec) == False:
-            raise TypeError("Reator outputs require reaktoroOutputSpec class")
-        self.rktOutputSpec = rktOutputSpec
-        if isinstance(self.rktOutputSpec, reaktoroOutputSpec) == False:
-            raise TypeError("Reator outputs require reaktoroOutputSpec class")
-        self.rktJacobianSpec = rktJacobianSpec
-        if isinstance(self.rktJacobianSpec, reaktoroJacobianSpec) == False:
-            raise TypeError("Reator outputs require reaktoroOutputSpec class")
-        self.rktSolverOptions = rkt.EquilibriumOptions()
-        self.rktPresolveOptions = rkt.EquilibriumOptions()
+        self.input_specs = reaktoro_input_specs
+        if isinstance(self.input_specs, ReaktoroInputSpec) == False:
+            raise TypeError("Reator outputs require ReaktoroOutputSpec class")
+        self.output_specs = reaktoro_output_specs
+        if isinstance(self.output_specs, ReaktoroOutputSpec) == False:
+            raise TypeError("Reator outputs require ReaktoroOutputSpec class")
+        self.jacbian_specs = reaktoro_jacobian_specs
+        if isinstance(self.jacbian_specs, ReaktoroJacobianSpec) == False:
+            raise TypeError("Reator outputs require ReaktoroOutputSpec class")
+        self.solver_options = rkt.EquilibriumOptions()
+        self.presolve_options = rkt.EquilibriumOptions()
 
-        existing_constraints = self.rktInputSpec.rktEquilibriumSpecs.namesConstraints()
+        existing_constraints = self.input_specs.equilibrium_specs.namesConstraints()
 
-        existing_variables = (
-            self.rktInputSpec.rktEquilibriumSpecs.namesControlVariables()
-        )
+        existing_variables = self.input_specs.equilibrium_specs.namesControlVariables()
         _log.debug(f"rktSolver inputs: {existing_variables}")
         _log.debug(f"rktSolver constraints: {existing_constraints}")
-        self.rktSolver = rkt.EquilibriumSolver(self.rktInputSpec.rktEquilibriumSpecs)
-        self.rktConditions = rkt.EquilibriumConditions(
-            self.rktInputSpec.rktEquilibriumSpecs
-        )
+        self.solver = rkt.EquilibriumSolver(self.input_specs.equilibrium_specs)
+        self.conditions = rkt.EquilibriumConditions(self.input_specs.equilibrium_specs)
 
-        self.rktSensitivity = rkt.EquilibriumSensitivity(
-            self.rktInputSpec.rktEquilibriumSpecs
+        self.sensitivity = rkt.EquilibriumSensitivity(
+            self.input_specs.equilibrium_specs
         )
         self.set_solver_options()
         self._sequential_fails = 0
@@ -86,58 +82,58 @@ class reaktoroSolver:
         presolve_tolerance -- presolve tolerance if enabled (default: 1e-12)
         presolve_max_iters -- maximum iterations for presolve call if enabled (default: 200)
         """
-        self.rktSolverOptions.epsilon = epsilon
-        self.rktSolverOptions.optima.maxiters = max_iters
+        self.solver_options.epsilon = epsilon
+        self.solver_options.optima.maxiters = max_iters
 
         # self.rktSolverOptions.optima.output.active = True
-        self.rktSolverOptions.optima.convergence.tolerance = tolerance
+        self.solver_options.optima.convergence.tolerance = tolerance
 
-        self.rktPresolveOptions.epsilon = presolve_epsilon
-        self.rktPresolveOptions.optima.maxiters = presolve_max_iters
+        self.presolve_options.epsilon = presolve_epsilon
+        self.presolve_options.optima.maxiters = presolve_max_iters
 
         # self.rktPresolveOptions.optima.output.active = True
-        self.rktPresolveOptions.optima.convergence.tolerance = presolve_tolerance
+        self.presolve_options.optima.convergence.tolerance = presolve_tolerance
         self.presolve = presolve
-        self.rktSolver.setOptions(self.rktSolverOptions)
+        self.solver.setOptions(self.solver_options)
         self.hessian_type = hessian_type
-        if self.rktInputSpec.assertChargeNeutrality:
-            self.rktConditions.charge(0)
+        if self.input_specs.assert_charge_neutrality:
+            self.conditions.charge(0)
 
     def update_specs(self, params):
-        for input_key in self.rktInputSpec.rktInputs.rktInputList:
-            input_obj = self.rktInputSpec.rktInputs[input_key]
+        for input_key in self.input_specs.rkt_inputs.rkt_input_list:
+            input_obj = self.input_specs.rkt_inputs[input_key]
             if params is None:
                 value = input_obj.get_value(update_temp=True)
             else:
                 value = params.get(input_key)
                 input_obj.currentValue = value
-            unit = input_obj.mainUnit
+            unit = input_obj.main_unit
             # _log.info(
             #     f"spec-input: {input_obj.get_rkt_input_name()},{input_key},{value},{unit}"
             # )
             if input_key == "temperature":
-                self.rktConditions.temperature(value, unit)
+                self.conditions.temperature(value, unit)
             elif input_key == "pressure":
-                self.rktConditions.pressure(value, unit)
+                self.conditions.pressure(value, unit)
             else:
                 # TODO figure out how deal with units...
-                self.rktConditions.set(input_obj.get_rkt_input_name(), value)
+                self.conditions.set(input_obj.get_rkt_input_name(), value)
 
     def get_outputs(self):
         output_arr = []
-        for key, obj in self.rktOutputSpec.rktOutputs.items():
+        for key, obj in self.output_specs.rkt_outputs.items():
             output_arr.append(
-                self.rktOutputSpec.evaluate_property(obj, update_values_in_object=True)
+                self.output_specs.evaluate_property(obj, update_values_in_object=True)
             )
         return output_arr
 
     def get_jacobian(self):
-        self.tempJacobianMatrix = self.rktSensitivity.dudw()
-        self.rktJacobianSpec.update_jacobian_absolute_values()
+        self.tempJacobianMatrix = self.sensitivity.dudw()
+        self.jacbian_specs.update_jacobian_absolute_values()
         jac_matrix = []
-        for input_key in self.rktInputSpec.rktInputs.rktInputList:
-            input_obj = self.rktInputSpec.rktInputs[input_key]
-            jac_row = self.rktJacobianSpec.get_jacobian(
+        for input_key in self.input_specs.rkt_inputs.rkt_input_list:
+            input_obj = self.input_specs.rkt_inputs[input_key]
+            jac_row = self.jacbian_specs.get_jacobian(
                 self.tempJacobianMatrix, input_obj
             )
             jac_matrix.append(jac_row)
@@ -157,7 +153,7 @@ class reaktoroSolver:
 
         result = self.try_solve(presolve)
         self.outputs = self.get_outputs()
-        self.jacobianMatrix = self.get_jacobian()
+        self.jacobian_matrix = self.get_jacobian()
         if result.succeeded() == False or display:
             _log.info(
                 f"warning, solve was not successful for {self.blockName}, fail# {self._sequential_fails}"
@@ -168,29 +164,29 @@ class reaktoroSolver:
             raise cyipopt.CyIpoptEvaluationError
         else:
             self._sequential_fails = 0
-        return self.jacobianMatrix, self.outputs
+        return self.jacobian_matrix, self.outputs
 
     def try_solve(self, presolve=False):
-        # for inPut in self.rktInputSpec.rktEquilibriumSpecs.namesInputs():
+        # for inPut in self.RktInputspec.equilibrium_specs.namesInputs():
         #     _log.info(f"input value: {inPut} : {self.rktConditions.inputValue(inPut)}")
         if self.presolve or presolve:
             # _log.info("pre-solving")
             """solve to loose tolerance first if selected"""
-            self.rktSolver.setOptions(self.rktPresolveOptions)
-            self.rktSolver.solve(
-                self.rktBase.rktState,
-                self.rktSensitivity,
-                self.rktConditions,
+            self.solver.setOptions(self.presolve_options)
+            self.solver.solve(
+                self.state.state,
+                self.sensitivity,
+                self.conditions,
             )
-            self.rktSolver.setOptions(self.rktSolverOptions)
+            self.solver.setOptions(self.solver_options)
         # _log.info("solving")
         # _log.info(self.rktBase.rktState)
-        result = self.rktSolver.solve(
-            self.rktBase.rktState,
-            self.rktSensitivity,
-            self.rktConditions,
+        result = self.solver.solve(
+            self.state.state,
+            self.sensitivity,
+            self.conditions,
         )
-        self.rktOutputSpec.update_supported_props()
+        self.output_specs.update_supported_props()
         # _log.info(self.rktBase.rktState)
         # _log.info(result.succeeded())
         return result

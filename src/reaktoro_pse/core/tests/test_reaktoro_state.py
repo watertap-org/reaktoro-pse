@@ -32,7 +32,7 @@ def build_rkt_state_with_species():
     m.composition["Ca"].fix(0.01)
     m.composition["HCO3"].fix(0.01)
     m.composition["CO2"].fix(0.001)
-    rkt_state = rktState.reaktoroState()
+    rkt_state = rktState.ReaktoroState()
     rkt_state.register_inputs(
         composition=m.composition, temperature=m.temp, pressure=m.pressure, pH=m.pH
     )
@@ -62,7 +62,7 @@ def build_rkt_state_with_species_no_ph():
     m.composition["Cl"].fix(0.5)
     m.composition["Ca"].fix(0.01)
     m.composition["HCO3"].fix(0.01)
-    rkt_state = rktState.reaktoroState()
+    rkt_state = rktState.ReaktoroState()
     rkt_state.register_inputs(
         composition=m.composition, temperature=m.temp, pressure=m.pressure
     )
@@ -91,7 +91,7 @@ def build_rkt_state_with_elements():
     composition["Cl"].fix(0.5)
     composition["Ca"].fix(0.01)
     composition["C"].fix(0.01)
-    rkt_state = rktState.reaktoroState()
+    rkt_state = rktState.ReaktoroState()
     rkt_state.register_inputs(
         composition=composition,
         temperature=temp,
@@ -109,30 +109,24 @@ def test_state_with_species(build_rkt_state_with_species):
     m, rkt_state = build_rkt_state_with_species
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    print(rkt_state.rktState)
+    print(rkt_state.state)
     assert (
-        pytest.approx(float(rkt_state.rktState.props().elementAmount("O")), 1e-3)
-        == 50.03
+        pytest.approx(float(rkt_state.state.props().elementAmount("O")), 1e-3) == 50.03
     )
     assert (
-        pytest.approx(float(rkt_state.rktState.props().elementAmount("H")), 0.1)
-        == 100.0
+        pytest.approx(float(rkt_state.state.props().elementAmount("H")), 0.1) == 100.0
     )
     assert (
-        pytest.approx(float(rkt_state.rktState.props().elementAmount("Na")), 1e-3)
-        == 0.5
+        pytest.approx(float(rkt_state.state.props().elementAmount("Na")), 1e-3) == 0.5
     )
     assert (
-        pytest.approx(float(rkt_state.rktState.props().elementAmount("Mg")), 1e-3)
-        == 0.1
+        pytest.approx(float(rkt_state.state.props().elementAmount("Mg")), 1e-3) == 0.1
     )
     assert (
-        pytest.approx(float(rkt_state.rktState.props().elementAmount("Cl")), 1e-3)
-        == 0.5
+        pytest.approx(float(rkt_state.state.props().elementAmount("Cl")), 1e-3) == 0.5
     )
     assert (
-        pytest.approx(float(rkt_state.rktState.props().elementAmount("C")), 1e-3)
-        == 0.011
+        pytest.approx(float(rkt_state.state.props().elementAmount("C")), 1e-3) == 0.011
     )
 
 
@@ -145,8 +139,8 @@ def test_chian_activity(build_rkt_state_with_species):
 
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    props = rkt_state.rktState.props()
-    for species in rkt_state.rktSystem.species():
+    props = rkt_state.state.props()
+    for species in rkt_state.system.species():
         print(f"{species.name():<20}{props.speciesActivityCoefficient(species.name())}")
     assert (
         pytest.approx(float(props.speciesActivityCoefficient("H2O")), 1e-2) == 1.25736
@@ -159,9 +153,9 @@ def test_state_with_solids(build_rkt_state_with_species):
     rkt_state.set_mineral_phase_activity_model()
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    print(rkt_state.rktState)
+    print(rkt_state.state)
     assert (
-        pytest.approx(float(rkt_state.rktState.props().speciesAmount("Calcite")), 1e-5)
+        pytest.approx(float(rkt_state.state.props().speciesAmount("Calcite")), 1e-5)
         == 0.008835542753970915
     )
 
@@ -172,13 +166,13 @@ def test_state_with_gas(build_rkt_state_with_species):
     rkt_state.set_gas_phase_activity_model()
     rkt_state.build_state()
     rkt_state.equilibrate_state()
-    print(rkt_state.rktState.props())
+    print(rkt_state.state.props())
     assert (
-        pytest.approx(float(rkt_state.rktState.props().speciesAmount("CO2(g)")), 1e-5)
+        pytest.approx(float(rkt_state.state.props().speciesAmount("CO2(g)")), 1e-5)
         == 1e-16
     )
     assert (
-        pytest.approx(float(rkt_state.rktState.props().speciesActivity("CO2(g)")), 1e-5)
+        pytest.approx(float(rkt_state.state.props().speciesActivity("CO2(g)")), 1e-5)
         == 1.0
     )
 
@@ -187,16 +181,8 @@ def test_state_with_elements(build_rkt_state_with_elements):
     rkt_state = build_rkt_state_with_elements
     rkt_state.build_state()
     """ when user provides element amounts, they do not get set in itial condiitons"""
-    assert (
-        pytest.approx(float(rkt_state.rktState.props().elementAmount("O")), 1e-3) == 0
-    )
-    assert pytest.approx(float(rkt_state.rktState.props().elementAmount("H")), 0.1) == 0
-    assert (
-        pytest.approx(float(rkt_state.rktState.props().elementAmount("Na")), 1e-3) == 0
-    )
-    assert (
-        pytest.approx(float(rkt_state.rktState.props().elementAmount("Cl")), 1e-3) == 0
-    )
-    assert (
-        pytest.approx(float(rkt_state.rktState.props().elementAmount("C")), 1e-3) == 0
-    )
+    assert pytest.approx(float(rkt_state.state.props().elementAmount("O")), 1e-3) == 0
+    assert pytest.approx(float(rkt_state.state.props().elementAmount("H")), 0.1) == 0
+    assert pytest.approx(float(rkt_state.state.props().elementAmount("Na")), 1e-3) == 0
+    assert pytest.approx(float(rkt_state.state.props().elementAmount("Cl")), 1e-3) == 0
+    assert pytest.approx(float(rkt_state.state.props().elementAmount("C")), 1e-3) == 0

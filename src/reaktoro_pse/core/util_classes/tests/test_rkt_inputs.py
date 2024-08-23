@@ -1,5 +1,5 @@
 import pytest
-import reaktoro_pse.core.util_classes.rktInputs as rktInputs
+import reaktoro_pse.core.util_classes.rkt_inputs as RktInputs
 from pyomo.environ import Var, units as pyunits
 
 __author__ = "Alexander V. Dudchenko (SLAC)"
@@ -17,20 +17,20 @@ def build_inputs():
     return test_vars
 
 
-def test_rktInput(build_inputs):
+def test_RktInput(build_inputs):
     inputs = build_inputs
 
-    rkt_inputs = rktInputs.rktInputs()
+    rkt_inputs = RktInputs.RktInputs()
     for key, var in inputs.items():
         rkt_inputs[key] = var
 
     assert rkt_inputs["temperature"].value == 293.15
-    assert rkt_inputs["temperature"].timeUnit == None
-    assert rkt_inputs["temperature"].mainUnit == "K"
+    assert rkt_inputs["temperature"].time_unit == None
+    assert rkt_inputs["temperature"].main_unit == "K"
 
     assert rkt_inputs["H2O"].value == 1
-    assert rkt_inputs["H2O"].timeUnit == "s"
-    assert rkt_inputs["H2O"].mainUnit == "kg"
+    assert rkt_inputs["H2O"].time_unit == "s"
+    assert rkt_inputs["H2O"].main_unit == "kg"
 
     with pytest.raises(TypeError) as a:
         rkt_inputs["bad_var"] = 1

@@ -13,7 +13,7 @@ __author__ = "Ilayda Akkor, Alexander Dudchenko, Paul Vecchiarelli, Ben Knueven"
 _log = idaeslog.getLogger(__name__)
 
 
-class hessTypes:
+class HessTypes:
     JtJ = "J.tJ"
     BFGS = "BFGS"
     BFGS_mod = "BFGS-mod"
@@ -21,16 +21,16 @@ class hessTypes:
     BFGS_ipopt = "BFGS-ipopt"
 
 
-class reaktoroGrayBox(ExternalGreyBoxModel):
+class ReaktoroGrayBox(ExternalGreyBoxModel):
     ########################################################################################
     # custom Grey Box functions
-    def configure(self, rktSolver):
+    def configure(self, reaktoro_solver):
         # assign a Reaktoro state object to instance
-        self.reaktoro_solver = rktSolver
-        self.hess_type = rktSolver.hessian_type
-        self.inputs = rktSolver.rktInputSpec.rktInputs.rktInputList
-        self.input_dict = rktSolver.rktInputSpec.rktInputs
-        self.outputs = list(rktSolver.rktOutputSpec.rktOutputs.keys())
+        self.reaktoro_solver = reaktoro_solver
+        self.hess_type = reaktoro_solver.hessian_type
+        self.inputs = reaktoro_solver.input_specs.rkt_inputs.rkt_input_list
+        self.input_dict = reaktoro_solver.input_specs.rkt_inputs
+        self.outputs = list(reaktoro_solver.output_specs.rkt_outputs.keys())
         self._outputs_dual_multipliers = np.ones(len(self.outputs))
         self._hess = np.zeros((len(self.inputs), len(self.inputs)))
         self.header_saved = False
@@ -60,7 +60,7 @@ class reaktoroGrayBox(ExternalGreyBoxModel):
             # 1e-16 is Reaktoro's epsilon value
             if "inputs" in block.name:
                 for var in self.inputs:
-                    pyo_object = self.input_dict[var].pyomoVar
+                    pyo_object = self.input_dict[var].pyomo_var
                     block[var].value = pyo.value(pyo_object)
                     block[var].setlb(0)
                     block[var].setub(None)
@@ -103,7 +103,7 @@ class reaktoroGrayBox(ExternalGreyBoxModel):
         np.copyto(self._outputs_dual_multipliers, _outputs_dual_multipliers)
 
     def get_output_constraint_scaling_factors(self):
-        return self.reaktoro_solver.jacobianScalingValues
+        return self.reaktoro_solver.jacobian_scaling_values
 
     def hessian_gauss_newton_version(self, sparse_jac, threshold=7):
 
@@ -204,7 +204,7 @@ class reaktoroGrayBox(ExternalGreyBoxModel):
                 y_s = y_k.T @ s_k
                 H_s = self.H[i] @ s_k
 
-                ########################################### new
+                # new
                 s_H_s = s_k.T @ H_s
                 if y_s >= phi * s_H_s:
                     delta_k = 1
@@ -264,15 +264,15 @@ class reaktoroGrayBox(ExternalGreyBoxModel):
         return self.hessian
 
     def evaluate_hessian_outputs(self):
-        if self.hess_type == hessTypes.JtJ:
+        if self.hess_type == HessTypes.JtJ:
             self._hess = self.hessian_gauss_newton_version(sparse_jac=False)
-        if self.hess_type == hessTypes.BFGS:
+        if self.hess_type == HessTypes.BFGS:
             self._hess = self.hessian_bfgs()
-        if self.hess_type == hessTypes.BFGS_mod:
+        if self.hess_type == HessTypes.BFGS_mod:
             self._hess = self.hessian_modified_bfgs()
-        if self.hess_type == hessTypes.BFGS_damp:
+        if self.hess_type == HessTypes.BFGS_damp:
             self._hess = self.hessian_damped_bfgs()
-        if self.hess_type == hessTypes.BFGS_ipopt:
+        if self.hess_type == HessTypes.BFGS_ipopt:
             self._hess = self.hessian_ipopt_bfgs_modification()
         jm = np.array(self._hess)
         cm = tril(jm)
