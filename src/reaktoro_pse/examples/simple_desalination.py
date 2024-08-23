@@ -111,11 +111,12 @@ def build_simple_desal():
         outputs=m.desal_properties,
         chemical_addition={"HCl": m.acid_addition},
         aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
-        dissolve_species_in_reaktoro=False,
+        dissolve_species_in_reaktoro=True,
         # we can use default converter as its defined for default database
         convert_to_rkt_species=True,
         # we are modifying state so lets speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
+        open_species_on_property_block=["H+"],
     )
     scale_model(m)
     return m

@@ -746,12 +746,13 @@ class ReaktoroBlockData(ProcessBlockData):
                         chemical = chemical[-1]
                     block.rkt_inputs.register_chemical(chemical, speciation)
             block.rkt_inputs.register_open_species(
-                self.config.open_species_on_speciation_block
+                self.config.open_species_on_property_block
             )
         else:
             block.rkt_inputs.register_open_species(
-                self.config.open_species_on_property_block
+                self.config.open_species_on_speciation_block
             )
+
         """ register aqueous solvent phase"""
         block.rkt_inputs.register_aqueous_solvent(self.config.aqueous_solvent_specie)
 

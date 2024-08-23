@@ -177,7 +177,15 @@ class ReaktoroInputSpec:
                 self.rkt_inputs[aq_specie].set_rkt_input_name(aq_specie)
 
             self.write_open_solvent_constraints(specs_object)
-
+        # else:
+        print(specs_object.namesConstraints())
+        print(specs_object.namesControlVariables())
+        print(specs_object.namesControlVariablesP())
+        print(specs_object.namesControlVariablesQ())
+        print(specs_object.namesTitrants())
+        print(specs_object.namesTitrantsExplicit())
+        print(specs_object.namesTitrantsImplicit())
+        print(specs_object.namesInputs())
         self.write_empty_constraints(specs_object)
         """ legacy code """
 
