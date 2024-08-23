@@ -341,6 +341,7 @@ class ReaktoroInputSpec:
         for specie in self.empty_constraints:
             spec_object.openTo(specie)
             self.write_empty_con(spec_object, specie)
+
     """ legacy code """
     # def write_empty_constraints(
     #     self, rkt_chemical_inputs, spec_object, active_species=[]
