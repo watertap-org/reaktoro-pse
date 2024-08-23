@@ -25,6 +25,7 @@ class ReaktoroInputSpec:
         self.register_charge_neutrality()
         self.default_chemical_speciation()
         self.register_aqueous_solvent()
+        self.register_open_species()
 
     def register_chemical_additions(self, chemical_dict, index=None):
         """registers chemicals being added to system
@@ -150,10 +151,7 @@ class ReaktoroInputSpec:
             specs_object.charge()
             if self.neutrality_ion not in specs_object.namesInputs():
                 """needs to be a species!"""
-                specs_object.openTo(
-                    # RktInputs.specie_to_rkt_species(self.neutralityIon)
-                    self.neutrality_ion
-                )
+                specs_object.openTo(self.neutrality_ion)
 
         self._find_element_sums()
         """ add/check if vars in rkt Inputs"""
@@ -178,14 +176,14 @@ class ReaktoroInputSpec:
 
             self.write_open_solvent_constraints(specs_object)
         # else:
-        print(specs_object.namesConstraints())
-        print(specs_object.namesControlVariables())
-        print(specs_object.namesControlVariablesP())
-        print(specs_object.namesControlVariablesQ())
-        print(specs_object.namesTitrants())
-        print(specs_object.namesTitrantsExplicit())
-        print(specs_object.namesTitrantsImplicit())
-        print(specs_object.namesInputs())
+        # print(specs_object.namesConstraints())
+        # print(specs_object.namesControlVariables())
+        # print(specs_object.namesControlVariablesP())
+        # print(specs_object.namesControlVariablesQ())
+        # print(specs_object.namesTitrants())
+        # print(specs_object.namesTitrantsExplicit())
+        # print(specs_object.namesTitrantsImplicit())
+        # print(specs_object.namesInputs())
         self.write_empty_constraints(specs_object)
         """ legacy code """
 

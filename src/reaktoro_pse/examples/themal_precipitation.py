@@ -255,7 +255,6 @@ def build_simple_precipitation():
         convert_to_rkt_species=True,
         dissolve_species_in_reaktoro=False,
         jacobian_user_scaling={("molarEnthalpy", None): 1},
-        # presolve=True, # when solids are include, presolving can help with stability
     )
     m.eq_cooled_treated_properties = ReaktoroBlock(
         composition=m.treated_composition,
@@ -356,9 +355,7 @@ def initialize(m):
 
     m.eq_treated_properties.initialize()
     m.eq_cooled_treated_properties.initialize()
-    # m.display()
     solve(m)
-    # m.display()
 
 
 def setup_optimization(m):

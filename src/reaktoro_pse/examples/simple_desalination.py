@@ -19,14 +19,19 @@ import reaktoro as rkt
 
 def main():
     m = build_simple_desal()
+    m_open = build_simple_desal(True)
     initialize(m)
+    initialize(m_open)
     setup_optimization(m)
+    setup_optimization(m_open)
+    print("---result with out extra open species---")
     solve(m)
-    m.display()
-    return m
+    print("---result with open extra open species---")
+    solve(m_open)
+    return m, m_open
 
 
-def build_simple_desal():
+def build_simple_desal(open_species=False):
     m = ConcreteModel()
     m.feed_composition = Var(
         ["H2O", "Mg", "Na", "Cl", "SO4", "Ca", "HCO3"],
@@ -78,14 +83,13 @@ def build_simple_desal():
         ],
         initialize=1,
     )
-    m.desal_ph = Var(initialize=1)
-    m.osmotic_pressure = Var(initialize=1)
+    m.desal_pH = Var(initialize=1)
 
     m.desal_properties = {}
     for key, obj in m.desal_scaling.items():
         m.desal_properties[key] = obj
-    m.desal_properties[("pH", None)] = m.desal_ph
-    m.desal_properties[("osmoticPressure", "H2O")] = m.osmotic_pressure
+    m.desal_properties[("pH", None)] = m.desal_pH
+    m.desal_properties[("osmoticPressure", "H2O")] = m.desal_osmotic_pressure
 
     m.desal_properties[("pH", None)].setlb(4)
 
@@ -102,7 +106,20 @@ def build_simple_desal():
     m.eq_water_recovery = Constraint(
         expr=m.water_recovery == m.desal_product_flow / m.feed_composition["H2O"]
     )
+    if open_species:
+        """
+        Example for opening additional species to improve
+        reaktoro solver stability,
+        Note how this does not alter reaktoro output results as
+        the H+ and OH- is already constrained by total H amount in property
+        block, as such the DOFs are still zero.
 
+        However, this can result in incorrect speciation for some databases such
+        as super critical database. (Try it on the thermal_precipitation example)
+        """
+        species_to_open = ["H+", "OH-"]
+    else:
+        species_to_open = None
     m.eq_desal_properties = ReaktoroBlock(
         composition=m.desal_composition,
         temperature=m.feed_temperature,
@@ -112,11 +129,11 @@ def build_simple_desal():
         chemical_addition={"HCl": m.acid_addition},
         aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
         dissolve_species_in_reaktoro=True,
-        # we can use default converter as its defined for default database
+        # we can use default converter as its defined for default database (Phreeqc and pitzer)
         convert_to_rkt_species=True,
-        # we are modifying state so lets speciate inputs before adding acid to find final prop state.
+        # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
-        open_species_on_property_block=["H+"],
+        open_species_on_property_block=species_to_open,
     )
     scale_model(m)
     return m
@@ -142,7 +159,6 @@ def initialize(m):
         )
     m.eq_desal_properties.initialize()
     solve(m)
-    m.display()
 
 
 def setup_optimization(m):
@@ -153,28 +169,12 @@ def setup_optimization(m):
     m.acid_addition.unfix()
 
 
-# def solve(m):
-#     # add dummy objective, if needed
-#     _dummy_objective = None
-#     n_obj = 0
-#     for c in m.component_data_objects(pyo.Objective, active=True):
-#         n_obj += 1
-#     # Add an objective if there isn't one
-#     if n_obj == 0:
-#         _dummy_objective = pyo.Objective(expr=0)
-#         name = unique_component_name(m, "objective")
-#         m.add_component(name, _dummy_objective)
-#     cy_solver = get_solver(solver="cyipopt")
-#     # cy_solver.options["max_iter"] = 200
-#     # only enable if avaialbe !
-#     # cy_solver.options["linear_solver"] = "ma27"
-#     try:
-#         result = cy_solver.solve(m, tee=True)
-#     finally:
-#         # delete the dummy objective
-#         if _dummy_objective is not None:
-#             m.del_component(_dummy_objective)
-#     return result
+def display_results(m):
+    print("result")
+    print(f"""Osmotic pressure {m.desal_osmotic_pressure.value} (Pa)""")
+    for key, obj in m.desal_scaling.items():
+        print(f"{key}, {obj.value}")
+    print(f"feed pH {m.feed_pH.value}, desal pH {m.desal_pH.value}")
 
 
 def solve(m):
@@ -183,6 +183,7 @@ def solve(m):
     # only enable if avaialbe !
     # cy_solver.options["linear_solver"] = "ma27"
     result = cy_solver.solve(m, tee=True)
+    display_results(m)
     return result
 
 
