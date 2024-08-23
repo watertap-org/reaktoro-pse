@@ -14,6 +14,7 @@ import idaes.core.util.scaling as iscale
 from pyomo.common.modeling import unique_component_name
 
 import pyomo.environ as pyo
+import reaktoro as rkt
 
 
 def main():
@@ -65,15 +66,27 @@ def build_simple_desal():
     )
     m.water_recovery.fix()
     m.desal_osmotic_pressure = Var(initialize=1e5, units=pyunits.Pa)
-    m.desal_properties = Var(
+
+    """ Note how we declare different output variables and assemble them into
+    single dict to pass into reaktoro block, this enables user to 
+    mix outputs from different pyomo varabiles in thier models and directly bind them as 
+    outputs in reaktoro model"""
+    m.desal_scaling = Var(
         [
             ("scalingTendency", "Calcite"),
             ("scalingTendency", "Gypsum"),
-            ("pH", None),
-            ("osmoticPressure", "H2O"),
         ],
         initialize=1,
     )
+    m.desal_ph = Var(initialize=1)
+    m.osmotic_pressure = Var(initialize=1)
+
+    m.desal_properties = {}
+    for key, obj in m.desal_scaling.items():
+        m.desal_properties[key] = obj
+    m.desal_properties[("pH", None)] = m.desal_ph
+    m.desal_properties[("osmoticPressure", "H2O")] = m.osmotic_pressure
+
     m.desal_properties[("pH", None)].setlb(4)
 
     @m.Constraint(list(m.feed_composition.keys()))
@@ -97,7 +110,7 @@ def build_simple_desal():
         pH=m.feed_pH,
         outputs=m.desal_properties,
         chemical_addition={"HCl": m.acid_addition},
-        aqueous_phase_activity_model="ActivityModelPitzer",
+        aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
         dissolve_species_in_reaktoro=False,
         # we can use default converter as its defined for default database
         convert_to_rkt_species=True,

@@ -99,7 +99,7 @@ class ReaktoroBlockData(ProcessBlockData):
             domain=bool,
             description="Pressure is indexed",
             doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
-                - If true, the input has same indexing as block, and each indexed input willbe passed into respective indexed reaktoroBlock
+                - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
                 - If false, all indexed blocks will get same input""",
         ),
     )
@@ -119,7 +119,7 @@ class ReaktoroBlockData(ProcessBlockData):
             domain=bool,
             description="pH is indexed",
             doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
-                - If true, the input has same indexing as block, and each indexed input willbe passed into respective indexed reaktoroBlock
+                - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
                 - If false, all indexed blocks will get same input""",
         ),
     )
@@ -147,27 +147,41 @@ class ReaktoroBlockData(ProcessBlockData):
         "mineral_phases",
         ConfigValue(
             default=None,
-            domain=IsInstance((str, list, rkt)),
-            description="List or str representing mineral phases",
-            doc="Mineral phases supported by selected data base",
+            description="List or str of mineral phases",
+            doc="""
+            Mineral phases supported by selected data base
+            Accepts:
+                string name for phase
+                reaktoro.MineralPhase initialized object (e.g reaktoro.MineralPhase('Calcite'))
+                List of strings or reaktor.MineralPhases
+            """,
         ),
     )
     CONFIG.declare(
         "gas_phases",
         ConfigValue(
             default=None,
-            domain=IsInstance((str, list, rkt)),
-            description="List or str for gas phases or elemetns that make up gas phases",
-            doc="Gas phases supported by selected data base",
+            description="List or str for gas phases",
+            doc="""
+            Gas phases supported by selected data base
+            Accepts:
+                string name for phase
+                reaktoro.GaseousPhase initialized object (e.g reaktoro.GaseousPhase('H2O(g)'))
+                List of strings or reaktor.GaseousPhase
+                """,
         ),
     )
     CONFIG.declare(
         "ion_exchange_phases",
         ConfigValue(
             default=None,
-            domain=IsInstance((str, list, rkt)),
-            description="List or str for gas phases or elemetns that make up gas phases",
-            doc="Gas phases supported by selected data base",
+            description="List or str for Ion exchange phases",
+            doc="""Ion exchange phases supported by selected data base
+            Accepts:
+                string name for phase
+                reaktoro.IonExchangePhase initialized object (e.g reaktoro.IonExchangePhase('X'))
+                List of strings or reaktor.IonExchangePhase
+                """,
         ),
     )
     CONFIG.declare(
@@ -176,11 +190,13 @@ class ReaktoroBlockData(ProcessBlockData):
             default=False,
             domain=bool,
             description="Defines if gas or mineral phases should be included in speciation block when built",
-            doc="""Defines if mineral and gas phases are added to speciation block if constructed. Generally, 
+            doc="""
+            Defines if mineral and gas phases are added to speciation block if constructed. Generally, 
              it is not need to include gas and mineral phases when getting initial equilibrium state before 
              performing chemical addition. 
              Phases are always built when getting properties block. 
-             Ion exchange phases are always included on all blocks""",
+             Ion exchange phases are always included on all blocks
+             """,
         ),
     )
     CONFIG.declare(
@@ -216,36 +232,54 @@ class ReaktoroBlockData(ProcessBlockData):
         "aqueous_phase_activity_model",
         ConfigValue(
             default="ActivityModelIdealAqueous",
-            domain=IsInstance(str, rkt),
-            description="Activity model for aquous phase",
-            doc="Defines which activity model to use in reaktoro",
+            description="Activity model for aqueous phase",
+            doc="""
+            Defines which activity model to use for aqueous phase in reaktoro
+            Accepts:
+            String name of activity model
+            Initialized reaktoro.ActivityModel (e.g. reaktoro.ActivityModelIdealAqueous())
+            Chain of reaktoro activity models (reaktoro.chain(reaktoro.ActivityModelA, reaktoro.ActivityModelB))
+            List of activity models strings or reaktoro.ActivityModel initialized objects.
+            """,
         ),
     )
     CONFIG.declare(
         "gas_phase_activity_model",
         ConfigValue(
             default="ActivityModelIdealGas",
-            domain=IsInstance(str, rkt),
             description="Activity model for gas phase",
-            doc="Defines which activity model to use in reaktoro",
+            doc="""Defines which activity model to use in reaktoro
+            Accepts:
+            String name of activity model
+            Initialized reaktoro.ActivityModel (e.g. reaktoro.ActivityModelIdealAqueous())
+            Chain of reaktoro activity models (reaktoro.chain(reaktoro.ActivityModelA, reaktoro.ActivityModelB))
+            List of activity models strings or reaktoro.ActivityModel initialized objects.""",
         ),
     )
     CONFIG.declare(
         "mineral_phase_activity_model",
         ConfigValue(
             default="ActivityModelIdealSolution",
-            domain=IsInstance(str, rkt),
             description="Activity model for mineral phase",
-            doc="Defines which activity model to use in reaktoro",
+            doc="""Defines which activity model to use in reaktoro
+            Accepts:
+            String name of activity model
+            Initialized reaktoro.ActivityModel (e.g. reaktoro.ActivityModelIdealAqueous())
+            Chain of reaktoro activity models (reaktoro.chain(reaktoro.ActivityModelA, reaktoro.ActivityModelB))
+            List of activity models strings or reaktoro.ActivityModel initialized objects.""",
         ),
     )
     CONFIG.declare(
         "ion_exchange_phase_activity_model",
         ConfigValue(
             default="ActivityModelIonExchange",
-            domain=IsInstance(str, rkt),
             description="Activity model for mineral phase",
-            doc="Defines which activity model to use in reaktoro",
+            doc="""Defines which activity model to use in reaktoro
+            Accepts:
+            String name of activity model
+            Initialized reaktoro.ActivityModel (e.g. reaktoro.ActivityModelIdealAqueous())
+            Chain of reaktoro activity models (reaktoro.chain(reaktoro.ActivityModelA, reaktoro.ActivityModelB))
+            List of activity models strings or reaktoro.ActivityModel initialized objects.""",
         ),
     )
     CONFIG.declare(
