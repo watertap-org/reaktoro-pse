@@ -208,6 +208,7 @@ class ReaktoroState:
                 if species in self.inputs:  # user might not provide all
                     if self.inputs[species].get_value() != 0:
                         unit = self.inputs[species].main_unit
+                        # print(species, self.inputs[species].get_value())
                         if unit == "dimensionless":
                             self.state.set(
                                 species,

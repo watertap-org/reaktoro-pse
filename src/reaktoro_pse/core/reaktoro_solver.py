@@ -167,26 +167,21 @@ class ReaktoroSolver:
         return self.jacobian_matrix, self.outputs
 
     def try_solve(self, presolve=False):
-        # for inPut in self.RktInputspec.equilibrium_specs.namesInputs():
-        #     _log.info(f"input value: {inPut} : {self.rktConditions.inputValue(inPut)}")
         if self.presolve or presolve:
-            # _log.info("pre-solving")
             """solve to loose tolerance first if selected"""
             self.solver.setOptions(self.presolve_options)
-            self.solver.solve(
+            r = self.solver.solve(
                 self.state.state,
                 self.sensitivity,
                 self.conditions,
             )
-            self.solver.setOptions(self.solver_options)
-        # _log.info("solving")
-        # _log.info(self.rktBase.rktState)
+            if r.succeeded() == False:
+                _log.info(f"presolve {r.succeeded()}")
+        self.solver.setOptions(self.solver_options)
         result = self.solver.solve(
             self.state.state,
             self.sensitivity,
             self.conditions,
         )
         self.output_specs.update_supported_props()
-        # _log.info(self.rktBase.rktState)
-        # _log.info(result.succeeded())
         return result

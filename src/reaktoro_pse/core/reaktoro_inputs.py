@@ -20,6 +20,7 @@ class ReaktoroInputSpec:
         self.user_inputs = reaktor_state.inputs  # user iputs provided to state
         self.rkt_inputs = RktInputs.RktInputs()  # inputs that will be fed to rkt spec
         self.rkt_chemical_inputs = RktInputs.RktInputs()
+
         """ execute default configuration options, user can update settings """
         self.register_charge_neutrality()
         self.default_chemical_speciation()
@@ -40,6 +41,22 @@ class ReaktoroInputSpec:
         self.rkt_chemical_inputs[chemical] = RktInputs.RktInput(
             var_name=chemical, pyomo_var=pyomo_var
         )
+
+    def register_open_species(self, specie=None):
+        """registers species to open to optimization and write empety constraint for,
+        this can help with solvability of some problems, but can
+        lead to unexpected results depending on database, activity coefficients, and inputs chosen
+        """
+        self.empty_constraints = []
+        if specie is not None:
+            if isinstance(specie, str):
+                self.empty_constraints = [specie]
+            else:
+                self.empty_constraints = specie
+            for spc in specie:
+                _log.warning(
+                    f"Registered an empty constraint for {self.empty_constraints}, this can lead to unexpected results depending on reaktoro configuration, please use with caution"
+                )
 
     def register_charge_neutrality(self, assert_neutrality=True, ion="Cl"):
         self.assert_charge_neutrality = assert_neutrality
@@ -161,6 +178,7 @@ class ReaktoroInputSpec:
 
             self.write_open_solvent_constraints(specs_object)
 
+        self.write_empty_constraints(specs_object)
         """ legacy code """
 
         # ensure that all species in system are open, and have an empty constraint for
@@ -168,7 +186,7 @@ class ReaktoroInputSpec:
         # self.write_empty_constraints(
         #     self.rktChemicalInputs,
         #     specs_object,
-        #     self.rktActiveSpecies,
+        #     self.rktActiveSpecies,eq
         # )
 
     def _find_element_sums(self):
@@ -313,10 +331,16 @@ class ReaktoroInputSpec:
         spec_object.addConstraint(constraint)
 
     def write_open_solvent_constraints(self, spec_object):
+        """add redundant constraints for H2O"""
         for element, coeff in self.aqueous_solvent_speciation.items():
             spec_object.openTo(element)
             self.write_empty_con(spec_object, element)
 
+    def write_empty_constraints(self, spec_object):
+        """add redundant constraints"""
+        for specie in self.empty_constraints:
+            spec_object.openTo(specie)
+            self.write_empty_con(spec_object, specie)
     """ legacy code """
     # def write_empty_constraints(
     #     self, rkt_chemical_inputs, spec_object, active_species=[]

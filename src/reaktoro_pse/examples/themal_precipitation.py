@@ -400,6 +400,7 @@ def display_results(m):
     print(
         f'Calcite precipitation {m.precipitation_properties[("speciesAmount", "Calcite")].value} mol/s'
     )
+    print(f'precipitator pH {m.precipitation_properties[("pH", None)].value}')
 
 
 if __name__ == "__main__":

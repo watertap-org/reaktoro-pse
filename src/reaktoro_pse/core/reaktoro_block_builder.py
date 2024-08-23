@@ -214,8 +214,6 @@ class ReaktoroBlockBuilder:
                 obj.set_pyomo_var_value(obj.value)
                 rkt_var = self.block.reaktoro_model.outputs[key]
                 output_constraint = self.block.output_constraints[key]
-                # obj.pyomo_var.display()
-                # rkt_var.display()
                 calculate_variable_from_constraint(rkt_var, output_constraint)
 
                 if iscale.get_scaling_factor(rkt_var) is None:

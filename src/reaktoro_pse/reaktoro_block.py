@@ -499,11 +499,21 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "presolve",
+        "presolve_property_block",
         ConfigValue(
             default=False,
             domain=bool,
-            description="Option to pre-solve to low tolerance first, before primary solve",
+            description="Option to pre-solve to low tolerance first on main property block, before primary solve",
+            doc="""In some cases reaktoro might fail to solve to high tolerance first,
+            a presolve at low tolerance can enable the reaktoro solve to high tolerance""",
+        ),
+    )
+    CONFIG.declare(
+        "presolve_speciation_block",
+        ConfigValue(
+            default=False,
+            domain=bool,
+            description="Option to pre-solve to low tolerance for specification block, before primary solve",
             doc="""In some cases reaktoro might fail to solve to high tolerance first,
             a presolve at low tolerance can enable the reaktoro solve to high tolerance""",
         ),
@@ -520,7 +530,7 @@ class ReaktoroBlockData(ProcessBlockData):
     CONFIG.declare(
         "presolve_tolerance",
         ConfigValue(
-            default=1e-8,
+            default=1e-4,
             domain=float,
             description="Tolerance for reaktoro pre-solve",
             doc="""Tolerance for reaktoro pre-solver""",
@@ -529,7 +539,7 @@ class ReaktoroBlockData(ProcessBlockData):
     CONFIG.declare(
         "presolve_epsilon",
         ConfigValue(
-            default=1e-12,
+            default=1e-32,
             domain=float,
             description="Tolerance for reaktoro pre-solve",
             doc="""Defines what is considered to be 0 for ion composition""",
@@ -543,6 +553,30 @@ class ReaktoroBlockData(ProcessBlockData):
             description="Hessian type to use for reaktor gray box",
             doc="""Hessian type to use, some might provide better stability
                 options (Jt.J, BFGS, BFGS-mod,BFGS-damp, BFGS-ipopt""",
+        ),
+    )
+    CONFIG.declare(
+        "open_species_on_property_block",
+        ConfigValue(
+            default=None,
+            domain=IsInstance((str, list)),
+            description="Registers species to open to optimization, this can help with solvability of some problems",
+            doc="""Registers species (or list of species) to open to optimization and write empty constraint for,
+            this can help with solvability of some problems, but can
+            lead to unexpected results depending on database, activity coefficients, and inputs chosen.
+            This generally should not be left as None""",
+        ),
+    )
+    CONFIG.declare(
+        "open_species_on_speciation_block",
+        ConfigValue(
+            default=None,
+            domain=IsInstance((str, list)),
+            description="Registers species to open to optimization, this can help with solvability of some problems",
+            doc="""Registers species (or list of species) to open to optimization and write empty constraint for,
+            this can help with solvability of some problems, but can
+            lead to unexpected results depending on database, activity coefficients, and inputs chosen.
+            This generally should not be needed""",
         ),
     )
 
@@ -711,7 +745,13 @@ class ReaktoroBlockData(ProcessBlockData):
                     if isinstance(chemical, tuple):
                         chemical = chemical[-1]
                     block.rkt_inputs.register_chemical(chemical, speciation)
-
+            block.rkt_inputs.register_open_species(
+                self.config.open_species_on_speciation_block
+            )
+        else:
+            block.rkt_inputs.register_open_species(
+                self.config.open_species_on_property_block
+            )
         """ register aqueous solvent phase"""
         block.rkt_inputs.register_aqueous_solvent(self.config.aqueous_solvent_specie)
 
@@ -816,10 +856,14 @@ class ReaktoroBlockData(ProcessBlockData):
             block.rkt_jacobian,
             block_name=name,
         )
+        if speciation_block:
+            presolve = self.config.presolve_speciation_block
+        else:
+            presolve = self.config.presolve_property_block
         block.rktSolver.set_solver_options(
             tolerance=self.config.tolerance,
             epsilon=self.config.epsilon,
-            presolve=self.config.presolve,
+            presolve=presolve,
             presolve_tolerance=self.config.presolve_tolerance,
             presolve_epsilon=self.config.presolve_epsilon,
             max_iters=self.config.max_iters,
@@ -837,13 +881,13 @@ class ReaktoroBlockData(ProcessBlockData):
         """ build block"""
         scaling = self.config.jacobian_user_scaling
         scaling_type = self.config.jacobian_scaling_type
-        block.rktBlockBuilder = ReaktoroBlockBuilder(
+        block.rkt_block_builder = ReaktoroBlockBuilder(
             block, block.rktSolver, build_on_init=False
         )
-        block.rktBlockBuilder.configure_jacobian_scaling(
+        block.rkt_block_builder.configure_jacobian_scaling(
             jacobian_scaling_type=scaling_type, user_scaling=scaling
         )
-        block.rktBlockBuilder.build_reaktoro_block()
+        block.rkt_block_builder.build_reaktoro_block()
 
     def display_jacobian_outputs(self):
         if self.config.build_speciation_block:
@@ -853,12 +897,14 @@ class ReaktoroBlockData(ProcessBlockData):
         self.rkt_jacobian.rktRows.display_jacobian_output_types()
 
     def initialize(self):
-        if self.config.presolve_during_initialization or self.config.presolve:
+        if (
+            self.config.presolve_during_initialization
+            or self.config.presolve_speciation_block
+            or self.config.presolve_property_block
+        ):
             presolve = True
         else:
             presolve = False
         if self.config.build_speciation_block:
-            self.speciation_block.rkt_state.equilibrate_state()
-            self.speciation_block.rktBlockBuilder.initialize(presolve)
-        self.rkt_state.equilibrate_state()
-        self.rktBlockBuilder.initialize(presolve)
+            self.speciation_block.rkt_block_builder.initialize(presolve)
+        self.rkt_block_builder.initialize(presolve)

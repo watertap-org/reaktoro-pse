@@ -161,6 +161,9 @@ def specie_to_rkt_species(species):
     for charge, species_list in name_dict.items():
         for spc in species_list:
             if spc in species:
-                return f"{spc}{charge}"
+                if charge == "H4SiO4":
+                    return charge
+                else:
+                    return f"{spc}{charge}"
 
     raise TypeError(f"Species {species} not found, please add to conversion dict")
