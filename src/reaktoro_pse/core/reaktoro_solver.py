@@ -98,6 +98,13 @@ class ReaktoroSolver:
         self.hessian_type = hessian_type
         if self.input_specs.assert_charge_neutrality:
             self.conditions.charge(0)
+        if "pressure" not in self.state.inputs:
+            self.conditions.setLowerBoundPressure(0.0, "bar")
+            self.conditions.setLowerBoundPressure(100, "bar")
+        # if "GaseousPhase" in [
+        #     phase.name() for phase in self.state.state.system().phases()
+        # ]:
+        #     self.conditions.phaseVolume(f"GaseousPhase", 1e-3)  # , "m3")
 
     def update_specs(self, params):
         for input_key in self.input_specs.rkt_inputs.rkt_input_list:
@@ -183,5 +190,14 @@ class ReaktoroSolver:
             self.sensitivity,
             self.conditions,
         )
+        _jac_phases = [phase.name() for phase in self.state.state.system().phases()]
+
+        # print(self.state.state.props())
+        # if "GaseousPhase" in _jac_phases:
+        #     print(self.state.state.props())
+        #     #     print(_jac_phases)
+        #     print(self.state.state.props().volume())
+        #     print(self.state.state.props().phaseProps("GaseousPhase").pressure())
+        #     print(self.state.state.props().phaseProps("GaseousPhase").volume())
         self.output_specs.update_supported_props()
         return result

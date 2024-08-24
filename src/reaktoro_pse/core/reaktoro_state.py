@@ -61,13 +61,14 @@ class ReaktoroState:
                 else:
                     specie = props[-1]
                 self.inputs[specie] = pyo_obj
-
-        self.inputs["temperature"] = self.process_input(
-            temperature, temperature_index, default=293.15, units=pyunits.K
-        )
-        self.inputs["pressure"] = self.process_input(
-            pressure, pressure_index, default=10000, units=pyunits.Pa
-        )
+        if temperature is not None:
+            self.inputs["temperature"] = self.process_input(
+                temperature, temperature_index, units=pyunits.K
+            )
+        if pressure is not None:
+            self.inputs["pressure"] = self.process_input(
+                pressure, pressure_index, units=pyunits.Pa
+            )
 
         if pH is not None:
             self.inputs["pH"] = self.process_input(
@@ -77,12 +78,7 @@ class ReaktoroState:
         self.aqueous_phase = rkt.AqueousPhase(rkt.speciate(self.inputs.species_list))
 
     def process_input(self, var, var_index, default=0, units=None):
-        if var is None:
-            var = Var(initialize=293.15, units=units)
-            var.construct()
-            var.fix()
-            return var
-        elif isinstance(var, (dict, IndexedVar)):
+        if isinstance(var, (dict, IndexedVar)):
             for index, v in var.items():
                 if var_index == index:
                     return v
@@ -193,14 +189,16 @@ class ReaktoroState:
 
     def set_rkt_state(self):
         """sets initial rkt state using user provided inputs"""
-        self.state.temperature(
-            self.inputs["temperature"].get_value(),
-            self.inputs["temperature"].main_unit,
-        )
-        self.state.pressure(
-            self.inputs["pressure"].get_value(),
-            self.inputs["pressure"].main_unit,
-        )
+        if self.inputs.get("temperature") is not None:
+            self.state.temperature(
+                self.inputs["temperature"].get_value(),
+                self.inputs["temperature"].main_unit,
+            )
+        if self.inputs.get("pressure") is not None:
+            self.state.pressure(
+                self.inputs["pressure"].get_value(),
+                self.inputs["pressure"].main_unit,
+            )
 
         """ set apparant species if used """
         if self.inputs.composition_is_elements == False:
@@ -208,7 +206,7 @@ class ReaktoroState:
                 if species in self.inputs:  # user might not provide all
                     if self.inputs[species].get_value() != 0:
                         unit = self.inputs[species].main_unit
-                        # print(species, self.inputs[species].get_value())
+                        print(species, self.inputs[species].get_value())
                         if unit == "dimensionless":
                             self.state.set(
                                 species,
@@ -221,8 +219,10 @@ class ReaktoroState:
                                 self.inputs[species].get_value(),
                                 self.inputs[species].main_unit,
                             )
+        # _jac_phases = [phase.name() for phase in self.state.system().phases()]
 
     def equilibrate_state(self):
         self.set_rkt_state()
         rkt.equilibrate(self.state)
+        print(self.state)
         _log.info("Equilibrated successfully")
