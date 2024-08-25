@@ -440,6 +440,7 @@ class ReaktoroBlockData(ProcessBlockData):
             description="Defines how to scale Jacobian matrix",
             doc="""
             Defines methods for jacobian scaling:
+            - if option is no_scaling, jacobian scale will == 1 for all outputs
             - if option is 'variable_scaling' will use output variable scaling factors
             - if option is jacobian_matrix will use actual jac matrix to calculate scaling factors
             - if user_scaling is not None then uses user provided scaling
@@ -893,9 +894,30 @@ class ReaktoroBlockData(ProcessBlockData):
     def display_jacobian_outputs(self):
         if self.config.build_speciation_block:
             _log.info("-----Displaying information for speciation block ------")
-            self.speciation_block.rkt_jacobian.rktRows.display_jacobian_output_types()
+            self.speciation_block.rkt_jacobian.display_jacobian_output_types()
         _log.info("-----Displaying information for property block ------")
-        self.rkt_jacobian.rktRows.display_jacobian_output_types()
+        self.rkt_jacobian.display_jacobian_output_types()
+
+    def display_jacobian_scaling(self):
+        jacobian_scaling = {}
+        if self.config.build_speciation_block:
+            _log.info("-----Displaying information for speciation block ------")
+            jac_scale = (
+                self.speciation_block.rkt_block_builder.display_jacobian_scaling()
+            )
+            jacobian_scaling["speciation_block"] = jac_scale
+        _log.info("-----Displaying information for property block ------")
+        jac_scale = self.rkt_block_builder.display_jacobian_scaling()
+        jacobian_scaling["property_block"] = jac_scale
+        return jacobian_scaling
+
+    def set_jacobian_scaling(self, user_scaling_dict, speciation_block=False):
+        if speciation_block:
+            self.speciation_block.rkt_block_builder.set_user_jacobian_scaling(
+                user_scaling_dict
+            )
+        else:
+            self.rkt_block_builder.set_user_jacobian_scaling(user_scaling_dict)
 
     def initialize(self):
         if (

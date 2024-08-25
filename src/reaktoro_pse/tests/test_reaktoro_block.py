@@ -68,7 +68,7 @@ def build_rkt_state_with_indexed_species():
 def test_blockBuild(build_rkt_state_with_species):
     m = build_rkt_state_with_species
     m.outputs.display()
-    m.reaktoroBlock = ReaktoroBlock(
+    m.property_block = ReaktoroBlock(
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
@@ -82,9 +82,10 @@ def test_blockBuild(build_rkt_state_with_species):
         convert_to_rkt_species=True,
     )
     print("rkt block")
-    m.reaktoroBlock.reaktoro_model.display()
+    m.property_block.reaktoro_model.display()
+
     print("rkt block")
-    m.reaktoroBlock.initialize()
+    m.property_block.initialize()
     cy_solver = get_solver(solver="cyipopt-watertap")
     cy_solver.options["max_iter"] = 20
     m.pH.fix()
@@ -108,7 +109,7 @@ def test_blockBuild_solids_gas(build_rkt_state_with_species):
         ],
         initialize=0.5,
     )
-    m.reaktoroBlock = ReaktoroBlock(
+    m.property_block = ReaktoroBlock(
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
@@ -126,7 +127,7 @@ def test_blockBuild_solids_gas(build_rkt_state_with_species):
         convert_to_rkt_species=True,
     )
     m.display()
-    m.reaktoroBlock.initialize()
+    m.property_block.initialize()
     cy_solver = get_solver(solver="cyipopt-watertap")
     cy_solver.options["max_iter"] = 20
     m.temp.fix(273.15 + 50)
@@ -147,7 +148,7 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
     m.CaO = Var(["CaO"], initialize=0.001, units=pyunits.mol / pyunits.s)
     m.CaO.fix()
     m.outputs.display()
-    m.reaktoroBlock = ReaktoroBlock(
+    m.property_block = ReaktoroBlock(
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
@@ -165,7 +166,7 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
         # presolve_during_initialization=True,
         # presolve_tolerance=1e-16,
     )
-    m.reaktoroBlock.initialize()
+    m.property_block.initialize()
     cy_solver = get_solver(solver="cyipopt-watertap")
     cy_solver.options["max_iter"] = 20
     m.pH.unfix()
@@ -176,10 +177,54 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
     assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.7496301
     assert pytest.approx(m.pH.value, 1e-2) == 6.401
 
-    m.reaktoroBlock.display()
-    m.reaktoroBlock.speciation_block.outputs.display()
-    m.reaktoroBlock.speciation_block.reaktoro_model.display()
-    m.reaktoroBlock.reaktoro_model.display()
+    m.property_block.display_jacobian_outputs()
+
+    scaling_result = m.property_block.display_jacobian_scaling()
+    expected_scaling = {
+        "speciation_block": {
+            ("speciesAmount", "H+"): 9.007999999999993e-08,
+            ("speciesAmount", "H2O"): 50.0,
+            ("speciesAmount", "CO3-2"): 3.2175702176273733e-06,
+            ("speciesAmount", "CO2"): 0.00189035577659813,
+            ("speciesAmount", "Ca+2"): 0.01,
+            ("speciesAmount", "Cl-"): 0.7116050981506346,
+            ("speciesAmount", "HCO3-"): 0.007825323588838813,
+            ("speciesAmount", "Mg+2"): 0.09971792990850152,
+            ("speciesAmount", "MgCO3"): 0.0002811030643454316,
+            ("speciesAmount", "MgOH+"): 9.670271530541402e-07,
+            ("speciesAmount", "Na+"): 0.5,
+            ("speciesAmount", "OH-"): 6.004424745615723e-08,
+        },
+        "property_block": {
+            ("saturationIndex", "Calcite"): 1.554873983061197,
+            ("pH", None): 7.520409745594153,
+        },
+    }
+    assert "speciation_block" in scaling_result
+    assert "property_block" in scaling_result
+    new_scaling = {}
+    for key in scaling_result["speciation_block"]:
+        new_scaling[key] = 1
+        assert (
+            pytest.approx(scaling_result["speciation_block"][key], 1e-3)
+            == expected_scaling["speciation_block"][key]
+        )
+    m.property_block.set_jacobian_scaling(new_scaling, speciation_block=True)
+    new_scaling = {}
+    for key in scaling_result["property_block"]:
+        new_scaling[key] = 1
+        assert (
+            pytest.approx(scaling_result["property_block"][key], 1e-3)
+            == expected_scaling["property_block"][key]
+        )
+    m.property_block.set_jacobian_scaling(new_scaling, speciation_block=False)
+    scaling_result = m.property_block.display_jacobian_scaling()
+    assert "speciation_block" in scaling_result
+    assert "property_block" in scaling_result
+    for key in scaling_result["speciation_block"]:
+        assert scaling_result["speciation_block"][key] == 1
+    for key in scaling_result["property_block"]:
+        assert scaling_result["property_block"][key] == 1
 
 
 def test_blockBuild_with_speciation_block_no_chem_addition(
@@ -187,7 +232,7 @@ def test_blockBuild_with_speciation_block_no_chem_addition(
 ):
     m = build_rkt_state_with_species
     m.outputs.display()
-    m.reaktoroBlock = ReaktoroBlock(
+    m.property_block = ReaktoroBlock(
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
@@ -202,7 +247,7 @@ def test_blockBuild_with_speciation_block_no_chem_addition(
         build_speciation_block=True,
         presolve_during_initialization=True,
     )
-    m.reaktoroBlock.initialize()
+    m.property_block.initialize()
     cy_solver = get_solver(solver="cyipopt-watertap")
     cy_solver.options["max_iter"] = 20
     m.pH.unfix()
@@ -212,10 +257,10 @@ def test_blockBuild_with_speciation_block_no_chem_addition(
     m.display()
     assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == m.pH.value
 
-    m.reaktoroBlock.display()
-    m.reaktoroBlock.speciation_block.outputs.display()
-    m.reaktoroBlock.speciation_block.reaktoro_model.display()
-    m.reaktoroBlock.reaktoro_model.display()
+    m.property_block.display()
+    m.property_block.speciation_block.outputs.display()
+    m.property_block.speciation_block.reaktoro_model.display()
+    m.property_block.reaktoro_model.display()
 
 
 def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
@@ -234,7 +279,7 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
     m.outputs.display()
     m.CaO = Var(["CaO"], initialize=0.002, units=pyunits.mol / pyunits.s)
     m.CaO.fix()
-    m.reaktoroBlock = ReaktoroBlock(
+    m.property_block = ReaktoroBlock(
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
@@ -251,9 +296,9 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
         build_speciation_block=True,
         presolve_during_initialization=True,
     )
-    for e, con in m.reaktoroBlock.rkt_inputs.constraint_dict.items():
+    for e, con in m.property_block.rkt_inputs.constraint_dict.items():
         print(e, con)
-    m.reaktoroBlock.initialize()
+    m.property_block.initialize()
 
     m.display()
     cy_solver = get_solver(solver="cyipopt-watertap")
@@ -267,16 +312,16 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
     assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.899783669305352
     assert pytest.approx(m.pH.value, 1e-2) == 6.0677628977
 
-    m.reaktoroBlock.display()
-    m.reaktoroBlock.speciation_block.outputs.display()
-    m.reaktoroBlock.speciation_block.reaktoro_model.display()
-    m.reaktoroBlock.reaktoro_model.display()
+    m.property_block.display()
+    m.property_block.speciation_block.outputs.display()
+    m.property_block.speciation_block.reaktoro_model.display()
+    m.property_block.reaktoro_model.display()
 
 
 def test_indexed_blockBuild(build_rkt_state_with_indexed_species):
     m = build_rkt_state_with_indexed_species
     m.outputs.display()
-    m.reaktoroBlock = ReaktoroBlock(
+    m.property_block = ReaktoroBlock(
         [0, 1],
         composition=m.composition,
         temperature=m.temp,
@@ -290,9 +335,9 @@ def test_indexed_blockBuild(build_rkt_state_with_indexed_species):
         outputs=m.outputs,
         convert_to_rkt_species=True,
     )
-    for blk in m.reaktoroBlock:
-        m.reaktoroBlock[blk].initialize()
-    m.reaktoroBlock[0].reaktoro_model.display()
+    for blk in m.property_block:
+        m.property_block[blk].initialize()
+    m.property_block[0].reaktoro_model.display()
     cy_solver = get_solver(solver="cyipopt-watertap")
     cy_solver.options["max_iter"] = 20
     m.pH.unfix()
@@ -312,7 +357,7 @@ def test_indexed_blockBuild_with_speciation_block(
     m.CaO = Var([0, 1], ["CaO"], initialize=0.01, units=pyunits.mol / pyunits.s)
     m.CaO.fix()
     m.outputs.display()
-    m.reaktoroBlock = ReaktoroBlock(
+    m.property_block = ReaktoroBlock(
         [0, 1],
         composition=m.composition,
         temperature=m.temp,
@@ -328,9 +373,9 @@ def test_indexed_blockBuild_with_speciation_block(
         convert_to_rkt_species=True,
         build_speciation_block=True,
     )
-    for blk in m.reaktoroBlock:
-        m.reaktoroBlock[blk].initialize()
-    m.reaktoroBlock.display()
+    for blk in m.property_block:
+        m.property_block[blk].initialize()
+    m.property_block.display()
     cy_solver = get_solver(solver="cyipopt-watertap")
     cy_solver.options["max_iter"] = 20
     m.CaO.unfix()

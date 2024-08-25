@@ -28,6 +28,7 @@ _log = idaeslog.getLogger(__name__)
 
 
 class JacScalingTypes:
+    no_scaling = "no_scaling"
     variable_scaling = "variable_scaling"
     jacobian_matrix = "jacobian_matrix"
     manual_scaling = "manual_scaling"
@@ -63,7 +64,7 @@ class ReaktoroBlockBuilder:
         user_scaling -- either a single value or array with length of rkt outputs defining scaling
         """
         if jacobian_scaling_type is None:
-            self.jacobian_scaling_type = JacScalingTypes.variable_scaling
+            self.jacobian_scaling_type = JacScalingTypes.no_scaling
         else:
             self.jacobian_scaling_type = jacobian_scaling_type
         if isinstance(user_scaling, float):
@@ -227,7 +228,12 @@ class ReaktoroBlockBuilder:
         self.get_jacobian_scaling()
 
     def get_jacobian_scaling(self):
-        if self.jacobian_scaling_type == JacScalingTypes.variable_scaling:
+        if self.jacobian_scaling_type == JacScalingTypes.no_scaling:
+            for i, (key, obj) in enumerate(
+                self.solver.output_specs.rkt_outputs.items()
+            ):
+                self.solver.jacobian_scaling_values[i] = 1
+        elif self.jacobian_scaling_type == JacScalingTypes.variable_scaling:
             for i, (key, obj) in enumerate(
                 self.solver.output_specs.rkt_outputs.items()
             ):
@@ -235,17 +241,28 @@ class ReaktoroBlockBuilder:
                 self.solver.jacobian_scaling_values[i] = 1 / out_sf
         elif self.jacobian_scaling_type == JacScalingTypes.jacobian_matrix:
             self.solver.jacobian_scaling_values = (
-                np.sum(np.abs(self.jacobian_matrix) ** 2, axis=1) ** 0.5
+                np.sum(np.abs(self.solver.jacobian_matrix) ** 2, axis=1) ** 0.5
             )
+        self.set_user_jacobian_scaling()
+
+    def set_user_jacobian_scaling(self, user_scaling=None):
+        if user_scaling is None:
+            user_scaling = self.user_scaling
+
         for i, (key, obj) in enumerate(self.solver.output_specs.rkt_outputs.items()):
-            if key in self.user_scaling:
-                scale = self.user_scaling[key]
+            if key in user_scaling:
+                scale = user_scaling[key]
                 self.solver.jacobian_scaling_values[i] = scale
 
-        _log.info(
-            f"Jacobian output order: {list(self.solver.output_specs.rkt_outputs.keys())}"
-        )
-        _log.info(f"Jacobian scaleing: {self.solver.jacobian_scaling_values}")
+    def display_jacobian_scaling(self):
+        jac_scale = {}
+        for i, (key, obj) in enumerate(self.solver.output_specs.rkt_outputs.items()):
+            scale = self.solver.jacobian_scaling_values[i]
+            _log.info(
+                f"Jacobian scale for {key} : {self.solver.jacobian_scaling_values[i]}, IDX: {i}"
+            )
+            jac_scale[key] = scale
+        return jac_scale
 
     def initialize_input_variables_and_constraints(self):
         """intialize input variables and constraints"""
