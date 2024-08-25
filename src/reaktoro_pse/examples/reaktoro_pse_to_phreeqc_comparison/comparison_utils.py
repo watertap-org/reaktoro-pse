@@ -97,6 +97,7 @@ def plot_data_sets(
         )
     if show_fig:
         plt.show()
+    plt.close()
     return errors
 
 

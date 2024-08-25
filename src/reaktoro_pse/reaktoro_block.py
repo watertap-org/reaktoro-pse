@@ -386,7 +386,7 @@ class ReaktoroBlockData(ProcessBlockData):
             {
             (scalingTendency, Calcite):m.calcite_var,- will use provided var for output
             pH: None, - will create a new var as m.reaktoroBlock.outputs[(pH,None)]
-            speciesAmount:True - this will force reaktor to return all species
+            "speciesAmount":True - this will force reaktor to return all species
             }
             """,
         ),

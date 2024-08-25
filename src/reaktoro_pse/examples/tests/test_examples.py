@@ -40,10 +40,5 @@ def test_thermal_precipt():
 
     assert pytest.approx(m.Q_heating.value, 1e-3) == 165000
     assert pytest.approx(m.Q_recoverable.value, 1e-3) == 82500
-    assert (
-        pytest.approx(m.precipitator_temperature.value, 1e-3) == 273.15 + 57.3549397438
-    )
-    assert (
-        pytest.approx(m.cooled_treated_temperature.value, 1e-1)
-        == 273.15 + 37.3225610966
-    )
+    assert pytest.approx(m.precipitator_temperature.value, 1e-3) == 273.15 + 57.3549397438
+    assert pytest.approx(m.cooled_treated_temperature.value, 1e-1) == 273.15 + 37.3225610966

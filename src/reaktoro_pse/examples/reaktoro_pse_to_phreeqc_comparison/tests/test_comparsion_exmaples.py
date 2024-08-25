@@ -4,6 +4,7 @@ from reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison import (
     vapor_pressure_comparison,
     precipitation_comparison,
     acid_base_addition_comparison,
+    solution_mixing_comparison,
 )
 
 
@@ -56,3 +57,15 @@ def test_acid_base_comp():
         assert pytest.approx(result[0][key], 1e-3) == hcl_result[key]
     for key in result[1]:
         assert pytest.approx(result[1][key], 1e-3) == naoh_result[key]
+
+
+def test_mix_comp():
+    result = solution_mixing_comparison.main(False, False)
+    print(result)
+    expected_result = {
+        "Calcite": 0.7082675995254939,
+        "pH": 0.00587538473081846,
+        "Osmotic pressure": 0.05964941573467817,
+    }
+    for key in result:
+        assert pytest.approx(result[key], abs=1e-3) == expected_result[key]
