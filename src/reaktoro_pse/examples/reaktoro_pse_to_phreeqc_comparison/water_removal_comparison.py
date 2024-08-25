@@ -1,6 +1,4 @@
 import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.standard_model as standardModel
-
-
 import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.comparison_utils as compUtils
 
 
@@ -17,7 +15,7 @@ No solids form
 """
 
 
-def main():
+def main(save_fig=False, show_fig=True):
     phreeqc_config = compUtils.get_phreeqc_data()
     m = standardModel.build_modification_example(phreeqc_config["feed_comp"])
     standardModel.add_standard_properties(m)
@@ -30,14 +28,16 @@ def main():
         compUtils.get_reaktoro_solved_outputs(
             m, reaktoro_output_dict["water_removal_percent_sweep"]
         )
-        m.display()
-    compUtils.plot_data_sets(
+    errors = compUtils.plot_data_sets(
         phreeqc_config["water_removal_percent"],
         phreeqc_config,
         reaktoro_output_dict,
         "water_removal_percent_sweep",
         "Water evaporation (%)",
+        show_fig=show_fig,
+        save_fig=save_fig,
     )
+    return errors
 
 
 if __name__ == "__main__":

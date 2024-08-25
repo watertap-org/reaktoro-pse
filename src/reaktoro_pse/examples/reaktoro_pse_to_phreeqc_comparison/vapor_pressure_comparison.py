@@ -9,15 +9,13 @@ from pyomo.environ import (
 __author__ = "Alexander Dudchenko"
 
 """
-This examples compares reaktoro_pse implementation to phreeqcinwt calculation of solution
-state for calculation of vapor pressure at different temperatures. 
+This examples compares reaktoro_pse implementation to phreeqcinwt for calculation of vapor pressure at different temperatures. 
 
-A key thing to note when calculating vapor with reaktoro is that when useing ActivityModelPengRobinsonPhreeqc it does not differentiate 
+A key thing to note when calculating vapor with reaktoro is that when using ActivityModelPengRobinsonPhreeqc it does not differentiate 
 correctly between liquid and aqueous state at low vapor pressures, resulting in large portioning of 
 water in "vapor phase". this leads to nonsensical estimates of scaling potential and possibly other aqueous properties.
 But properties like Vapor pressure are reasonably estimated.
 This in in general means, thats vapor pressure should be estimated separately from aqueous/solid properties. 
-
 Please refer to discussion on this here: https://github.com/reaktoro/reaktoro/discussions/285
 
 Key assumptions:
@@ -30,7 +28,7 @@ to understand the changes the system would under go before using reaktoro-pse.
 """
 
 
-def main():
+def main(save_fig=False, show_fig=True):
     phreeqc_config = compUtils.get_phreeqc_data()
 
     m = standardModel.build_modification_example(phreeqc_config["feed_comp"])
@@ -44,14 +42,16 @@ def main():
         compUtils.get_reaktoro_solved_outputs(
             m, reaktoro_output_dict["temperature_sweep"]
         )
-        m.display()
-    compUtils.plot_data_sets(
+    errors = compUtils.plot_data_sets(
         phreeqc_config["temperature"],
         phreeqc_config,
         reaktoro_output_dict,
         "temperature_sweep",
         "Temperature (C)",
+        show_fig=show_fig,
+        save_fig=save_fig,
     )
+    return errors
 
 
 def add_vapor_pressure_properties(m):
@@ -66,7 +66,7 @@ def add_vapor_pressure_properties(m):
         ],
         initialize=1,
     )
-    m.feed_pressure.fix(1e5)  # fixing at 1 bar
+    m.feed_pressure.fix(1e5)
     m.eq_modified_properties = ReaktoroBlock(
         composition=m.feed_composition,
         temperature=m.feed_temperature,
@@ -83,12 +83,7 @@ def add_vapor_pressure_properties(m):
         build_speciation_block=True,
         jacobian_user_scaling={
             ("speciesActivityLn", "H2O(g)"): 1,
-            # ("saturationIndex", "Calcite"): 1,
-            # ("saturationIndex", "Gypsum"): 1,
         },
-        # presolve_property_block=True,
-        # presolve_tolerance=1e-3,
-        # presolve_epsilon=1e-16,
     )
 
 

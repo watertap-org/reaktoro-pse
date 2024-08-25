@@ -395,7 +395,7 @@ class ReaktoroBlockData(ProcessBlockData):
     CONFIG.declare(
         "numerical_jac_type",
         ConfigValue(
-            default=JacType.center_difference,
+            default=JacType.average,
             domain=IsInstance((str, JacType)),
             description="Defines method for numerical jacobian approximations",
             doc="""Derivatives for many of the properties in reaktro are not directly available, 

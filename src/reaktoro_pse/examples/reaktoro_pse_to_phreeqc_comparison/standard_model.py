@@ -109,7 +109,6 @@ def initialize(m):
         m.modified_properties_water_removal, m.eq_water_fow
     )
     m.eq_modified_properties.initialize()
-    m.display()
     solve(m)
 
 

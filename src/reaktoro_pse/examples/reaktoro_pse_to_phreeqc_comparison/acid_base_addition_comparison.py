@@ -16,7 +16,7 @@ No solids form
 """
 
 
-def main():
+def main(save_fig=False, show_fig=True):
     phreeqc_config = compUtils.get_phreeqc_data()
     m = standardModel.build_modification_example(phreeqc_config["feed_comp"])
     standardModel.add_standard_properties(m)
@@ -29,12 +29,14 @@ def main():
         m.acid_addition.fix(wr)
         standardModel.solve(m)
         compUtils.get_reaktoro_solved_outputs(m, reaktoro_output_dict["HCl_sweep"])
-    compUtils.plot_data_sets(
+    errors_hcl = compUtils.plot_data_sets(
         phreeqc_config["HCl"],
         phreeqc_config,
         reaktoro_output_dict,
         "HCl_sweep",
         "HCl dose (mol)",
+        show_fig=show_fig,
+        save_fig=save_fig,
     )
     reaktoro_output_dict["NaOH_sweep"] = {}
     m.acid_addition.fix(0)
@@ -43,13 +45,16 @@ def main():
         m.base_addition.fix(wr)
         standardModel.solve(m)
         compUtils.get_reaktoro_solved_outputs(m, reaktoro_output_dict["NaOH_sweep"])
-    compUtils.plot_data_sets(
+    errors_naoh = compUtils.plot_data_sets(
         phreeqc_config["NaOH"],
         phreeqc_config,
         reaktoro_output_dict,
         "NaOH_sweep",
         "NaOH dose (mol)",
+        show_fig=show_fig,
+        save_fig=save_fig,
     )
+    return errors_hcl, errors_naoh
 
 
 if __name__ == "__main__":
