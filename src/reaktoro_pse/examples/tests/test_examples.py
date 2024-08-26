@@ -29,21 +29,24 @@ def test_thermal_precipt():
         pytest.approx(
             m.precipitation_properties[("speciesAmount", "Calcite")].value, 1e-3
         )
-        == 0.00093505673
+        == 0.00094701465
     )
     assert (
         pytest.approx(
             m.precipitation_properties[("vaporPressure", "H2O(g)")].value, 1e-3
         )
-        == 67038.88031
+        == 17796.57
     )
-
+    assert (
+        pytest.approx(m.precipitation_properties[("pH", None)].value, 1e-3) == 6.9137924
+    )
     assert pytest.approx(m.Q_heating.value, 1e-3) == 165000
     assert pytest.approx(m.Q_recoverable.value, 1e-3) == 82500
     assert (
-        pytest.approx(m.precipitator_temperature.value, 1e-3) == 273.15 + 57.3549397438
+        pytest.approx(m.precipitator_temperature.value, 1e-3)
+        == 273.15 + 57.903830991628126
     )
     assert (
         pytest.approx(m.cooled_treated_temperature.value, 1e-1)
-        == 273.15 + 37.3225610966
+        == 273.15 + 37.828056838297584
     )

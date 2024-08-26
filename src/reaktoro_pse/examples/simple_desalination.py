@@ -16,6 +16,16 @@ from pyomo.common.modeling import unique_component_name
 import pyomo.environ as pyo
 import reaktoro as rkt
 
+"""
+This examples demonstrates how reaktoro graybox can be used to estimates 
+properties in desalination process.
+
+Key assumptions:
+Assumes that process concentrating the feed does not alter the pH. 
+This might be a good assumptions for process such as RO, but might be a poor
+assumption for evaporative processes. 
+"""
+
 
 def main():
     m = build_simple_desal()

@@ -187,13 +187,23 @@ class ReaktoroBlockBuilder:
         self.initialize_output_variables_and_constraints()
         _log.info(f"Initialized rkt block")
 
-    def initialize_output_variables_and_constraints(self):
-        def get_sf(val):
-            if val == 0:
-                return 1
-            else:
-                return abs(val)
+    def get_sf(self, pyo_var):
+        if pyo_var.value == 0:
+            return 1
+        else:
+            if iscale.get_scaling_factor(pyo_var) is not None:
+                return iscale.get_scaling_factor(pyo_var)
 
+            sf = 1 / abs(pyo_var.value)
+            if sf > 1e16:
+                _log.warning(f"Var {pyo_var} scale >1e16")
+                sf = 1e16
+            if sf < 1e-16:
+                _log.warning(f"Var {pyo_var} scale <1e-16")
+                sf = 1e-16
+            return sf
+
+    def initialize_output_variables_and_constraints(self):
         for key, obj in self.solver.output_specs.user_outputs.items():
             """update vars scaling in pyomo build ocnstraints
             these are updated to actual value when we call solve_rektoro_block"""
@@ -205,11 +215,13 @@ class ReaktoroBlockBuilder:
                     val = pyoPropObj.value
                     pyoPropObj.set_pyomo_var_value(val)
                     if iscale.get_scaling_factor(pyoPropObj.pyomo_var) is None:
-                        iscale.set_scaling_factor(pyoPropObj.pyomo_var, 1 / get_sf(val))
+                        iscale.set_scaling_factor(
+                            pyoPropObj.pyomo_var, self.get_sf(pyoPropObj.pyomo_var)
+                        )
                 output_constraint = self.block.output_constraints[key]
                 calculate_variable_from_constraint(obj.pyomo_var, output_constraint)
                 iscale.constraint_scaling_transform(
-                    output_constraint, 1 / get_sf(obj.pyomo_var.value)
+                    output_constraint, self.get_sf(obj.pyomo_var)
                 )
             else:
                 obj.set_pyomo_var_value(obj.value)
@@ -218,11 +230,11 @@ class ReaktoroBlockBuilder:
                 calculate_variable_from_constraint(rkt_var, output_constraint)
 
                 if iscale.get_scaling_factor(rkt_var) is None:
-                    iscale.set_scaling_factor(rkt_var, 1 / get_sf(obj.value))
-            val = obj.pyomo_var.value
+                    iscale.set_scaling_factor(rkt_var, self.get_sf(obj.pyomo_var))
+
             """ scale user provided vars if they are not scaled"""
             if iscale.get_scaling_factor(obj.pyomo_var) is None:
-                iscale.set_scaling_factor(obj.pyomo_var, 1 / get_sf(val))
+                iscale.set_scaling_factor(obj.pyomo_var, self.get_sf(obj.pyomo_var))
 
         """ update jacobian scaling """
         self.get_jacobian_scaling()
@@ -275,10 +287,7 @@ class ReaktoroBlockBuilder:
             self.block.reaktoro_model.inputs[key] = pyo_var.value
             sf = iscale.get_scaling_factor(pyo_var)
             if sf == None:
-                if pyo_var.value == 0:
-                    sf = 1
-                else:
-                    sf = abs(1 / pyo_var.value)
+                sf = self.get_sf(pyo_var)
 
             iscale.set_scaling_factor(self.block.reaktoro_model.inputs[key], sf)
             iscale.constraint_scaling_transform(self.block.input_constraints[key], sf)

@@ -13,6 +13,22 @@ from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
 
+"""
+This examples demonstrates how reaktoro graybox can be used to enthalpy and water vapor pressure. 
+
+NOTE: For water vapor calculations, pay attention to speciation and assumptions. Please
+refere to these two discussions:
+
+https://github.com/reaktoro/reaktoro/discussions/398
+https://github.com/reaktoro/reaktoro/discussions/285
+
+
+Key assumptions:
+Assumes that process concentrating the feed does not alter the pH. 
+This might be a good assumptions for process such as RO, but might be a poor
+assumption for evaporative processes. 
+"""
+
 
 def main():
     m = build_simple_precipitation()
@@ -72,7 +88,7 @@ def build_simple_precipitation():
     m.Q_recoverable = Var(initialize=0, units=pyunits.J / pyunits.s)
     m.Q_recovery_eff = Var(initialize=0.5, units=pyunits.dimensionless)
     m.Q_recovery_eff.fix()
-    """ we only need enthalpy - can also reques output pH, and pass it to precipitator 
+    """ we only need enthalpy - can also request output pH, and pass it to precipitator 
     but dont need to - assume the temperature is not impacting pH"""
     m.feed_properties = Var(
         [
@@ -180,8 +196,8 @@ def build_simple_precipitation():
                 == m.sludge_composition[key]
             )
 
-    """ we have to sue super critical database to enthalpy data as 
-    our default PhreeqC data base with pitzer data file does contain 
+    """ we have to use super critical database to enthalpy data as 
+    our default PhreeqC data base with pitzer data file does not contain 
     enthalpy information - please refer to reaktoro documentation on supported data bases """
     """ we also need to define an ion translation dicionary for this data base 
     as default translator only support PhreeqCdata base with pitzer data file notation 
@@ -198,7 +214,8 @@ def build_simple_precipitation():
         "Ca": "Ca+2",
         "HCO3": "HCO3-",
     }
-    """ need to get feed enthalpy"""
+    """ note how we included nitrogen as one of gas species, this will prevent 
+        PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)"""
     m.eq_feed_properties = ReaktoroBlock(
         composition=m.feed_composition,
         temperature=m.feed_temperature,
@@ -207,8 +224,8 @@ def build_simple_precipitation():
         outputs=m.feed_properties,
         aqueous_phase_activity_model="ActivityModelPitzer",
         mineral_phases=["Calcite", "Anhydrite"],
-        gas_phases=["H2O(g)"],
-        gas_phase_activity_model="ActivityModelRedlichKwong",
+        gas_phases=["H2O(g)", "N2(g)"],
+        gas_phase_activity_model="ActivityModelPengRobinsonPhreeqc",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
@@ -226,8 +243,8 @@ def build_simple_precipitation():
         outputs=m.precipitation_properties,
         aqueous_phase_activity_model="ActivityModelPitzer",
         mineral_phases=["Calcite", "Anhydrite"],
-        gas_phases=["H2O(g)"],
-        gas_phase_activity_model="ActivityModelRedlichKwong",
+        gas_phases=["H2O(g)", "N2(g)"],
+        gas_phase_activity_model="ActivityModelPengRobinsonPhreeqc",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
@@ -247,8 +264,8 @@ def build_simple_precipitation():
         outputs=m.treated_properties,
         aqueous_phase_activity_model="ActivityModelPitzer",
         mineral_phases=["Calcite", "Anhydrite"],
-        gas_phases=["H2O(g)"],
-        gas_phase_activity_model="ActivityModelRedlichKwong",
+        gas_phases=["H2O(g)", "N2(g)"],
+        gas_phase_activity_model="ActivityModelPengRobinsonPhreeqc",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
@@ -264,8 +281,8 @@ def build_simple_precipitation():
         outputs=m.cooled_treated_properties,
         aqueous_phase_activity_model="ActivityModelPitzer",
         mineral_phases=["Calcite", "Anhydrite"],
-        gas_phases=["H2O(g)"],
-        gas_phase_activity_model="ActivityModelRedlichKwong",
+        gas_phases=["H2O(g)", "N2(g)"],
+        gas_phase_activity_model="ActivityModelPengRobinsonPhreeqc",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,

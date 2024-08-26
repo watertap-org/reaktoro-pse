@@ -11,12 +11,10 @@ __author__ = "Alexander Dudchenko"
 """
 This examples compares reaktoro_pse implementation to phreeqcinwt for calculation of vapor pressure at different temperatures. 
 
-A key thing to note when calculating vapor with reaktoro is that when using ActivityModelPengRobinsonPhreeqc it does not differentiate 
-correctly between liquid and aqueous state at low vapor pressures, resulting in large portioning of 
-water in "vapor phase". this leads to nonsensical estimates of scaling potential and possibly other aqueous properties.
-But properties like Vapor pressure are reasonably estimated.
-This in in general means, thats vapor pressure should be estimated separately from aqueous/solid properties. 
-Please refer to discussion on this here: https://github.com/reaktoro/reaktoro/discussions/285
+NOTE: For water vapor calculations, pay attention to speciation and assumptions. Please
+refer to these two discussions:
+https://github.com/reaktoro/reaktoro/discussions/398
+https://github.com/reaktoro/reaktoro/discussions/285
 
 Key assumptions:
 The calculation is down with out fixed volume, or pressure and as such an equilibrium will find a pressure and volume. 
@@ -51,6 +49,7 @@ def main(save_fig=False, show_fig=True):
         show_fig=show_fig,
         save_fig=save_fig,
     )
+    print(errors)
     return errors
 
 
@@ -67,6 +66,8 @@ def add_vapor_pressure_properties(m):
         initialize=1,
     )
     m.feed_pressure.fix(1e5)
+    """ note how we included nitrogen as one of gas species, this will prevent 
+    PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)"""
     m.eq_modified_properties = ReaktoroBlock(
         composition=m.feed_composition,
         temperature=m.feed_temperature,
@@ -74,7 +75,7 @@ def add_vapor_pressure_properties(m):
         pH=m.feed_pH,
         outputs=m.modified_properties,
         aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
-        gas_phases=["H2O(g)"],
+        gas_phases=["H2O(g)", "Ntg(g)"],
         gas_phase_activity_model=rkt.ActivityModelPengRobinsonPhreeqc(),
         dissolve_species_in_reaktoro=True,
         # we can use default converter as its defined for default database (Phreeqc and pitzer)

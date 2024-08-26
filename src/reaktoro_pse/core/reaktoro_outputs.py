@@ -139,7 +139,7 @@ class PyomoProperties:
             required_props.register_option("logk_paramters", jsp_dict[0]["VantHoff"])
         else:
             raise NotImplemented(f"reaction type {jsp_dict} not supported")
-
+        required_props.register_option("gas_constant", rkt.universalGasConstant)
         volume_reactants = 0
         for s, mol in spec.reaction().reactants():
             spec = self.state.system.species().get(s.name())
@@ -177,6 +177,7 @@ class PyomoProperties:
         required_props.register_property(PropTypes.chem_prop, "temperature")
         required_props.register_property(PropTypes.chem_prop, "pressure")
         required_props.register_build_function(propFuncs.build_osmotic_constraint)
+        required_props.register_option("gas_constant", rkt.universalGasConstant)
         return required_props
 
     def pHDirect(self, property_index=None):

@@ -306,7 +306,8 @@ class ReaktoroBlockData(ProcessBlockData):
             default=True,
             domain=bool,
             description="Defines if species should be converted to elements using reaktoro or pyomo",
-            doc="""The equilibrium calculation requires element amounts as an input,
+            doc="""
+            The equilibrium calculation requires element amounts as an input,
             since normally species are provided, they need to be converted to elements, this can be done 
             using pyomo constraints (Set to False) or reaktoro (Set to True).""",
         ),
@@ -336,7 +337,8 @@ class ReaktoroBlockData(ProcessBlockData):
             default=False,
             domain=bool,
             description="Defines if charge neutrality should be applied to both speciation and property block",
-            doc="""When user provides chemical inputs, its assumed that user wants to modify an equilibrated state, 
+            doc="""
+            When user provides chemical inputs, its assumed that user wants to modify an equilibrated state, 
             as such a speciation and property block will be built. Charge neutrality would only be applied on speciation block if enabled
             if this option is set to True then charge neutrality will also be applied on property block """,
         ),
@@ -358,7 +360,8 @@ class ReaktoroBlockData(ProcessBlockData):
             default=True,
             domain=bool,
             description="Chemical addition is indexed",
-            doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
+            doc="""
+            Option that defines how to treat input variable when building indexed reaktoroBlock":
                 - If true, the input has same indexing as block, and each indexed input willbe passed into respective indexed reaktoroBlock
                 - If false, all indexed blocks will get same input""",
         ),
@@ -369,7 +372,8 @@ class ReaktoroBlockData(ProcessBlockData):
             default=None,
             domain=dict,
             description="Defines if species should be converted to elements using reaktoro or pyomo",
-            doc="""The equilibrium calculation requires element amounts as an input,
+            doc="""
+            The equilibrium calculation requires element amounts as an input,
             since normally species are provided, they need to be converted to elements, this can be done 
             useing pyomo constraints (Set to False) or reaktoro (Set to True).""",
         ),
@@ -380,7 +384,8 @@ class ReaktoroBlockData(ProcessBlockData):
             default=None,
             domain=IsInstance((dict, IndexedVar)),
             description="Defines outputs that should be returned by reaktoro",
-            doc="""This will configure all outputs that should be produced by the block, the block will either use 
+            doc="""
+            This will configure all outputs that should be produced by the block, the block will either use 
             provided pyomo var as output, or create a var on the block. Provide as a dictionary or indexed var where keys are 
             desired properties. For example:
             {
@@ -398,7 +403,8 @@ class ReaktoroBlockData(ProcessBlockData):
             default=JacType.average,
             domain=IsInstance((str, JacType)),
             description="Defines method for numerical jacobian approximations",
-            doc="""Derivatives for many of the properties in reaktro are not directly available, 
+            doc="""
+            Derivatives for many of the properties in reaktro are not directly available, 
             thus we numerically propagate derivatives from chemical state to methods for estimation of these properties. 
             Two methods are available, average and center_difference
                 - average methods takes defined number of derivatives by numerical_jac_order from center points and gets the average of them
@@ -411,10 +417,11 @@ class ReaktoroBlockData(ProcessBlockData):
     CONFIG.declare(
         "numerical_jac_order",
         ConfigValue(
-            default=2,
+            default=8,
             domain=int,
             description="Defines order of numerical jacobian",
-            doc="""This will define how many points to discretize the derivate over 
+            doc="""
+            This will define how many points to discretize the derivate over 
              - for numerical_jac_type==average - the number of points = order/2 + 1 
              - for numerical_jac_type==center_difference - the number of points equals the order
             """,

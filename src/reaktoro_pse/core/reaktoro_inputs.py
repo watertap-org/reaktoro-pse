@@ -209,7 +209,9 @@ class ReaktoroInputSpec:
             for element, coeff in aquous_phase_ions.items():
                 self.ignore_elements_for_constraints.append(element)
                 self.aqueous_solvent_speciation[element] = coeff
-                _log.info(f"Exact speciation is not providing, excluding {element}")
+                _log.info(
+                    f"Exact speciation is not provided! Fixing aqueous solvent and, excluding {element}"
+                )
         self.rkt_elements = [specie.symbol() for specie in rktState.system().elements()]
         # loop over all elements in the rkt system
         for element in self.rkt_elements:

@@ -36,12 +36,38 @@ def build_vapor_pressure_constraint(rkt_output_object):
     )
 
 
+# work around provided in https://github.com/reaktoro/reaktoro/discussions/398
+# can not be implemented as reference chemical potential is function of p and t
+# def build_vapor_pressure_direct_constraint(rkt_output_object):
+#     user_output_var = rkt_output_object.pyomo_var
+#     build_properties = rkt_output_object.pyomo_build_options.properties
+#     build_options = rkt_output_object.pyomo_build_options.options
+#     return (
+#         exp(
+#             build_properties[
+#                 ("speciesChemicalPotential", rkt_output_object.property_index)
+#             ].pyomo_var
+#             - build_options["reference_chemical_potential"]
+#         )
+#         / (
+#             build_options["gas_constant"]
+#             * build_properties[("temperature", None)].pyomo_var
+#         )
+#         * 1e5
+#         == user_output_var
+#     )
+
+
 def build_osmotic_constraint(rkt_output_object):
     user_output_var = rkt_output_object.pyomo_var
     build_properties = rkt_output_object.pyomo_build_options.properties
+    build_options = rkt_output_object.pyomo_build_options.options
     return (
         user_output_var
-        == -(8.31446261815324 * build_properties[("temperature", None)].pyomo_var)
+        == -(
+            build_options["gas_constant"]
+            * build_properties[("temperature", None)].pyomo_var
+        )
         / build_properties[
             ("speciesStandardVolume", rkt_output_object.property_index)
         ].pyomo_var
@@ -78,7 +104,7 @@ def build_direct_scaling_tendency_constraint(rkt_output_object):
         log_k = [
             vfparams["lgKr"]
             - vfparams["dHr"]
-            / 8.31446261815324
+            / build_options["gas_constant"]
             * (1 / temperature_var - 1 / vfparams["Tr"])
         ]
     # pressure dependenance
@@ -86,7 +112,7 @@ def build_direct_scaling_tendency_constraint(rkt_output_object):
         -(
             build_options["delta_V"]
             * (build_properties[("pressure", None)].pyomo_var - 101325)
-            / (log(10) * 8.31446261815324 * temperature_var)
+            / (log(10) * build_options["gas_constant"] * temperature_var)
         )
     )
 

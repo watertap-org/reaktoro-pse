@@ -18,8 +18,8 @@ class ReaktoroState:
         """initialize for all parameters need to build reaktor solver"""
         self.inputs = RktInputs.RktInputs()
         self.mineral_phases = []
-        self.gas_phases = []
-        self.ion_exchange_phases = []
+        self.gas_phase = None
+        self.ion_exchange_phase = None
 
     def register_inputs(
         self,
@@ -86,7 +86,7 @@ class ReaktoroState:
             return var
 
     def _process_phase(self, phase, default_phase):
-        if isinstance(phase, str):
+        if isinstance(phase, (str, list, tuple)):
             return default_phase(phase)
         else:
             return phase
@@ -105,16 +105,18 @@ class ReaktoroState:
         """register possible gas phases"""
         if isinstance(gas_phases, str):
             gas_phases = [gas_phases]
-        for gas_phase in gas_phases:
-            self.gas_phases.append(self._process_phase(gas_phase, rkt.GaseousPhase))
+        self.gas_phase = self._process_phase(gas_phases, rkt.GaseousPhase)
+        print(self.gas_phase)
+        # assert False
 
     def register_ion_exchange_phase(self, ion_phase=[]):
         """register possible ion exchange phases"""
         if isinstance(ion_phase, str):
             ion_phase = [ion_phase]
-        self.ion_exchange_phases.append(
-            self._process_phase(ion_phase, rkt.IonExchangePhase)
-        )
+        if self.ion_exchange_phase is not None:
+            self.ion_exchange_phase = self._process_phase(
+                ion_phase, rkt.IonExchangePhase
+            )
 
     def set_database(self, dbtype="PhreeqcDatabase", database="pitzer.dat"):
         """set data base of reaktoro"""
@@ -155,8 +157,9 @@ class ReaktoroState:
         """set activity model of gas phases in reaktoro"""
         # TODO: add support for massking rkt initialized activty models directly
         activity_model = self._process_activity(activity_model)
-        for phase in self.gas_phases:
-            phase.set(activity_model)
+        # for phase in self.gas_phase:
+        if self.gas_phase is not None:
+            self.gas_phase.set(activity_model)
 
     def set_mineral_phase_activity_model(
         self, activity_model="ActivityModelIdealSolution"
@@ -176,13 +179,21 @@ class ReaktoroState:
         activity_model = self._process_activity(
             activity_model,
         )
-        for phase in self.ion_exchange_phases:
+        for phase in self.ion_exchange_phase:
             phase.set(activity_model)
 
     def build_state(self):
         """this will build reaktor states"""
+        phases = []
+        if self.gas_phase is not None:
+            phases.append(self.gas_phase)
+        if self.ion_exchange_phase is not None:
+            phases.append(self.ion_exchange_phase)
         self.system = rkt.ChemicalSystem(
-            self.database, self.aqueous_phase, *self.mineral_phases, *self.gas_phases
+            self.database,
+            self.aqueous_phase,
+            *self.mineral_phases,
+            *phases,
         )
         self.state = rkt.ChemicalState(self.system)
         self.set_rkt_state()

@@ -12,7 +12,7 @@ def test_water_vapor_comp():
     result = vapor_pressure_comparison.main(False, False)
     print(result)
 
-    expected_result = {"Vapor pressure": 9.243111447147829}
+    expected_result = {"Vapor pressure": 0.0008019869790473859}
     for key in result:
         assert pytest.approx(result[key], 1e-3) == expected_result[key]
 
