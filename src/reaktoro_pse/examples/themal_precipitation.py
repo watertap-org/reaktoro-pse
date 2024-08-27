@@ -225,7 +225,7 @@ def build_simple_precipitation():
         aqueous_phase_activity_model="ActivityModelPitzer",
         mineral_phases=["Calcite", "Anhydrite"],
         gas_phases=["H2O(g)", "N2(g)"],
-        gas_phase_activity_model="ActivityModelPengRobinsonPhreeqc",
+        gas_phase_activity_model="ActivityModelPengRobinson",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
@@ -244,7 +244,7 @@ def build_simple_precipitation():
         aqueous_phase_activity_model="ActivityModelPitzer",
         mineral_phases=["Calcite", "Anhydrite"],
         gas_phases=["H2O(g)", "N2(g)"],
-        gas_phase_activity_model="ActivityModelPengRobinsonPhreeqc",
+        gas_phase_activity_model="ActivityModelPengRobinson",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
@@ -264,7 +264,7 @@ def build_simple_precipitation():
         aqueous_phase_activity_model="ActivityModelPitzer",
         mineral_phases=["Calcite", "Anhydrite"],
         gas_phases=["H2O(g)", "N2(g)"],
-        gas_phase_activity_model="ActivityModelPengRobinsonPhreeqc",
+        gas_phase_activity_model="ActivityModelPengRobinson",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,
@@ -281,7 +281,7 @@ def build_simple_precipitation():
         aqueous_phase_activity_model="ActivityModelPitzer",
         mineral_phases=["Calcite", "Anhydrite"],
         gas_phases=["H2O(g)", "N2(g)"],
-        gas_phase_activity_model="ActivityModelPengRobinsonPhreeqc",
+        gas_phase_activity_model="ActivityModelPengRobinson",
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",  # need to specify specific data base file to use
         species_to_rkt_species_dict=translation_dict,

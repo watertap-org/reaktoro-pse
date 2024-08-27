@@ -106,8 +106,6 @@ class ReaktoroState:
         if isinstance(gas_phases, str):
             gas_phases = [gas_phases]
         self.gas_phase = self._process_phase(gas_phases, rkt.GaseousPhase)
-        print(self.gas_phase)
-        # assert False
 
     def register_ion_exchange_phase(self, ion_phase=[]):
         """register possible ion exchange phases"""
