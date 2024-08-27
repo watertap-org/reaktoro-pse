@@ -251,7 +251,6 @@ def build_simple_precipitation():
         convert_to_rkt_species=True,
         dissolve_species_in_reaktoro=False,
         build_speciation_block=True,
-        epsilon=1e-20,  # we reduced epsilon from 1e-32 to 1e-20 as otherwise reaktoro struggles to solve the problem
         jacobian_user_scaling={
             ("molarEnthalpy", None): 1,
         },
