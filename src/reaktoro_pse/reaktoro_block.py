@@ -1,3 +1,16 @@
+###############################################################################
+# #################################################################################
+# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# # National Renewable Energy Laboratory, and National Energy Technology
+# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# # of Energy). All rights reserved.
+# #
+# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# # information, respectively. These files are also available online at the URL
+# # "https://github.com/watertap-org/reaktoro-pse/"
+# #################################################################################
+###############################################################################
 from idaes.core.base.process_base import declare_process_block_class, ProcessBlockData
 from pyomo.common.config import ConfigValue, IsInstance
 from pyomo.core.base.var import IndexedVar, Var, VarData
@@ -345,7 +358,7 @@ class ReaktoroBlockData(ProcessBlockData):
     )
 
     CONFIG.declare(
-        "chemical_addition",
+        "chemistry_modifier",
         ConfigValue(
             default=None,
             domain=IsInstance((dict, IndexedVar)),
@@ -355,7 +368,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "chemical_addition_indexed",
+        "chemistry_modifier_indexed",
         ConfigValue(
             default=True,
             domain=bool,
@@ -736,23 +749,23 @@ class ReaktoroBlockData(ProcessBlockData):
             will build user requested outputs, not provide user supplied pH and disable charge neutrality
         """
         """ get index for chemicals - refer to build_rkt_state on indexing notes"""
-        chemical_addition_indexed = self.index()
-        if self.config.chemical_addition_indexed == False:
-            chemical_addition_indexed = None
+        chemistry_modifier_indexed = self.index()
+        if self.config.chemistry_modifier_indexed == False:
+            chemistry_modifier_indexed = None
 
         block.rkt_inputs = ReaktoroInputSpec(block.rkt_state)
 
         """ add chemical only if its not a specitation block (normal mode)"""
         if speciation_block == False:
-            if self.config.chemical_addition is not None:
-                block.rkt_inputs.register_chemical_additions(
-                    self.config.chemical_addition, index=chemical_addition_indexed
+            if self.config.chemistry_modifier is not None:
+                block.rkt_inputs.register_chemistry_modifiers(
+                    self.config.chemistry_modifier, index=chemistry_modifier_indexed
                 )
             if self.config.chemical_speciation is not None:
                 for chemical, speciation in self.config.chemical_speciation.items():
                     if isinstance(chemical, tuple):
                         chemical = chemical[-1]
-                    block.rkt_inputs.register_chemical(chemical, speciation)
+                    block.rkt_inputs.register_modifier(chemical, speciation)
             block.rkt_inputs.register_open_species(
                 self.config.open_species_on_property_block
             )

@@ -1,3 +1,16 @@
+###############################################################################
+# #################################################################################
+# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# # National Renewable Energy Laboratory, and National Energy Technology
+# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# # of Energy). All rights reserved.
+# #
+# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# # information, respectively. These files are also available online at the URL
+# # "https://github.com/watertap-org/reaktoro-pse/"
+# #################################################################################
+###############################################################################
 from reaktoro_pse.reaktoro_block import ReaktoroBlock
 
 from pyomo.environ import (
@@ -24,6 +37,7 @@ Key assumptions:
 Assumes that process concentrating the feed does not alter the pH. 
 This might be a good assumptions for process such as RO, but might be a poor
 assumption for evaporative processes. 
+
 """
 
 
@@ -136,7 +150,7 @@ def build_simple_desal(open_species=False):
         pressure=m.feed_pressure,
         pH=m.feed_pH,
         outputs=m.desal_properties,
-        chemical_addition={"HCl": m.acid_addition},
+        chemistry_modifier={"HCl": m.acid_addition},
         aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
         dissolve_species_in_reaktoro=True,
         # we can use default converter as its defined for default database (Phreeqc and pitzer)

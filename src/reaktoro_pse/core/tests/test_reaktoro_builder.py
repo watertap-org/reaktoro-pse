@@ -1,3 +1,16 @@
+###############################################################################
+# #################################################################################
+# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# # National Renewable Energy Laboratory, and National Energy Technology
+# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# # of Energy). All rights reserved.
+# #
+# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# # information, respectively. These files are also available online at the URL
+# # "https://github.com/watertap-org/reaktoro-pse/"
+# #################################################################################
+###############################################################################
 import pytest
 from reaktoro_pse.core.reaktoro_jacobian import (
     ReaktoroJacobianSpec,
@@ -35,7 +48,7 @@ def build_with_dissolve_in_rkt(build_rkt_state_with_species):
     rkt_inputs = ReaktoroInputSpec(rkt_state)
     m.lime = Var(initialize=0.01, units=pyunits.mol / pyunits.s)
     m.lime.fix()
-    rkt_inputs.register_chemical_addition("CaO", m.lime)
+    rkt_inputs.register_chemistry_modifier("CaO", m.lime)
 
     rkt_inputs.configure_specs(dissolve_species_in_rkt=True)
     rkt_outputs = ReaktoroOutputSpec(rkt_state)
@@ -60,7 +73,7 @@ def build_with_dissolve_in_pyomo(build_rkt_state_with_species):
     rkt_inputs = ReaktoroInputSpec(rkt_state)
     m.lime = Var(initialize=0.01, units=pyunits.mol / pyunits.s)
     m.lime.fix()
-    rkt_inputs.register_chemical_addition("CaO", m.lime)
+    rkt_inputs.register_chemistry_modifier("CaO", m.lime)
     rkt_inputs.configure_specs(dissolve_species_in_rkt=False)
     rkt_outputs = ReaktoroOutputSpec(rkt_state)
 

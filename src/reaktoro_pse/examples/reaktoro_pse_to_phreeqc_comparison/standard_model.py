@@ -1,3 +1,16 @@
+###############################################################################
+# #################################################################################
+# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# # National Renewable Energy Laboratory, and National Energy Technology
+# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# # of Energy). All rights reserved.
+# #
+# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# # information, respectively. These files are also available online at the URL
+# # "https://github.com/watertap-org/reaktoro-pse/"
+# #################################################################################
+###############################################################################
 from reaktoro_pse.reaktoro_block import ReaktoroBlock
 
 from pyomo.environ import (
@@ -72,7 +85,7 @@ def add_standard_properties(m):
         pressure=m.feed_pressure,
         pH=m.feed_pH,
         outputs=m.modified_properties,
-        chemical_addition={
+        chemistry_modifier={
             "HCl": m.acid_addition,
             "H2O_evaporation": m.modified_properties_water_removal,
             "NaOH": m.base_addition,

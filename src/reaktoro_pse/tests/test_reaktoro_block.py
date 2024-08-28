@@ -1,3 +1,16 @@
+###############################################################################
+# #################################################################################
+# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# # National Renewable Energy Laboratory, and National Energy Technology
+# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# # of Energy). All rights reserved.
+# #
+# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# # information, respectively. These files are also available online at the URL
+# # "https://github.com/watertap-org/reaktoro-pse/"
+# #################################################################################
+###############################################################################
 import pytest
 
 from reaktoro_pse.reaktoro_block import ReaktoroBlock
@@ -152,7 +165,7 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
         composition=m.composition,
         temperature=m.temp,
         pressure=m.pressure,
-        chemical_addition=m.CaO,
+        chemistry_modifier=m.CaO,
         pH=m.pH,
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
@@ -284,7 +297,7 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
         temperature=m.temp,
         pressure=m.pressure,
         pH=m.pH,
-        chemical_addition=m.CaO,
+        chemistry_modifier=m.CaO,
         database="SupcrtDatabase",
         database_file="supcrtbl",
         numerical_jac_type="average",
@@ -363,7 +376,7 @@ def test_indexed_blockBuild_with_speciation_block(
         temperature=m.temp,
         pressure=m.pressure,
         pH=m.pH,
-        chemical_addition=m.CaO,
+        chemistry_modifier=m.CaO,
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
         numerical_jac_type="average",

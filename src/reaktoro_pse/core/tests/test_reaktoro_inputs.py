@@ -1,3 +1,16 @@
+###############################################################################
+# #################################################################################
+# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# # National Renewable Energy Laboratory, and National Energy Technology
+# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# # of Energy). All rights reserved.
+# #
+# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# # information, respectively. These files are also available online at the URL
+# # "https://github.com/watertap-org/reaktoro-pse/"
+# #################################################################################
+###############################################################################
 import reaktoro_pse.core.reaktoro_inputs as RktInputspec
 
 from pyomo.environ import Var, units as pyunits
@@ -115,7 +128,7 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
     # lime = Var(initialize=0.01, units=pyunits.mol / pyunits.s)
     # lime.construct()
 
-    # rkt_input.register_chemical_addition("CaO", lime)
+    # rkt_input.register_chemistry_modifier("CaO", lime)
     rkt_input.register_charge_neutrality(False)
     rkt_input.configure_specs(dissolve_species_in_rkt=True)
     input_names = rkt_input.equilibrium_specs.namesControlVariables()
@@ -280,7 +293,7 @@ def test_with_chemical(build_rkt_state_with_species):
     lime = Var(initialize=0.01, units=pyunits.mol / pyunits.s)
     lime.construct()
 
-    rkt_input.register_chemical_addition("CaO", lime)
+    rkt_input.register_chemistry_modifier("CaO", lime)
     rkt_input.configure_specs(dissolve_species_in_rkt=True)
     expected_con_dict = {
         "C": [(1.0, "CO3-2"), (1.0, "CO2")],

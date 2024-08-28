@@ -1,3 +1,16 @@
+###############################################################################
+# #################################################################################
+# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# # National Renewable Energy Laboratory, and National Energy Technology
+# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# # of Energy). All rights reserved.
+# #
+# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# # information, respectively. These files are also available online at the URL
+# # "https://github.com/watertap-org/reaktoro-pse/"
+# #################################################################################
+###############################################################################
 from reaktoro_pse.reaktoro_block import ReaktoroBlock
 
 
@@ -94,6 +107,7 @@ def build_simple_precipitation():
         [
             ("molarEnthalpy", None),
             ("vaporPressure", "H2O(g)"),
+            ("specificHeatCapacityConstP", None),
         ],
         initialize=1,
     )
@@ -101,6 +115,7 @@ def build_simple_precipitation():
         [
             ("speciesAmount", "Calcite"),
             ("speciesAmount", "Anhydrite"),
+            ("specificHeatCapacityConstP", None),
             ("molarEnthalpy", None),
             ("pH", None),
             ("vaporPressure", "H2O(g)"),
@@ -110,6 +125,7 @@ def build_simple_precipitation():
     m.treated_properties = Var(
         [
             ("molarEnthalpy", None),
+            ("specificHeatCapacityConstP", None),
         ],
         initialize=1,
     )
@@ -117,6 +133,7 @@ def build_simple_precipitation():
         [
             ("molarEnthalpy", None),
             ("vaporPressure", "H2O(g)"),
+            ("specificHeatCapacityConstP", None),
         ],
         initialize=1,
     )
@@ -231,7 +248,10 @@ def build_simple_precipitation():
         species_to_rkt_species_dict=translation_dict,
         convert_to_rkt_species=True,
         dissolve_species_in_reaktoro=False,
-        jacobian_user_scaling={("molarEnthalpy", None): 1},
+        jacobian_user_scaling={
+            ("molarEnthalpy", None): 1,
+            ("specificHeatCapacityConstP", None): 1,
+        },
     )
 
     # """ need to get precipitator enthalpy to find required power input """
@@ -253,6 +273,7 @@ def build_simple_precipitation():
         build_speciation_block=True,
         jacobian_user_scaling={
             ("molarEnthalpy", None): 1,
+            ("specificHeatCapacityConstP", None): 1,
         },
     )
     m.eq_treated_properties = ReaktoroBlock(
@@ -270,7 +291,10 @@ def build_simple_precipitation():
         species_to_rkt_species_dict=translation_dict,
         convert_to_rkt_species=True,
         dissolve_species_in_reaktoro=False,
-        jacobian_user_scaling={("molarEnthalpy", None): 1},
+        jacobian_user_scaling={
+            ("molarEnthalpy", None): 1,
+            ("specificHeatCapacityConstP", None): 1,
+        },
     )
     m.eq_cooled_treated_properties = ReaktoroBlock(
         composition=m.treated_composition,
@@ -287,7 +311,10 @@ def build_simple_precipitation():
         species_to_rkt_species_dict=translation_dict,
         convert_to_rkt_species=True,
         dissolve_species_in_reaktoro=False,
-        jacobian_user_scaling={("molarEnthalpy", None): 1},
+        jacobian_user_scaling={
+            ("molarEnthalpy", None): 1,
+            ("specificHeatCapacityConstP", None): 1,
+        },
         # presolve=True, # when solids are include, presolving can help with stability
     )
     scale_model(m)
@@ -409,6 +436,9 @@ def display_results(m):
     )
     print(
         f"Specific heat input {m.Q_heating.value/1000/(m.precipitator_temperature.value-m.feed_temperature.value)/(55*18.015/1000)} kJ/K/kg"
+    )
+    print(
+        f'Specific heat capacity feed {m.feed_properties[("specificHeatCapacityConstP", None)].value}, (J/K/kg) precipitator {m.precipitation_properties[("specificHeatCapacityConstP", None)].value}(J/K/kg)'
     )
     print(
         f'Calcite precipitation {m.precipitation_properties[("speciesAmount", "Calcite")].value} mol/s'

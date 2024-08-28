@@ -1,3 +1,16 @@
+###############################################################################
+# #################################################################################
+# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# # National Renewable Energy Laboratory, and National Energy Technology
+# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# # of Energy). All rights reserved.
+# #
+# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# # information, respectively. These files are also available online at the URL
+# # "https://github.com/watertap-org/reaktoro-pse/"
+# #################################################################################
+###############################################################################
 import reaktoro as rkt
 import reaktoro_pse.core.util_classes.rkt_inputs as RktInputs
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
@@ -23,22 +36,22 @@ class ReaktoroInputSpec:
 
         """ execute default configuration options, user can update settings """
         self.register_charge_neutrality()
-        self.default_chemical_speciation()
+        self.default_speciation()
         self.register_aqueous_solvent()
         self.register_open_species()
 
-    def register_chemical_additions(self, chemical_dict, index=None):
-        """registers chemicals being added to system
-        chemical_addition -- chemicals to be added (pyo object should be mole flow of chemical that would enter a system with same species as in apparat_species_mol_flow
-                        chemical_addition = {'HCl':m.fs.HCl_dose} example for HCl
+    def register_chemistry_modifiers(self, chemical_dict, index=None):
+        """registers chemistry modifiers being added to system
+        chemistry_modifier -- chemicals to be added (pyo object should be mole flow of chemical that would enter a system with same species as in apparat_species_mol_flow
+                        chemistry_modifier = {'HCl':m.fs.HCl_dose} example for HCl
         """
         for chemical, obj in chemical_dict.items():
             if index is None or index in chemical:
                 if isinstance(chemical, tuple):
                     chemical = chemical[-1]
-                self.register_chemical_addition(chemical, obj)
+                self.register_chemistry_modifier(chemical, obj)
 
-    def register_chemical_addition(self, chemical, pyomo_var):
+    def register_chemistry_modifier(self, chemical, pyomo_var):
         if chemical not in self.chemical_to_elements:
             raise ValueError(
                 f"{chemical} is not avaialbe in chemical_to_element dict, please add"
@@ -130,6 +143,7 @@ class ReaktoroInputSpec:
                 self.specie_to_elements[specie.name()][
                     el
                 ] = specie.elements().coefficients()[i]
+        self.chemical_to_elements.update(self.specie_to_elements)
 
     def add_specs(self, specs_object, assert_charge_neutrality, dissolveSpeciesInRkt):
         # ignore elements for constraints
@@ -277,7 +291,7 @@ class ReaktoroInputSpec:
             else:
                 raise KeyError(f"Specie is not found {specie}")
 
-    def default_chemical_speciation(self):
+    def default_speciation(self):
         # TODO: probably want to make a class to track this stuff
         """defines species to element conversions"""
         self.chemical_to_elements = {
@@ -291,7 +305,7 @@ class ReaktoroInputSpec:
             "H2O_evaporation": {"O": 1, "H": 2},
         }
 
-    def register_chemical(self, new_chemical):
+    def register_modifier(self, new_chemical):
         if new_chemical is not None:
             self.chemical_to_elements.update(new_chemical)
 
