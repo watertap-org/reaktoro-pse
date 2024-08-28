@@ -123,14 +123,11 @@ class ReaktoroSolver:
         for input_key in self.input_specs.rkt_inputs.rkt_input_list:
             input_obj = self.input_specs.rkt_inputs[input_key]
             if params is None:
-                value = input_obj.get_value(update_temp=True)
+                value = input_obj.get_value(update_temp=True, apply_conversion=True)
             else:
                 value = params.get(input_key)
-                input_obj.currentValue = value
+                input_obj.set_temp_value(value)
             unit = input_obj.main_unit
-            # _log.info(
-            #     f"spec-input: {input_obj.get_rkt_input_name()},{input_key},{value},{unit}"
-            # )
             if input_key == "temperature":
                 self.conditions.temperature(value, unit)
             elif input_key == "pressure":

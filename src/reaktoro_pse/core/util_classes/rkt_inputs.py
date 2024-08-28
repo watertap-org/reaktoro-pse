@@ -11,10 +11,24 @@
 # # "https://github.com/watertap-org/reaktoro-pse/"
 # #################################################################################
 ###############################################################################
-from pyomo.environ import Var, units as pyunits
+from pyomo.environ import Var, value, units as pyunits
 from pyomo.core.base.var import VarData
 
-__author__ = "Alexander V. Dudchenko (SLAC)"
+
+__author__ = "Alexander V. Dudchenko"
+
+
+class RktInputTypes:
+    """defines deafult types of inputs for reaktoro usage"""
+
+    mol = "mol"
+    K = "K"
+    Pa = "Pa"
+    pH = "pH"
+    temperature = "temperature"
+    pressure = "pressure"
+    dimensionless = "dimensionless"
+    mass_units = ["kg", "mg"]
 
 
 class RktInput:
@@ -27,6 +41,9 @@ class RktInput:
         self.jacobian_index = None  # tracking rkt jacobian row index
         self.time_unit = None
         self.main_unit = None
+        self.conversion_unit = None
+        self.conversion_value = None
+        self.required_unit = None
         self.rkt_name = var_name
         if pyomo_var is not None:
             if isinstance(pyomo_var, (Var, VarData)) == False:
@@ -45,14 +62,61 @@ class RktInput:
         else:
             self.value = None
         if update_temp:
-            self.temp_value = self.value
+            self.set_temp_value(self.value)
 
-    def get_value(self, update_temp=False):
+    def set_temp_value(self, value):
+        self.temp_value = value
+
+    def get_temp_value(self):
+        return self.temp_value
+
+    def get_value(self, update_temp=False, apply_conversion=False):
         self.update_values(update_temp)
-        return self.value
+        if apply_conversion:
+            return value(self.get_pyomo_with_required_units())
+        else:
+            return self.value
+
+    def get_pyomo_with_required_units(self):
+        if self.conversion_value == None:
+            return self.pyomo_var
+        else:
+            # print(
+            #     pyunits.convert(
+            #         self.pyomo_var / (self.conversion_value * self.conversion_unit),
+            #         to_units=self.required_unit,
+            #     )
+            # )
+            return pyunits.convert(
+                self.pyomo_var / (self.conversion_value * self.conversion_unit),
+                to_units=self.required_unit,
+            )
+
+    def set_unit_conversion(self, value, unit):
+        self.conversion_unit = unit
+        self.conversion_value = value
+
+    def get_unit_conversion_value(self):
+        return self.conversion_value
+
+    def get_unit_conversion_units(self):
+        return self.conversion_unit
+
+    def get_required_unit(self):
+        return self.required_unit
+
+    def set_required_unit(self, main_unit):
+        self.required_unit = pyunits.__getattr__(main_unit)
+        if self.time_unit is not None:
+            self.required_unit = self.required_unit / pyunits.__getattr__(
+                self.time_unit
+            )
 
     def set_pyomo_var(self, pyomo_var):
         self.pyomo_var = pyomo_var
+
+    def get_pyomo_var(self):
+        return self.pyomo_var
 
     def set_jacobian_index(self, idx):
         self.jacobian_index = idx
@@ -84,12 +148,12 @@ class RktInput:
         the primary mass unit from time unit and
         also convert them to string"""
         default_unit = str(pyunits.get_units(self.pyomo_var))
-        if default_unit == "dimensionless" and self.var_name not in [
-            "pH",
-            "temperature",
-            "pressure",
+        if default_unit == RktInputTypes.dimensionless and self.var_name not in [
+            RktInputTypes.pH,
+            RktInputTypes.temperature,
+            RktInputTypes.pressure,
         ]:
-            self.main_unit = "mol"
+            self.main_unit = RktInputTypes.mol
             self.time_unit = None
         split_units = default_unit.split("/")
         if len(split_units) == 2:
@@ -106,7 +170,6 @@ class RktInputs(dict):
         self.rkt_input_list = []
         self.convert_to_rkt_species = False
         self.composition_is_elements = False
-        self.conversion_method = "default"
 
     def enable_rkt_species_conversion(self, convert=False, conversion_method="default"):
         self.convert_to_rkt_species = convert

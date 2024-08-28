@@ -302,8 +302,8 @@ class ReaktoroJacobianSpec:
         return jacobian_dict, np.array(jacobian_abs_matrix)
 
     def get_jacobian(self, jacobian_matrix, input_object):
-        input_index = input_object.jacobian_index
-        input_value = input_object.temp_value
+        input_index = input_object.get_jacobian_index()
+        input_value = input_object.get_temp_value()
         jacobian_dict, jacobian_abs_matrix = self.process_jacobian_matrix(
             jacobian_matrix, input_index, input_value
         )

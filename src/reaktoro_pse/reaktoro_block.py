@@ -688,6 +688,11 @@ class ReaktoroBlockData(ProcessBlockData):
                 convert_to_rkt_species = False
                 composition_indexed = None  # passing speciation output directly
         block.rkt_state = ReaktoroState()
+        """ setup database """
+        block.rkt_state.set_database(
+            dbtype=self.config.database, database=self.config.database_file
+        )
+        """ setup inputs """
         block.rkt_state.register_inputs(
             composition=input_composition,
             temperature=self.config.temperature,
@@ -725,10 +730,6 @@ class ReaktoroBlockData(ProcessBlockData):
             self.config.mineral_phase_activity_model
         )
 
-        """ setup database """
-        block.rkt_state.set_database(
-            dbtype=self.config.database, database=self.config.database_file
-        )
         """ build state """
         block.rkt_state.build_state()
 

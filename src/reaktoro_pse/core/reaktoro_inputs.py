@@ -23,6 +23,12 @@ __author__ = "Alexander Dudchenko"
 
 """ class to setup input constraints, and specs for reaktoro solver class"""
 
+# class RktChemModifier:
+#     def __init__(self, elemental_makeup):
+#         self.elemental_makeup=elemental_makeup
+
+#     def get_mw(self):
+
 
 class ReaktoroInputSpec:
     def __init__(self, reaktor_state):
@@ -59,6 +65,10 @@ class ReaktoroInputSpec:
         self.rkt_chemical_inputs[chemical] = RktInputs.RktInput(
             var_name=chemical, pyomo_var=pyomo_var
         )
+
+        mw, mw_unit = self.get_modifier_mw(self.chemical_to_elements[chemical])
+        print("mw", mw)
+        self.state.verify_unit(self.rkt_chemical_inputs[chemical], mw, mw_unit)
 
     def register_open_species(self, specie=None):
         """registers species to open to optimization and write empety constraint for,
@@ -304,6 +314,13 @@ class ReaktoroInputSpec:
             "OH": {"O": 1, "H": 1},
             "H2O_evaporation": {"O": 1, "H": 2},
         }
+
+    def get_modifier_mw(self, elemental_composition):
+        mw = 0
+        for el, mol in elemental_composition.items():
+            _mw, _unit = self.state.get_molar_mass_element(el)
+            mw = mw + mol * _mw
+        return mw, _unit
 
     def register_modifier(self, new_chemical):
         if new_chemical is not None:

@@ -79,6 +79,9 @@ class RktOutput:
     def set_pyomo_var(self, var):
         self.pyomo_var = var
 
+    def get_pyomo_var(self):
+        return self.pyomo_var
+
     def set_pyomo_var_value(self, value):
         self.pyomo_var.value = value
 
