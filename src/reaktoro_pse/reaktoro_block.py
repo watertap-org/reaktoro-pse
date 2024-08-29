@@ -380,15 +380,15 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "chemical_speciation",
+        "register_new_chemistry_modifiers",
         ConfigValue(
             default=None,
             domain=dict,
-            description="Defines if species should be converted to elements using reaktoro or pyomo",
+            description="Defines spectiation of chemistry modifiers if they are not available by default",
             doc="""
-            The equilibrium calculation requires element amounts as an input,
-            since normally species are provided, they need to be converted to elements, this can be done 
-            useing pyomo constraints (Set to False) or reaktoro (Set to True).""",
+            Adds a new chemistry modifier with specific name and element breakdown 
+            {'H2O_removal:{'H':2,'O':1},
+            'CaO':'Ca':1,'O':1}.""",
         ),
     )
     CONFIG.declare(
@@ -756,17 +756,15 @@ class ReaktoroBlockData(ProcessBlockData):
 
         block.rkt_inputs = ReaktoroInputSpec(block.rkt_state)
 
-        """ add chemical only if its not a specitation block (normal mode)"""
+        """ add chemical only if its not a speciation block (normal mode)"""
         if speciation_block == False:
+            block.rkt_inputs.register_modifier(
+                self.config.register_new_chemistry_modifiers
+            )
             if self.config.chemistry_modifier is not None:
                 block.rkt_inputs.register_chemistry_modifiers(
                     self.config.chemistry_modifier, index=chemistry_modifier_indexed
                 )
-            if self.config.chemical_speciation is not None:
-                for chemical, speciation in self.config.chemical_speciation.items():
-                    if isinstance(chemical, tuple):
-                        chemical = chemical[-1]
-                    block.rkt_inputs.register_modifier(chemical, speciation)
             block.rkt_inputs.register_open_species(
                 self.config.open_species_on_property_block
             )

@@ -25,6 +25,7 @@ __author__ = "Alexander Dudchenko"
 """ class to setup output constraints, outputs, and jacobian reaktoro solver class"""
 
 
+# NOTE: Consider refactoring to inherit RktInput class
 class RktOutput:
     """general class to stor output metadata and vars"""
 

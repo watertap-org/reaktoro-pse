@@ -73,9 +73,8 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
             # 1e-16 is Reaktoro's epsilon value
             if "inputs" in block.name:
                 for var in self.inputs:
-                    pyo_object = self.input_dict[var].pyomo_var
-                    block[var].value = pyo.value(pyo_object)
-                    block[var].setlb(0)
+                    block[var].value = 1  # self.input_dict[var].get_pyomo_var_value()
+                    block[var].setlb(self.input_dict[var].get_lower_bound())
                     block[var].setub(None)
             elif "outputs" in block.name:
                 for prop in self.outputs:

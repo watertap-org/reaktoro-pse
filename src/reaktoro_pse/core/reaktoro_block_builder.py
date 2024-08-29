@@ -320,6 +320,5 @@ class ReaktoroBlockBuilder:
             sf = iscale.get_scaling_factor(pyo_var)
             if sf == None:
                 sf = self.get_sf(self.block.reaktoro_model.inputs[key])
-            print(key, pyo_var.value, self.block.reaktoro_model.inputs[key].value, sf)
             iscale.set_scaling_factor(self.block.reaktoro_model.inputs[key], sf)
             iscale.constraint_scaling_transform(self.block.input_constraints[key], sf)

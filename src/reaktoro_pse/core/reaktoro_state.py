@@ -97,7 +97,10 @@ class ReaktoroState:
             self.verify_unit(self.inputs[specie], mw, unit)
 
     def verify_unit(self, rkt_input_object, mw, mw_unit):
-        if rkt_input_object.main_unit == RktInputTypes.mol or rkt_input_object.main_unit==RktInputTypes.dimensionless:
+        if (
+            rkt_input_object.main_unit == RktInputTypes.mol
+            or rkt_input_object.main_unit == RktInputTypes.dimensionless
+        ):
             rkt_input_object.set_unit_conversion(None, None)
         elif rkt_input_object.main_unit in RktInputTypes.mass_units:
             rkt_input_object.set_unit_conversion(mw, mw_unit)
@@ -106,14 +109,15 @@ class ReaktoroState:
             raise ValueError(
                 f"Unit {rkt_input_object.main_unit} is not supported, only mol, kg, and mg is supported as main input unit (e.g. main_unit/time_unit)"
             )
-    
-    def get_molar_mass(self,comp):
+
+    def get_molar_mass(self, comp):
         if comp in self.database_species:
             return self.get_molar_mass_specie(comp)
         elif comp in self.database_elements:
             return self.get_molar_mass_element(comp)
         else:
-            raise KeyError(f'Provided {comp} not found in species or elements in db')
+            raise KeyError(f"Provided {comp} not found in species or elements in db")
+
     def get_molar_mass_specie(self, species_name):
         mw = self.database.species(species_name).molarMass()
         mw_unit = pyunits.kg / pyunits.mol
@@ -166,8 +170,10 @@ class ReaktoroState:
     def set_database(self, dbtype="PhreeqcDatabase", database="pitzer.dat"):
         """set data base of reaktoro"""
         self.database = getattr(rkt, dbtype)(database)
-        self.database_species=[specie.name() for specie in self.database.species()]
-        self.database_elements=[element.symbol() for element in self.database.elements()]
+        self.database_species = [specie.name() for specie in self.database.species()]
+        self.database_elements = [
+            element.symbol() for element in self.database.elements()
+        ]
 
     def _process_activity(self, activity_model, state_of_matter=None):
         def get_func(activity_model, state_of_matter):
@@ -263,7 +269,7 @@ class ReaktoroState:
                     if self.inputs[species].get_value() != 0:
                         unit = self.inputs[species].main_unit
                         if unit == "dimensionless":
-                            ''' assume correct units are provided '''
+                            """assume correct units are provided"""
                             self.state.set(
                                 species,
                                 self.inputs[species].get_value(apply_conversion=True),

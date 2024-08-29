@@ -45,6 +45,7 @@ class RktInput:
         self.conversion_value = None
         self.required_unit = None
         self.rkt_name = var_name
+        self.lower_bound = None
         if pyomo_var is not None:
             if isinstance(pyomo_var, (Var, VarData)) == False:
                 raise TypeError(
@@ -69,6 +70,12 @@ class RktInput:
 
     def get_temp_value(self):
         return self.temp_value
+
+    def get_lower_bound(self):
+        return self.lower_bound
+
+    def set_lower_bound(self, value):
+        self.lower_bound = value
 
     def get_value(self, update_temp=False, apply_conversion=False):
         self.update_values(update_temp)

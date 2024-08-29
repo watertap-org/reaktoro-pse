@@ -67,7 +67,6 @@ class ReaktoroInputSpec:
         )
 
         mw, mw_unit = self.get_modifier_mw(self.chemical_to_elements[chemical])
-        print("mw", mw)
         self.state.verify_unit(self.rkt_chemical_inputs[chemical], mw, mw_unit)
 
     def register_open_species(self, specie=None):
@@ -167,13 +166,16 @@ class ReaktoroInputSpec:
                 specs_object.temperature()
                 temperature_not_set = False
                 self.rkt_inputs["temperature"] = self.state.inputs["temperature"]
+                self.rkt_inputs["temperature"].set_lower_bound(0)
             elif input_name == "pressure":
                 specs_object.pressure()
                 pressure_not_set = False
                 self.rkt_inputs["pressure"] = self.state.inputs["pressure"]
+                self.rkt_inputs["pressure"].set_lower_bound(0)
             elif input_name == "pH":
                 specs_object.pH()
                 self.rkt_inputs["pH"] = self.state.inputs["pH"]
+                self.rkt_inputs["pH"].set_lower_bound(0)
             else:
                 pass
         if pressure_not_set:
@@ -198,6 +200,7 @@ class ReaktoroInputSpec:
             for element in self.constraint_dict:
                 if element not in self.rkt_inputs:
                     self.rkt_inputs[element] = RktInputs.RktInput(element)
+                    self.rkt_inputs[element].set_lower_bound(0)
         """ write reaktoro constraints to spec"""
         for element in self.constraint_dict:
             if dissolveSpeciesInRkt:
@@ -210,7 +213,7 @@ class ReaktoroInputSpec:
             if self.aqueous_solvent not in self.rkt_inputs:
                 self.rkt_inputs[aq_specie] = self.state.inputs[self.aqueous_solvent]
                 self.rkt_inputs[aq_specie].set_rkt_input_name(aq_specie)
-
+                self.rkt_inputs[aq_specie].set_lower_bound(0)
             self.write_open_solvent_constraints(specs_object)
         self.write_empty_constraints(specs_object)
         """ legacy code """
@@ -286,7 +289,6 @@ class ReaktoroInputSpec:
 
     def write_active_species(self, spec_object):
         # build intputs into rkt model, and track thier indexes for writing rkt constraints
-
         for specie in self.active_species:
             input_name = f"input{specie}"
             idx = spec_object.addInput(input_name)
@@ -294,10 +296,12 @@ class ReaktoroInputSpec:
                 self.rkt_inputs[specie] = self.state.inputs[specie]
                 self.rkt_inputs[specie].set_rkt_index(idx)
                 self.rkt_inputs[specie].set_rkt_input_name(input_name)
+                self.rkt_inputs[specie].set_lower_bound(0)
             elif specie in self.rkt_chemical_inputs:
                 self.rkt_inputs[specie] = self.rkt_chemical_inputs[specie]
                 self.rkt_inputs[specie].set_rkt_index(idx)
                 self.rkt_inputs[specie].set_rkt_input_name(input_name)
+                self.rkt_inputs[specie].set_lower_bound(0)
             else:
                 raise KeyError(f"Specie is not found {specie}")
 

@@ -12,10 +12,10 @@ This is a package for configuring [reaktoro](https://reaktoro.org/index.html) as
 
 * **Database:** [PhreeqcDatabase](https://reaktoro.org/api/classReaktoro_1_1PhreeqcDatabase.html) 
 * **Data file:** [pitzer.dat](https://reaktoro.org/api/classReaktoro_1_1PhreeqcDatabase.html) 
-* **Aqueous activity mode:** [ActivityModelIdealAqueous](https://reaktoro.org/api/namespaceReaktoro.html#ae431d4c8a1f283910ae1cf35024091b8)
-* **Gas activity mode:** [ActivityModelIdealGas](https://reaktoro.org/api/namespaceReaktoro.html#a7a0788a5a863d987a88b81303d80b427)
-* **Solid activity mode:** [ActivityModelIdealSolution](https://reaktoro.org/api/namespaceReaktoro.html#a6581d5c0cde36cae6d9c46dbc32d56f8)
-* **Ion exchange activity model:** [ActivityModelIonExchange](https://reaktoro.org/api/namespaceReaktoro.html#a6581d5c0cde36cae6d9c46dbc32d56f8)
+* **Aqueous activity models:** [ActivityModelIdealAqueous](https://reaktoro.org/api/namespaceReaktoro.html#ae431d4c8a1f283910ae1cf35024091b8)
+* **Gas activity models:** [ActivityModelIdealGas](https://reaktoro.org/api/namespaceReaktoro.html#a7a0788a5a863d987a88b81303d80b427)
+* **Solid activity models:** [ActivityModelIdealSolution](https://reaktoro.org/api/namespaceReaktoro.html#a6581d5c0cde36cae6d9c46dbc32d56f8)
+* **Ion exchange activity modells:** [ActivityModelIonExchange](https://reaktoro.org/api/namespaceReaktoro.html#a6581d5c0cde36cae6d9c46dbc32d56f8)
 
 ### Inputs and outputs of the reaktoro blocks
 The reaktoro blocks built by this package are designed to solve an equilibrium problem using user provided apparent species, temperature, pressure, and pH, which are broken down to base elements and equilibrated within reaktoro to provide exact speciation and equilibrium state. Using this state the block can return various information supported by reaktoro:
