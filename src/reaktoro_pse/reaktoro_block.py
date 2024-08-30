@@ -870,7 +870,7 @@ class ReaktoroBlockData(ProcessBlockData):
         name = str(self)
         if speciation_block:
             name = f"{name}_speciation_block"
-        block.rktSolver = ReaktoroSolver(
+        block.rkt_solver = ReaktoroSolver(
             block.rkt_state,
             block.rkt_inputs,
             block.rkt_outputs,
@@ -881,7 +881,7 @@ class ReaktoroBlockData(ProcessBlockData):
             presolve = self.config.presolve_speciation_block
         else:
             presolve = self.config.presolve_property_block
-        block.rktSolver.set_solver_options(
+        block.rkt_solver.set_solver_options(
             tolerance=self.config.tolerance,
             epsilon=self.config.epsilon,
             presolve=presolve,
@@ -903,7 +903,7 @@ class ReaktoroBlockData(ProcessBlockData):
         scaling = self.config.jacobian_user_scaling
         scaling_type = self.config.jacobian_scaling_type
         block.rkt_block_builder = ReaktoroBlockBuilder(
-            block, block.rktSolver, build_on_init=False
+            block, block.rkt_solver, build_on_init=False
         )
         block.rkt_block_builder.configure_jacobian_scaling(
             jacobian_scaling_type=scaling_type, user_scaling=scaling
@@ -930,6 +930,13 @@ class ReaktoroBlockData(ProcessBlockData):
         jacobian_scaling["property_block"] = jac_scale
         return jacobian_scaling
 
+    def display_reaktoro_states(self):
+        if self.config.build_speciation_block:
+            _log.info("-----Displaying information for speciation block ------")
+            _log.info(self.speciation_block.rkt_state.state)
+        _log.info("-----Displaying information for property block ------")
+        _log.info(self.rkt_state.state)
+        
     def set_jacobian_scaling(self, user_scaling_dict, speciation_block=False):
         if speciation_block:
             self.speciation_block.rkt_block_builder.set_user_jacobian_scaling(
