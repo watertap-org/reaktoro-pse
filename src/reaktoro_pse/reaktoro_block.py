@@ -50,9 +50,9 @@ class ReaktoroBlockData(ProcessBlockData):
         ConfigValue(
             default=False,
             domain=bool,
-            description="Construct speciation block (use when exact composition is not known and modified state is desired)",
+            description="Construct speciation block (use when exact composition is unknown and modified state is desired)",
             doc="""If enabled, will construct a speciation block to calculate initial equilibrium state 
-             at specified pH. Any chemicals will be added to the property block, enable this when exact composition is know known and the 
+             at specified pH. Any chemicals will be added to the property block, enable this when exact composition is unknown and the 
              property state is modified through addition of chemicals or formation of phases that modify final state""",
         ),
     )
@@ -62,7 +62,7 @@ class ReaktoroBlockData(ProcessBlockData):
             default=None,
             domain=IsInstance((dict, IndexedVar)),
             description="Input composition to reaktoro block",
-            doc="An input dictionary, or IndexedVar that contains species their amounts",
+            doc="An input dictionary, or IndexedVar that contains species and their amounts",
         ),
     )
     CONFIG.declare(
@@ -375,7 +375,7 @@ class ReaktoroBlockData(ProcessBlockData):
             description="Chemical addition is indexed",
             doc="""
             Option that defines how to treat input variable when building indexed reaktoroBlock":
-                - If true, the input has same indexing as block, and each indexed input willbe passed into respective indexed reaktoroBlock
+                - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
                 - If false, all indexed blocks will get same input""",
         ),
     )
@@ -384,7 +384,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ConfigValue(
             default=None,
             domain=dict,
-            description="Defines spectiation of chemistry modifiers if they are not available by default",
+            description="Defines speciation of chemistry modifiers if they are not available by default",
             doc="""
             Adds a new chemistry modifier with specific name and element breakdown 
             {'H2O_removal:{'H':2,'O':1},
@@ -411,7 +411,7 @@ class ReaktoroBlockData(ProcessBlockData):
     )
 
     CONFIG.declare(
-        "numerical_jac_type",
+        "numerical_jacobian_type",
         ConfigValue(
             default=JacType.average,
             domain=IsInstance((str, JacType)),
@@ -420,7 +420,7 @@ class ReaktoroBlockData(ProcessBlockData):
             Derivatives for many of the properties in reaktro are not directly available, 
             thus we numerically propagate derivatives from chemical state to methods for estimation of these properties. 
             Two methods are available, average and center_difference
-                - average methods takes defined number of derivatives by numerical_jac_order from center points and gets the average of them
+                - average methods takes defined number of derivatives by numerical_jacobian_order from center points and gets the average of them
                 - center_difference methods applies classical taylor difference approximation methods 
             In theory the two should yield same result- but due to round off errors the average method might provide better error dampening. 
 
@@ -428,20 +428,20 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "numerical_jac_order",
+        "numerical_jacobian_order",
         ConfigValue(
             default=8,
             domain=int,
-            description="Defines order of numerical jacobian",
+            description="Defines order of numerical jacobian (should be an even number)",
             doc="""
             This will define how many points to discretize the derivate over 
-             - for numerical_jac_type==average - the number of points = order/2 + 1 
-             - for numerical_jac_type==center_difference - the number of points equals the order
+             - for numerical_jacobian_type==average - order can be any even number
+             - for numerical_jacobian_type==center_difference - order can be 2, 4, 6, 8, 10
             """,
         ),
     )
     CONFIG.declare(
-        "numerical_jac_step",
+        "numerical_jacobian_step",
         ConfigValue(
             default=1e-6,
             domain=float,
@@ -483,7 +483,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "tolerance",
+        "reaktoro_solver_tolerance",
         ConfigValue(
             default=1e-8,
             domain=float,
@@ -492,16 +492,16 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "epsilon",
+        "reaktoro_epsilon",
         ConfigValue(
             default=1e-32,
             domain=float,
-            description="Epsilon for reaktoro solver",
+            description="epsilon for reaktoro solver",
             doc="""Defines what is considered to be 0 for ion composition""",
         ),
     )
     CONFIG.declare(
-        "max_iters",
+        "reaktoro_max_iterations",
         ConfigValue(
             default=400,
             domain=int,
@@ -540,7 +540,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "presolve_max_iters",
+        "presolve_reaktoro_max_iterations",
         ConfigValue(
             default=400,
             domain=int,
@@ -549,7 +549,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "presolve_tolerance",
+        "presolve_reaktoro_solver_tolerance",
         ConfigValue(
             default=1e-4,
             domain=float,
@@ -558,7 +558,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "presolve_epsilon",
+        "presolve_reaktoro_epsilon",
         ConfigValue(
             default=1e-32,
             domain=float,
@@ -605,7 +605,7 @@ class ReaktoroBlockData(ProcessBlockData):
         super().build()
         """ configure state"""
         if self.config.build_speciation_block:
-            """create spectitation block and then property block"""
+            """create speciation block and then property block"""
             self.speciation_block = Block()
             self.build_rkt_state(self.speciation_block, speciation_block=True)
             self.build_rkt_inputs(self.speciation_block, speciation_block=True)
@@ -623,18 +623,15 @@ class ReaktoroBlockData(ProcessBlockData):
             self.build_rkt_inputs(
                 self, speciation_block=False, speciation_block_built=True
             )
-            self.build_rkt_outputs(self, speciation_block=False)
-            self.build_rkt_jacobian(self)
-            self.build_rkt_solver(self, speciation_block=False)
-            self.build_gray_box(self)
         else:
             """create property block only"""
             self.build_rkt_state(self)
             self.build_rkt_inputs(self)
-            self.build_rkt_outputs(self)
-            self.build_rkt_jacobian(self)
-            self.build_rkt_solver(self)
-            self.build_gray_box(self)
+
+        self.build_rkt_outputs(self)
+        self.build_rkt_jacobian(self)
+        self.build_rkt_solver(self)
+        self.build_gray_box(self)
 
     def build_rkt_state(
         self,
@@ -643,7 +640,7 @@ class ReaktoroBlockData(ProcessBlockData):
         speciation_block_built=False,
         input_composition=None,
     ):
-        """this will buld our rkt state specified block.
+        """This will build our reaktoro state specified block.
         The keyword arguments are for automatic configuration of speciation and property blocks
 
         Keywords:
@@ -657,16 +654,18 @@ class ReaktoroBlockData(ProcessBlockData):
 
         """
 
-        """ defining which indexes shold be indexed 
+        """Defining which indices should be indexed 
          if block is not indexed, index is None 
          if specific input is set to be not Indexed the index will be set to None"""
 
         index = self.index()
+        # creating these as copies so we can set them to NOne based on config options below
         composition_indexed = index
         temperature_indexed = index
         pressure_indexed = index
         pH_indexed = index
 
+        # setting indexes to none if requested by config
         if self.config.composition_indexed == False:
             composition_indexed = None
         if self.config.temperature_indexed == False:
@@ -680,13 +679,12 @@ class ReaktoroBlockData(ProcessBlockData):
 
         convert_to_rkt_species = self.config.convert_to_rkt_species
         pH = self.config.pH
-        if speciation_block == False:
-            if speciation_block_built:
-                """specitition block already used pH to calcualte
-                state and we are getitng back exact species as inputs"""
-                pH = None
-                convert_to_rkt_species = False
-                composition_indexed = None  # passing speciation output directly
+        if speciation_block == False and speciation_block_built:
+            """speciation block already used pH to calculate
+            state and we are getting back exact species as inputs"""
+            pH = None
+            convert_to_rkt_species = False
+            composition_indexed = None  # passing speciation output directly
         block.rkt_state = ReaktoroState()
         """ setup database """
         block.rkt_state.set_database(
@@ -776,7 +774,7 @@ class ReaktoroBlockData(ProcessBlockData):
         """ register aqueous solvent phase"""
         block.rkt_inputs.register_aqueous_solvent(self.config.aqueous_solvent_specie)
 
-        """ register char neutrality"""
+        """ register charge neutrality"""
         if (
             speciation_block_built == False
             or self.config.assert_charge_neutrality_on_all_blocks
@@ -851,9 +849,9 @@ class ReaktoroBlockData(ProcessBlockData):
         """ config outputs """
         block.rkt_jacobian = ReaktoroJacobianSpec(block.rkt_state, block.rkt_outputs)
         block.rkt_jacobian.configure_numerical_jacobian(
-            jacobian_type=self.config.numerical_jac_type,
-            order=self.config.numerical_jac_order,
-            step_size=self.config.numerical_jac_step,
+            jacobian_type=self.config.numerical_jacobian_type,
+            order=self.config.numerical_jacobian_order,
+            step_size=self.config.numerical_jacobian_step,
         )
 
     def build_rkt_solver(self, block, speciation_block=False):
@@ -882,13 +880,13 @@ class ReaktoroBlockData(ProcessBlockData):
         else:
             presolve = self.config.presolve_property_block
         block.rkt_solver.set_solver_options(
-            tolerance=self.config.tolerance,
-            epsilon=self.config.epsilon,
+            tolerance=self.config.reaktoro_solver_tolerance,
+            epsilon=self.config.reaktoro_epsilon,
             presolve=presolve,
-            presolve_tolerance=self.config.presolve_tolerance,
-            presolve_epsilon=self.config.presolve_epsilon,
-            max_iters=self.config.max_iters,
-            presolve_max_iters=self.config.presolve_max_iters,
+            presolve_tolerance=self.config.presolve_reaktoro_solver_tolerance,
+            presolve_epsilon=self.config.presolve_reaktoro_epsilon,
+            max_iters=self.config.reaktoro_max_iterations,
+            presolve_max_iters=self.config.presolve_reaktoro_max_iterations,
             hessian_type=self.config.hessian_type,
         )
 
