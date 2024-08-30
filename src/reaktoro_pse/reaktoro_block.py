@@ -936,7 +936,7 @@ class ReaktoroBlockData(ProcessBlockData):
             _log.info(self.speciation_block.rkt_state.state)
         _log.info("-----Displaying information for property block ------")
         _log.info(self.rkt_state.state)
-        
+
     def set_jacobian_scaling(self, user_scaling_dict, speciation_block=False):
         if speciation_block:
             self.speciation_block.rkt_block_builder.set_user_jacobian_scaling(
