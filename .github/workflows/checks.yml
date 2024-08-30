@@ -9,7 +9,7 @@ on:
 env:
   PYTEST_ADDOPTS: --color=yes
   PIP_PROGRESS_BAR: "off"
-
+  KERNEL_NAME: reaktoro-pse-dev
 defaults:
   run:
     # -l: login shell, needed when using Conda:
@@ -98,6 +98,14 @@ jobs:
         run: |
           pip install pytest  # ensure pytest is installed (should do nothing if already present from requirements-dev.txt)
           pytest --pyargs reaktoro_pse --verbose
+      - name: Create jupyer test 
+        run: |
+          jupyter kernelspec list
+          python -m ipykernel install --user --name "${{ env.KERNEL_NAME }}"
+          jupyter kernelspec list
+      - name: Run pytest with nbmake
+        run: |
+          pytest --nbmake --nbmake-kernel="${{ env.KERNEL_NAME }}" **/*.ipynb      
       - name: Upload coverage report as job artifact
         if: matrix.coverage
         uses: actions/upload-artifact@v4
@@ -105,3 +113,4 @@ jobs:
           name: coverage-report-${{ matrix.os }}
           path: coverage.xml
           if-no-files-found: error
+          - name: Install Jupyter kernel
