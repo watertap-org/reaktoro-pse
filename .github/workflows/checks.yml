@@ -105,7 +105,7 @@ jobs:
           jupyter kernelspec list
       - name: Run pytest with nbmake
         run: |
-          pytest --nbmake --nbmake-kernel="${{ env.KERNEL_NAME }}"  
+          pytest --nbmake --nbmake-kernel="${{ env.KERNEL_NAME }}" src/reaktoro_pse/tutorials/*.ipynb
       - name: Upload coverage report as job artifact
         if: matrix.coverage
         uses: actions/upload-artifact@v4
