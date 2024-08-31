@@ -243,11 +243,14 @@ class ReaktoroInputSpec:
             # skip any we want to ignore
             if element not in self.ignore_elements_for_constraints:
                 self.constraint_dict[element] = []
-                # check if element is not in our inputs and not ignore list
-                # if its not that means we need to find all species that are related to
-                # that element
-                if element not in list(self.state.inputs.keys()):
-                    # loop over all input species
+                # if user provided true elements as inputs, we just ad them as 1:1
+                # constraints
+                if self.state.inputs.composition_is_elements:
+                    self.constraint_dict[element].append((1, element))
+                    if element not in self.active_species:
+                        self.active_species.append(element)
+                else:
+                    # otherwise find break down of provided species to elements
                     for specie in self.state.inputs.species_list:
                         # check if specie is in list of rkt species
                         spc_dict = self.specie_to_elements.get(specie)
@@ -260,12 +263,6 @@ class ReaktoroInputSpec:
                                 self.constraint_dict[element].append((coef, specie))
                                 if specie not in self.active_species:
                                     self.active_species.append(specie)
-                # if element was in the list of inputs, this means user
-                # provided excet elemental amounts (e.g. C instead of CO3-2)
-                elif element in self.state.inputs:
-                    self.constraint_dict[element].append((1, element))
-                    if element not in self.active_species:
-                        self.active_species.append(element)
                 # now lets also check if user provided chemical inputs and
                 # add them to our elemental sum constraints (e.g. H = H(from H2O) + H (from HCL))
                 for specie in self.rkt_chemical_inputs.keys():

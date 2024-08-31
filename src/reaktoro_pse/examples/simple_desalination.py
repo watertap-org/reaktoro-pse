@@ -28,7 +28,7 @@ import pyomo.environ as pyo
 import reaktoro as rkt
 
 """
-This examples demonstrates how reaktoro graybox can be used to estimates 
+This examples demonstrates how Reaktoro graybox can be used to estimates 
 properties in desalination process.
 
 Key assumptions:
@@ -72,7 +72,6 @@ def build_simple_desal(open_species=False):
     m.feed_temperature.fix()
     m.feed_pressure = Var(initialize=1e5, units=pyunits.Pa)
     m.feed_pressure.fix()
-    # pressure.construct()
     m.feed_pH = Var(initialize=7, bounds=(4, 12), units=pyunits.dimensionless)
     m.feed_pH.fix()
     m.acid_addition = Var(initialize=0.00001, units=pyunits.mol / pyunits.s)
@@ -96,7 +95,7 @@ def build_simple_desal(open_species=False):
 
     """ Note how we declare different output variables and assemble them into
     single dict to pass into reaktoro block, this enables user to 
-    mix outputs from different pyomo varabiles in thier models and directly bind them as 
+    mix outputs from different pyomo variables in their models and directly bind them as 
     outputs in reaktoro model"""
     m.desal_scaling = Var(
         [
@@ -136,8 +135,7 @@ def build_simple_desal(open_species=False):
         the H+ and OH- is already constrained by total H amount in property
         block, as such the DOFs are still zero.
 
-        However, this can result in incorrect speciation for some databases such
-        as super critical database. (Try it on the thermal_precipitation example)
+        However, this can result in incorrect speciation for some databases, so please use with caution.
         """
         species_to_open = ["H+", "OH-"]
     else:

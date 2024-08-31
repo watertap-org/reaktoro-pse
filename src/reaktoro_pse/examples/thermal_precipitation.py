@@ -417,7 +417,7 @@ def solve(m):
 
 def display_results(m):
     print("result")
-    m.eq_precipitation_properties.display_reaktoro_states()
+    m.eq_precipitation_properties.display_reaktoro_state()
     print(
         f"Feed temp {m.feed_temperature.value-273.15}, precipitator temp {m.precipitator_temperature.value-273.15}, treated temp {m.cooled_treated_temperature.value-273.15}."
     )

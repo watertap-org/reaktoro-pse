@@ -26,11 +26,12 @@ import pyomo.environ as pyo
 import reaktoro as rkt
 
 """
-This examples demonstrates how reaktoro graybox can be used to estimates remove of specific ion through use of ion exchange material
-as well as how to find optimal amount of ion exchange material to maximize removal of target ion. 
+This examples demonstrates how Reaktoro graybox can be used to estimates removal of specific ion through use of ion exchange material.
 
-Key assumptions:
-TBD
+This example shows:
+(1) How to set up ReaktoroBlock for charge neutralizing the feed composition 
+(2) How to use outputs from spetiation block as inputs into a second property block
+(3) How to add Ion Exchange phase and species into ReaktoroBlock
 """
 
 
@@ -71,7 +72,6 @@ def build_simple_desal():
     m.feed_temperature.fix()
     m.feed_pressure = Var(initialize=1e5, units=pyunits.Pa)
     m.feed_pressure.fix()
-    # pressure.construct()
     m.feed_pH = Var(initialize=7, bounds=(4, 12), units=pyunits.dimensionless)
     m.feed_pH.fix()
     m.treated_pH = Var(initialize=7, bounds=(0, 12), units=pyunits.dimensionless)
@@ -97,9 +97,9 @@ def build_simple_desal():
         units=pyunits.mol / pyunits.s,
     )
     # We have a resin that is fresh and primarily contains Na balancing ions
-    # note that each NaX/CaX2/MgX2 is realyl a site on a resin material rather then
+    # note that each NaX/CaX2/MgX2 is really a site on a resin material rather then
     # total mass of resin
-    m.ion_exchange_material["NaX"].fix(1)
+    m.ion_exchange_material["NaX"].fix(0.1)
     m.ion_exchange_material["CaX2"].fix(1e-5)
     m.ion_exchange_material["MgX2"].fix(1e-5)
 
@@ -110,7 +110,10 @@ def build_simple_desal():
         temperature=m.feed_temperature,
         pressure=m.feed_pressure,
         pH=m.feed_pH,
-        outputs={("charge", None): m.feed_charge},
+        outputs={
+            ("charge", None): m.feed_charge,
+            "speciesAmount": True,
+        },
         aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
@@ -121,29 +124,38 @@ def build_simple_desal():
         open_species_on_property_block=["H+", "OH-"],
     )
 
-    """Combine feed composition and resin species as our inputs"""
+    """Combine balanced composition from speciation and resin species as our inputs,
+    An alternative is to provide the resin and a chemistry modifier, and it would be treated 
+    the same way as adding it to feed composition here!"""
     m.input_dict = {}
-    for key, obj in m.feed_composition.items():
+    for key, obj in m.eq_speciation_block.outputs.items():
         m.input_dict[key] = obj
     for key, obj in m.ion_exchange_material.items():
         m.input_dict[key] = obj
-    """This will use charge neutralized feed and perform ion exchange calculations"""
+
+    """ build the IX block """
+    """ 
+    Note how we do not privde feed pH any more, as it will be estimated
+    from our specitated and charge balanced block aad adjusted due to addition of resin - which will 
+    impact both charge balance and final pH of solution
+    """
     m.eq_ix_properties = ReaktoroBlock(
         composition=m.input_dict,
         temperature=m.feed_temperature,
         pressure=m.feed_pressure,
-        pH=m.feed_pH,
         outputs={
             "speciesAmount": True,
             ("pH", None): m.treated_pH,
         },
         aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
-        ion_exchange_phase=["NaX", "KX", "CaX2"],
+        ion_exchange_phase=["NaX", "MgX2", "CaX2"],
         ion_exchange_phase_activity_model=rkt.ActivityModelIonExchangeGainesThomas(),
         chemistry_modifier={"NaOH": m.base_addition, "HCl": m.acid_addition},
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
-        convert_to_rkt_species=True,
+        convert_to_rkt_species=False,  # We are providing exact species, so no need to convert them
+        # not that if we did need to convert we would have to provide a conversion dictionary
+        # that include MgX,CaX and NaX as its not in default conversion dict.
         species_to_rkt_species_dict={  # We need to supply our own conversion dict as default does not support X
             "MgX2": "MgX2",
             "CaX2": "CaX2",
@@ -156,13 +168,15 @@ def build_simple_desal():
             "HCO3": "HCO3-",
             "SO4": "SO4-2",
         },
-        # we are modifying state and must speciate inputs before adding acid to find final prop state.
-        build_speciation_block=True,
+        # we do not need to re-speciate.
+        build_speciation_block=False,
+        # open_species_on_property_block=["H+", "OH-"],
     )
 
     """Currently ReaktoroBlock does not support 
-    automatic conversion output True species to apparent species with out getting direct element amounts, instead
-    we can use lower level core api to get input to output conversion dictionary for our apparent species to exact species"""
+    automatic conversion of output True species to Apparent species, instead
+    we can use lower level core api to get input to output conversion dictionary
+    for our Apparent species to True/Exact species"""
     conversion_dict = m.eq_ix_properties.rkt_inputs.constraint_dict
     for key, speciation in conversion_dict.items():
         print(key, speciation)
@@ -174,6 +188,8 @@ def build_simple_desal():
         "SO4": "S",
         "Cl": "Cl",
     }
+
+    """ Here we write constraints to estimate treated composition """
 
     @m.Constraint(list(m.treated_composition.keys()))
     def eq_treated_comp(fs, ion):
@@ -194,12 +210,16 @@ def build_simple_desal():
                     )
             return m.treated_composition[ion] == sum(sum_ion) * pyunits.mol / pyunits.s
 
+    """ Track changes to IX resin"""
+
     @m.Constraint(list(m.used_ion_exchange_material.keys()))
     def eq_used_ix(fs, ion):
         return (
             m.used_ion_exchange_material[ion]
             == m.eq_ix_properties.outputs[("speciesAmount", ion)]
         )
+
+    """Track percent removal of each Apparent specie"""
 
     @m.Constraint(list(m.treated_composition.keys()))
     def eq_removal(fs, ion):
@@ -210,6 +230,7 @@ def build_simple_desal():
             * 100
         )
 
+    """Calculate Ca to Mg selectivity"""
     m.eq_selectivity = Constraint(
         expr=m.Ca_to_Mg_selectivity == m.removal_percent["Ca"] / m.removal_percent["Mg"]
     )

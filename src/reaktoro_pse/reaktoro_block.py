@@ -710,11 +710,10 @@ class ReaktoroBlockData(ProcessBlockData):
                 block.rkt_state.register_gas_phase(self.config.gas_phase)
             if self.config.mineral_phases is not None:
                 block.rkt_state.register_mineral_phases(self.config.mineral_phases)
-        if self.config.ion_exchange_phase is not None:
-            block.rkt_state.register_ion_exchange_phase(self.config.ion_exchange_phase)
-            block.rkt_state.register_ion_exchange_phase(
-                self.config.ion_exchange_phase_activity_model
-            )
+            if self.config.ion_exchange_phase is not None:
+                block.rkt_state.register_ion_exchange_phase(
+                    self.config.ion_exchange_phase
+                )
         """ setup activity models - if no phases present they will do nothing """
         block.rkt_state.set_aqueous_phase_activity_model(
             self.config.aqueous_phase_activity_model
@@ -725,7 +724,9 @@ class ReaktoroBlockData(ProcessBlockData):
         block.rkt_state.set_mineral_phase_activity_model(
             self.config.mineral_phase_activity_model
         )
-
+        block.rkt_state.register_ion_exchange_phase(
+            self.config.ion_exchange_phase_activity_model
+        )
         """ build state """
         block.rkt_state.build_state()
 
@@ -929,7 +930,7 @@ class ReaktoroBlockData(ProcessBlockData):
         return jacobian_scaling
 
     # TODO:# Update to probide output locaiton (e.g. StringIO)
-    def display_reaktoro_states(self):
+    def display_reaktoro_state(self):
         if self.config.build_speciation_block:
             _log.info("-----Displaying information for speciation block ------")
             _log.info(self.speciation_block.rkt_state.state)

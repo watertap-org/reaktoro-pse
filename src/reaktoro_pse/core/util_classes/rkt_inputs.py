@@ -17,7 +17,7 @@ __author__ = "Alexander V. Dudchenko"
 
 
 class RktInputTypes:
-    """defines deafult types of inputs for reaktoro usage"""
+    """defines default types of inputs for reaktoro usage"""
 
     mol = "mol"
     K = "K"
