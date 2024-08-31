@@ -103,8 +103,8 @@ def build_simple_desal():
     m.ion_exchange_material["CaX2"].fix(1e-5)
     m.ion_exchange_material["MgX2"].fix(1e-5)
 
-    """ We will build a block to charge neutralize the feed and adjust apparent species 
-    to achieve this and separate block to do ion exchange equilibration"""
+    """We will build a block to charge neutralize the feed and adjust apparent species 
+    to achieve this and then build a separate block to do ion exchange calculation"""
     m.eq_speciation_block = ReaktoroBlock(
         composition=m.feed_composition,
         temperature=m.feed_temperature,
@@ -121,13 +121,13 @@ def build_simple_desal():
         open_species_on_property_block=["H+", "OH-"],
     )
 
-    """combine all inputs"""
+    """Combine feed composition and resin species as our inputs"""
     m.input_dict = {}
     for key, obj in m.feed_composition.items():
         m.input_dict[key] = obj
     for key, obj in m.ion_exchange_material.items():
         m.input_dict[key] = obj
-    """ this will use charge neutralized feed and perform ion exchange calculations"""
+    """This will use charge neutralized feed and perform ion exchange calculations"""
     m.eq_ix_properties = ReaktoroBlock(
         composition=m.input_dict,
         temperature=m.feed_temperature,
@@ -143,9 +143,8 @@ def build_simple_desal():
         chemistry_modifier={"NaOH": m.base_addition, "HCl": m.acid_addition},
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
-        # we can use default converter as its defined for default database (Phreeqc and pitzer)
         convert_to_rkt_species=True,
-        species_to_rkt_species_dict={  # WE need to supply our own conversion dict as default does not support X
+        species_to_rkt_species_dict={  # We need to supply our own conversion dict as default does not support X
             "MgX2": "MgX2",
             "CaX2": "CaX2",
             "NaX": "NaX",
@@ -159,12 +158,11 @@ def build_simple_desal():
         },
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
-        # jacobian_scaling_type="no_scaling",
     )
 
-    """ currently ReaktoroBlock does not support 
-    automatic conversion of True species to apparent species with out getting direct element amounts, instead
-    we can use lower level core api to get input to output conversion dictionary for our apparant species to exact species"""
+    """Currently ReaktoroBlock does not support 
+    automatic conversion output True species to apparent species with out getting direct element amounts, instead
+    we can use lower level core api to get input to output conversion dictionary for our apparent species to exact species"""
     conversion_dict = m.eq_ix_properties.rkt_inputs.constraint_dict
     for key, speciation in conversion_dict.items():
         print(key, speciation)
@@ -249,6 +247,7 @@ def initialize(m):
         calculate_variable_from_constraint(
             m.treated_composition[key], m.eq_treated_comp[key]
         )
+    """Unfix our feed Cl and fix charge to zero so we can charge neutralize the feed"""
     m.feed_composition["Cl"].unfix()
     m.feed_charge.fix(0)
     solve(m)
