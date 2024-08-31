@@ -1,16 +1,14 @@
-###############################################################################
-# #################################################################################
-# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
-# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
-# # National Renewable Energy Laboratory, and National Energy Technology
-# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
-# # of Energy). All rights reserved.
-# #
-# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
-# # information, respectively. These files are also available online at the URL
-# # "https://github.com/watertap-org/reaktoro-pse/"
-# #################################################################################
-###############################################################################
+#################################################################################
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/reaktoro-pse/"
+#################################################################################
 import pytest
 import reaktoro as rkt
 import reaktoro_pse.core.reaktoro_state as rktState
@@ -259,7 +257,7 @@ def test_state_with_solids(build_rkt_state_with_species):
 
 def test_state_with_gas(build_rkt_state_with_species):
     m, rkt_state = build_rkt_state_with_species
-    rkt_state.register_gas_phases("CO2(g)")
+    rkt_state.register_gas_phase("CO2(g)")
     rkt_state.set_gas_phase_activity_model()
     rkt_state.build_state()
     rkt_state.equilibrate_state()

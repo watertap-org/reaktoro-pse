@@ -1,20 +1,19 @@
-###############################################################################
-# #################################################################################
-# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
-# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
-# # National Renewable Energy Laboratory, and National Energy Technology
-# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
-# # of Energy). All rights reserved.
-# #
-# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
-# # information, respectively. These files are also available online at the URL
-# # "https://github.com/watertap-org/reaktoro-pse/"
-# #################################################################################
-###############################################################################
+#################################################################################
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/reaktoro-pse/"
+#################################################################################
 import pytest
 from reaktoro_pse.examples import (
     simple_desalination,
-    themal_precipitation,
+    simple_ion_exchange,
+    thermal_precipitation,
 )
 
 
@@ -37,7 +36,7 @@ def test_desal():
 
 
 def test_thermal_precipt():
-    m = themal_precipitation.main()
+    m = thermal_precipitation.main()
     assert (
         pytest.approx(
             m.precipitation_properties[("speciesAmount", "Calcite")].value, 1e-3
@@ -64,3 +63,14 @@ def test_thermal_precipt():
         pytest.approx(m.cooled_treated_temperature.value, 1e-1)
         == 273.15 + 37.8773655288286
     )
+
+
+def test_desal():
+    m = simple_ion_exchange.main()
+
+    assert pytest.approx(m.removal_percent["Mg"].value, 1e-1) == -17.943893427675
+    assert pytest.approx(m.removal_percent["Ca"].value, 1e-1) == -20.000000
+
+    assert pytest.approx(m.treated_pH.value, 1e-2) == 9.5318567431
+    assert pytest.approx(m.base_addition.value, 1e-3) == 0.00516799643620581
+    assert pytest.approx(m.acid_addition.value, 1e-3) == 4.0251232031971665e-11

@@ -1,16 +1,14 @@
-###############################################################################
-# #################################################################################
-# # WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
-# # through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
-# # National Renewable Energy Laboratory, and National Energy Technology
-# # Laboratory (subject to receipt of any required approvals from the U.S. Dept.
-# # of Energy). All rights reserved.
-# #
-# # Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
-# # information, respectively. These files are also available online at the URL
-# # "https://github.com/watertap-org/reaktoro-pse/"
-# #################################################################################
-###############################################################################
+#################################################################################
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/reaktoro-pse/"
+#################################################################################
 from idaes.core.base.process_base import declare_process_block_class, ProcessBlockData
 from pyomo.common.config import ConfigValue, IsInstance
 from pyomo.core.base.var import IndexedVar, Var, VarData
@@ -171,7 +169,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "gas_phases",
+        "gas_phase",
         ConfigValue(
             default=None,
             description="List or str for gas phases",
@@ -185,7 +183,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "ion_exchange_phases",
+        "ion_exchange_phase",
         ConfigValue(
             default=None,
             description="List or str for Ion exchange phases",
@@ -708,12 +706,12 @@ class ReaktoroBlockData(ProcessBlockData):
         """ register phases"""
         if speciation_block == False or self.config.build_speciation_block_with_phases:
             """dont add phases if we are speciating"""
-            if self.config.gas_phases is not None:
-                block.rkt_state.register_gas_phases(self.config.gas_phases)
+            if self.config.gas_phase is not None:
+                block.rkt_state.register_gas_phase(self.config.gas_phase)
             if self.config.mineral_phases is not None:
                 block.rkt_state.register_mineral_phases(self.config.mineral_phases)
-        if self.config.ion_exchange_phases is not None:
-            block.rkt_state.register_ion_exchange_phase(self.config.ion_exchange_phases)
+        if self.config.ion_exchange_phase is not None:
+            block.rkt_state.register_ion_exchange_phase(self.config.ion_exchange_phase)
             block.rkt_state.register_ion_exchange_phase(
                 self.config.ion_exchange_phase_activity_model
             )
@@ -908,6 +906,7 @@ class ReaktoroBlockData(ProcessBlockData):
         )
         block.rkt_block_builder.build_reaktoro_block()
 
+    # TODO: Update to probide output locaiton (e.g. StringIO)
     def display_jacobian_outputs(self):
         if self.config.build_speciation_block:
             _log.info("-----Displaying information for speciation block ------")
@@ -915,6 +914,7 @@ class ReaktoroBlockData(ProcessBlockData):
         _log.info("-----Displaying information for property block ------")
         self.rkt_jacobian.display_jacobian_output_types()
 
+    # TODO:# Update to probide output locaiton (e.g. StringIO)
     def display_jacobian_scaling(self):
         jacobian_scaling = {}
         if self.config.build_speciation_block:
@@ -928,6 +928,7 @@ class ReaktoroBlockData(ProcessBlockData):
         jacobian_scaling["property_block"] = jac_scale
         return jacobian_scaling
 
+    # TODO:# Update to probide output locaiton (e.g. StringIO)
     def display_reaktoro_states(self):
         if self.config.build_speciation_block:
             _log.info("-----Displaying information for speciation block ------")
@@ -942,6 +943,8 @@ class ReaktoroBlockData(ProcessBlockData):
             )
         else:
             self.rkt_block_builder.set_user_jacobian_scaling(user_scaling_dict)
+
+    # TODO: Update to use new initialization method https://idaes-pse.readthedocs.io/en/stable/reference_guides/initialization/developing_initializers.html?highlight=Initializer
 
     def initialize(self):
         if (
