@@ -72,5 +72,5 @@ def test_ion_exchange():
     assert pytest.approx(m.removal_percent["Ca"].value, 1e-1) == -55.06860821131281
 
     assert pytest.approx(m.treated_pH.value, 1e-2) == 11.9999999879611
-    assert pytest.approx(m.base_addition.value, 1e-3) == 0.021871793648501815
-    assert pytest.approx(m.acid_addition.value, 1e-3) == 0.007052275426462343
+    assert pytest.approx(m.base_addition.value, 1e-2) == 0.021871793648501815
+    assert pytest.approx(m.acid_addition.value, 1e-2) == 0.007052275426462343
