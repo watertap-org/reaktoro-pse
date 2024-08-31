@@ -98,7 +98,7 @@ jobs:
         run: |
           pip install pytest  # ensure pytest is installed (should do nothing if already present from requirements-dev.txt)
           pytest --pyargs reaktoro_pse --verbose
-      - name: Create jupyer test 
+      - name: Install Jupyter kernel
         run: |
           jupyter kernelspec list
           python -m ipykernel install --user --name "${{ env.KERNEL_NAME }}"
@@ -113,4 +113,3 @@ jobs:
           name: coverage-report-${{ matrix.os }}
           path: coverage.xml
           if-no-files-found: error
-          - name: Install Jupyter kernel
