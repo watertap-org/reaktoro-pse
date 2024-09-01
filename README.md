@@ -31,22 +31,22 @@ Currently, repo includes several tutorials and examples.
 
 *Tutorials:*
 
-1. [Demonstration of working with Reaktoro block that shows](https://github.com/avdudchenko/reaktoro-pse/blob/650af27c705a675106831237628e3b4e9fb22fe4/src/reaktoro_pse/tutorials/ReaktoroBlock_tutorial.ipynb)
+1. [Demonstration of working with Reaktoro block that shows](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/ReaktoroBlock_tutorial.ipynb)
     * How to balance feed charge with ReaktoroBlock
     * How to add indexed ReaktoroBlocks [WaterTAP RO1D model](https://watertap.readthedocs.io/en/stable/technical_reference/unit_models/reverse_osmosis_1D.html) for calculation of Osmotic pressure
  
 *Examples:*
 
-1. [Example of adding ReaktoroBlock to basic desal problem](https://github.com/avdudchenko/reaktoro-pse/blob/650af27c705a675106831237628e3b4e9fb22fe4/src/reaktoro_pse/examples/simple_desalination.py) that demonstrates how to:
+1. [Example of adding ReaktoroBlock to basic desalination problem](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/simple_desalination.py) that demonstrates how to:
     * Setup up basic ReaktoroBlock
     * Calculate basic properties for Scaling Tendency, pH, and Osmotic pressure 
     * Optimize system pH for operation at target Scaling Tendency
-2. [Example of thermal precipitation](https://github.com/avdudchenko/reaktoro-pse/blob/650af27c705a675106831237628e3b4e9fb22fe4/src/reaktoro_pse/examples/thermal_precipitation.py) that demonstrates how to:
+2. [Example of thermal precipitation](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/thermal_precipitation.py) that demonstrates how to:
     * Configure different database from default
     * Get enthalpy and vapor pressure from Reaktoro
     * Setup precipitation calculation 
     * Setup simulation for removal of Calcite over different temperatures and estimate required energy input
-3. [Example of ion exchange calculations](https://github.com/avdudchenko/reaktoro-pse/blob/650af27c705a675106831237628e3b4e9fb22fe4/src/reaktoro_pse/examples/simple_ion_exchange.py) that demonstrates how to:
+3. [Example of ion exchange calculations](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/simple_ion_exchange.py) that demonstrates how to:
     * Set up ReaktoroBlock for charge neutralizing the feed composition 
     * Use outputs from speciation block as inputs into a second property block
     * Add Ion Exchange phase and species into ReaktoroBlock
@@ -57,7 +57,7 @@ Currently, repo includes several tutorials and examples.
 These comparisons further demonstrate how to setup Reaktoro-pse for each type of calculation.
 
 1. [Water removal from solution (e.g evaporative processes)](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/water_removal_comparison.py)
-2. [Vapor pressure calculation at different temperatures](https://github.com/avdudchenko/reaktoro-pse/blob/650af27c705a675106831237628e3b4e9fb22fe4/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/vapor_pressure_comparison.py)
+2. [Vapor pressure calculation at different temperatures](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/vapor_pressure_comparison.py)
 3. [Precipitation of mineral phases](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/precipitation_comparison.py)
 4.  [Mixing of two solution](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/solution_mixing_comparison.py)
 
