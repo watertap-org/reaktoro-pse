@@ -362,6 +362,9 @@ class ReaktoroState:
         part of explicity inputs.
         E.g. if user proivded CO2 in gas phase, this will add CO2 as gas phase to reaktoro
         with out the need to call "register_gas_phase"'''
+
+        """ assemble all input species into single list 
+        and pass into aqueous phase"""
         all_species = self.inputs.species_list[RktInputTypes.aqueous_phase][:]
         [
             all_species.append(spc)
