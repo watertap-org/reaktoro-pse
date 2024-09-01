@@ -108,32 +108,22 @@ def build_simple_desal():
     """We will build a block to charge neutralize the feed and adjust apparent species 
     to achieve this and then build a separate block to do ion exchange calculation"""
     m.eq_speciation_block = ReaktoroBlock(
-        composition=m.feed_composition,
-        temperature=m.feed_temperature,
-        pressure=m.feed_pressure,
-        pH=m.feed_pH,
+        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
+        aqueous_phase={
+            "composition": m.feed_composition,
+            "convert_to_rkt_species": True,
+            "pH": m.feed_pH,
+            "activity_model": rkt.ActivityModelPitzer(),
+        },
         outputs={
             ("charge", None): m.feed_charge,
             "speciesAmount": True,
         },
-        aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
-        # we can use default converter as its defined for default database (Phreeqc and pitzer)
-        convert_to_rkt_species=True,
-        # we are modifying state and must speciate inputs before adding acid to find final prop state.
-        build_speciation_block=True,
-        open_species_on_property_block=["H+", "OH-"],
+        build_speciation_block=False,
+        # reaktoro_solve_options={"open_species_on_property_block": ["OH-"]},
     )
-
-    """Combine balanced composition from speciation and resin species as our inputs,
-    An alternative is to provide the resin and a chemistry modifier, and it would be treated 
-    the same way as adding it to feed composition here!"""
-    m.input_dict = {}
-    for key, obj in m.eq_speciation_block.outputs.items():
-        m.input_dict[key] = obj
-    for key, obj in m.ion_exchange_material.items():
-        m.input_dict[key] = obj
 
     """ build the IX block """
     """ 
@@ -142,37 +132,26 @@ def build_simple_desal():
     impact both charge balance and final pH of solution
     """
     m.eq_ix_properties = ReaktoroBlock(
-        composition=m.input_dict,
-        temperature=m.feed_temperature,
-        pressure=m.feed_pressure,
+        aqueous_phase={
+            "composition": m.eq_speciation_block.outputs,
+            "convert_to_rkt_species": False,  # already exact
+            "activity_model": rkt.ActivityModelPitzer(),
+        },
+        ion_exchange_phase={
+            "composition": m.ion_exchange_material,
+            "activity_model": rkt.ActivityModelIonExchangeGainesThomas(),
+            "convert_to_rkt_species": False,  # already exact
+        },
+        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
         outputs={
             "speciesAmount": True,
             ("pH", None): m.treated_pH,
         },
-        aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
-        ion_exchange_phase=["NaX", "MgX2", "CaX2"],
-        ion_exchange_phase_activity_model=rkt.ActivityModelIonExchangeGainesThomas(),
         chemistry_modifier={"NaOH": m.base_addition, "HCl": m.acid_addition},
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
-        convert_to_rkt_species=False,  # We are providing exact species, so no need to convert them
-        # not that if we did need to convert we would have to provide a conversion dictionary
-        # that include MgX,CaX and NaX as its not in default conversion dict.
-        species_to_rkt_species_dict={  # We need to supply our own conversion dict as default does not support X
-            "MgX2": "MgX2",
-            "CaX2": "CaX2",
-            "NaX": "NaX",
-            "H2O": "H2O",
-            "Mg": "Mg+2",
-            "Na": "Na+",
-            "Ca": "Ca+2",
-            "Cl": "Cl-",
-            "HCO3": "HCO3-",
-            "SO4": "SO4-2",
-        },
         # we do not need to re-speciate.
         build_speciation_block=False,
-        # open_species_on_property_block=["H+", "OH-"],
     )
 
     """Currently ReaktoroBlock does not support 

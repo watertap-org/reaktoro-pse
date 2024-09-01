@@ -80,21 +80,26 @@ def add_vapor_pressure_properties(m):
     """ note how we included nitrogen as one of gas species, this will prevent 
     PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)"""
     m.eq_modified_properties = ReaktoroBlock(
-        composition=m.feed_composition,
-        temperature=m.feed_temperature,
-        pressure=m.feed_pressure,
-        pH=m.feed_pH,
+        aqueous_phase={
+            "composition": m.feed_composition,
+            "convert_to_rkt_species": True,
+            "pH": m.feed_pH,
+            "activity_model": rkt.ActivityModelPitzer(),
+        },
+        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
         outputs=m.modified_properties,
-        aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
-        gas_phase=["H2O(g)", "Ntg(g)"],
-        gas_phase_activity_model=rkt.ActivityModelPengRobinsonPhreeqc(),
+        gas_phase={
+            "phase_components": ["H2O(g)", "Ntg(g)"],
+            "activity_model": rkt.ActivityModelPengRobinsonPhreeqc(),
+        },
         dissolve_species_in_reaktoro=True,
         # we can use default converter as its defined for default database (Phreeqc and pitzer)
-        convert_to_rkt_species=True,
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
-        jacobian_user_scaling={
-            ("speciesActivityLn", "H2O(g)"): 1,
+        jacobian_options={
+            "user_scaling": {
+                ("speciesActivityLn", "H2O(g)"): 1,
+            },
         },
     )
 

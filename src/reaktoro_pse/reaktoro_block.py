@@ -9,9 +9,10 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
+
 from idaes.core.base.process_base import declare_process_block_class, ProcessBlockData
 from pyomo.common.config import ConfigValue, IsInstance
-from pyomo.core.base.var import IndexedVar, Var, VarData
+from pyomo.core.base.var import IndexedVar
 
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
 from reaktoro_pse.core.reaktoro_inputs import (
@@ -21,19 +22,27 @@ from reaktoro_pse.core.reaktoro_inputs import (
 from reaktoro_pse.core.reaktoro_outputs import (
     ReaktoroOutputSpec,
 )
-from reaktoro_pse.core.reaktoro_jacobian import ReaktoroJacobianSpec, JacType
+from reaktoro_pse.core.reaktoro_jacobian import ReaktoroJacobianSpec
 from reaktoro_pse.core.reaktoro_solver import (
     ReaktoroSolver,
 )
 
 from reaktoro_pse.core.reaktoro_block_builder import (
     ReaktoroBlockBuilder,
-    JacScalingTypes,
 )
-import reaktoro as rkt
-from reaktoro_pse.core.reaktoro_gray_box import HessTypes
+
 from pyomo.environ import Block
 import idaes.logger as idaeslog
+
+from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
+from reaktoro_pse.reaktoro_block_config.jacobian_options import JacobianOptions
+from reaktoro_pse.reaktoro_block_config.reaktoro_solver_options import (
+    ReaktoroSolverOptions,
+)
+from reaktoro_pse.reaktoro_block_config.input_options import (
+    PhaseInput,
+    SystemInput,
+)
 
 _log = idaeslog.getLogger(__name__)
 
@@ -43,6 +52,15 @@ __author__ = "Alexander Dudchenko"
 @declare_process_block_class("ReaktoroBlock")
 class ReaktoroBlockData(ProcessBlockData):
     CONFIG = ProcessBlockData.CONFIG()
+    CONFIG.declare(
+        RktInputTypes.aqueous_phase,
+        PhaseInput().get_dict(include_pH=True, include_aqueous_solvent_species=True),
+    )
+    CONFIG.declare(RktInputTypes.gas_phase, PhaseInput().get_dict())
+    CONFIG.declare(RktInputTypes.mineral_phase, PhaseInput().get_dict())
+    CONFIG.declare(RktInputTypes.ion_exchange_phase, PhaseInput().get_dict())
+    CONFIG.declare(RktInputTypes.system_state, SystemInput().get_dict())
+
     CONFIG.declare(
         "build_speciation_block",
         ConfigValue(
@@ -55,144 +73,12 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "composition",
-        ConfigValue(
-            default=None,
-            domain=IsInstance((dict, IndexedVar)),
-            description="Input composition to reaktoro block",
-            doc="An input dictionary, or IndexedVar that contains species and their amounts",
-        ),
-    )
-    CONFIG.declare(
-        "composition_indexed",
-        ConfigValue(
-            default=True,
-            domain=bool,
-            description="composition is indexed",
-            doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
-                - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
-                - If false, all indexed blocks will get same input""",
-        ),
-    )
-    CONFIG.declare(
-        "temperature",
-        ConfigValue(
-            default=None,
-            domain=IsInstance((VarData, Var, dict, IndexedVar)),
-            description="Input temperature for reaktoro block",
-            doc="Var or IndexedVar that references system temperature",
-        ),
-    )
-    CONFIG.declare(
-        "temperature_indexed",
-        ConfigValue(
-            default=True,
-            domain=bool,
-            description="Temperature is indexed",
-            doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
-                - If true, the input has same indexing as block, and each indexed input willbe passed into respective indexed reaktoroBlock
-                - If false, all indexed blocks will get same input""",
-        ),
-    )
-    CONFIG.declare(
-        "pressure",
-        ConfigValue(
-            default=None,
-            domain=IsInstance((VarData, Var, dict, IndexedVar)),
-            description="Input pressure for reaktoro block",
-            doc="Var or IndexedVar that references system pressure",
-        ),
-    )
-    CONFIG.declare(
-        "pressure_indexed",
-        ConfigValue(
-            default=True,
-            domain=bool,
-            description="Pressure is indexed",
-            doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
-                - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
-                - If false, all indexed blocks will get same input""",
-        ),
-    )
-    CONFIG.declare(
-        "pH",
-        ConfigValue(
-            default=None,
-            domain=IsInstance((VarData, Var, dict, IndexedVar)),
-            description="Input pH for reaktoro block",
-            doc="Var or IndexedVar that references system pH",
-        ),
-    )
-    CONFIG.declare(
-        "pH_indexed",
-        ConfigValue(
-            default=True,
-            domain=bool,
-            description="pH is indexed",
-            doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
-                - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
-                - If false, all indexed blocks will get same input""",
-        ),
-    )
-    CONFIG.declare(
-        "aqueous_solvent_specie",
-        ConfigValue(
-            default="H2O",
-            domain=str,
-            description="Defines aqueous specie to use when speciating system",
-            doc="""When speciating, the H2O is fixed, while H and O is unfixed to allow system to equilibrate,
-            this should be same specie as being passed in composition, it will be automatically translated to reaktoro notation
-            if enabled""",
-        ),
-    )
-    CONFIG.declare(
         "exact_speciation",
         ConfigValue(
             default=False,
             domain=bool,
             description="Defines if exact speciation is provided ",
             doc="If true, then the problem will constrain all elements to equal to provided inputs after dissolution",
-        ),
-    )
-    CONFIG.declare(
-        "mineral_phases",
-        ConfigValue(
-            default=None,
-            description="List or str of mineral phases",
-            doc="""
-            Mineral phases supported by selected data base
-            Accepts:
-                string name for phase
-                reaktoro.MineralPhase initialized object (e.g reaktoro.MineralPhase('Calcite'))
-                List of strings or reaktor.MineralPhases
-            """,
-        ),
-    )
-    CONFIG.declare(
-        "gas_phase",
-        ConfigValue(
-            default=None,
-            description="List or str for gas phases",
-            doc="""
-            Gas phases supported by selected data base
-            Accepts:
-                string name for phase
-                reaktoro.GaseousPhase initialized object (e.g reaktoro.GaseousPhase('H2O(g)'))
-                List of strings or reaktor.GaseousPhase
-                """,
-        ),
-    )
-    CONFIG.declare(
-        "ion_exchange_phase",
-        ConfigValue(
-            default=None,
-            description="List or str for Ion exchange phases",
-            doc="""Ion exchange phases supported by selected data base
-            Accepts:
-                string name for phase
-                reaktoro.IonExchangePhase initialized object (e.g reaktoro.IonExchangePhase('X'))
-                List of strings or reaktor.IonExchangePhase
-                """,
         ),
     )
     CONFIG.declare(
@@ -210,89 +96,7 @@ class ReaktoroBlockData(ProcessBlockData):
              """,
         ),
     )
-    CONFIG.declare(
-        "convert_to_rkt_species",
-        ConfigValue(
-            default=False,
-            domain=bool,
-            description="Defines if provided species should be converted to RKT notation",
-            doc="Enable conversion provided species names to reaktoro names - (currently supports PhreeqC database)",
-        ),
-    )
-    CONFIG.declare(
-        "species_to_rkt_species_dict",
-        ConfigValue(
-            default="default",
-            domain=IsInstance((dict, str)),
-            description="Dictionary for translating user supplied species to RKT species specific to selected database",
-            doc="""
-                Dictionary that connects user species to reaktoro data base species (please reference chosen data base in question):
-                Dictionary should have following structure {user_species:reaktoro_database_specie}""",
-        ),
-    )
-    CONFIG.declare(
-        "composition_is_elements",
-        ConfigValue(
-            default=False,
-            domain=bool,
-            description="Defines if provided composition is elements and not species",
-            doc="Defines if provided composition is elements and not species",
-        ),
-    )
-    CONFIG.declare(
-        "aqueous_phase_activity_model",
-        ConfigValue(
-            default="ActivityModelIdealAqueous",
-            description="Activity model for aqueous phase",
-            doc="""
-            Defines which activity model to use for aqueous phase in reaktoro
-            Accepts:
-            String name of activity model
-            Initialized reaktoro.ActivityModel (e.g. reaktoro.ActivityModelIdealAqueous())
-            Chain of reaktoro activity models (reaktoro.chain(reaktoro.ActivityModelA, reaktoro.ActivityModelB))
-            List of activity models strings or reaktoro.ActivityModel initialized objects.
-            """,
-        ),
-    )
-    CONFIG.declare(
-        "gas_phase_activity_model",
-        ConfigValue(
-            default="ActivityModelIdealGas",
-            description="Activity model for gas phase",
-            doc="""Defines which activity model to use in reaktoro
-            Accepts:
-            String name of activity model
-            Initialized reaktoro.ActivityModel (e.g. reaktoro.ActivityModelIdealAqueous())
-            Chain of reaktoro activity models (reaktoro.chain(reaktoro.ActivityModelA, reaktoro.ActivityModelB))
-            List of activity models strings or reaktoro.ActivityModel initialized objects.""",
-        ),
-    )
-    CONFIG.declare(
-        "mineral_phase_activity_model",
-        ConfigValue(
-            default="ActivityModelIdealSolution",
-            description="Activity model for mineral phase",
-            doc="""Defines which activity model to use in reaktoro
-            Accepts:
-            String name of activity model
-            Initialized reaktoro.ActivityModel (e.g. reaktoro.ActivityModelIdealAqueous())
-            Chain of reaktoro activity models (reaktoro.chain(reaktoro.ActivityModelA, reaktoro.ActivityModelB))
-            List of activity models strings or reaktoro.ActivityModel initialized objects.""",
-        ),
-    )
-    CONFIG.declare(
-        "ion_exchange_phase_activity_model",
-        ConfigValue(
-            default="ActivityModelIonExchange",
-            description="Activity model for mineral phase",
-            doc="""Defines which activity model to use in reaktoro
-            Accepts:
-            String name of activity model
-            Initialized reaktoro.ActivityModel (e.g. reaktoro.ActivityModelIdealAqueous())
-            Chain of reaktoro activity models (reaktoro.chain(reaktoro.ActivityModelA, reaktoro.ActivityModelB))
-            List of activity models strings or reaktoro.ActivityModel initialized objects.""",
-        ),
-    )
+
     CONFIG.declare(
         "database_file",
         ConfigValue(
@@ -312,6 +116,7 @@ class ReaktoroBlockData(ProcessBlockData):
             Otherwise, can be supplied as initialized reaktoro database object e.g. database = reaktoro.PhreeqcDatabase('pitzer.dat')""",
         ),
     )
+
     CONFIG.declare(
         "dissolve_species_in_reaktoro",
         ConfigValue(
@@ -324,7 +129,6 @@ class ReaktoroBlockData(ProcessBlockData):
             using pyomo constraints (Set to False) or reaktoro (Set to True).""",
         ),
     )
-
     CONFIG.declare(
         "assert_charge_neutrality",
         ConfigValue(
@@ -408,196 +212,15 @@ class ReaktoroBlockData(ProcessBlockData):
             """,
         ),
     )
+    CONFIG.declare("jacobian_options", JacobianOptions().get_dict())
 
     CONFIG.declare(
-        "numerical_jacobian_type",
-        ConfigValue(
-            default=JacType.average,
-            domain=IsInstance((str, JacType)),
-            description="Defines method for numerical jacobian approximations",
-            doc="""
-            Derivatives for many of the properties in reaktro are not directly available, 
-            thus we numerically propagate derivatives from chemical state to methods for estimation of these properties. 
-            Two methods are available, average and center_difference
-                - average methods takes defined number of derivatives by numerical_jacobian_order from center points and gets the average of them
-                - center_difference methods applies classical taylor difference approximation methods 
-            In theory the two should yield same result- but due to round off errors the average method might provide better error dampening. 
-
-            """,
-        ),
+        "reaktoro_solve_options",
+        ReaktoroSolverOptions().get_dict(advanced_options=True),
     )
     CONFIG.declare(
-        "numerical_jacobian_order",
-        ConfigValue(
-            default=8,
-            domain=int,
-            description="Defines order of numerical jacobian (should be an even number)",
-            doc="""
-            This will define how many points to discretize the derivate over 
-             - for numerical_jacobian_type==average - order can be any even number
-             - for numerical_jacobian_type==center_difference - order can be 2, 4, 6, 8, 10
-            """,
-        ),
-    )
-    CONFIG.declare(
-        "numerical_jacobian_step",
-        ConfigValue(
-            default=1e-6,
-            domain=float,
-            description="Defines the step to use for numerical descritiazaiton",
-            doc="""This will define how small of a step to use for numerical derivative propagation which takes
-             the absolute chemical property and multiplies it by chemical property derivative multiplied by step 
-                chemical_property_step=chemical_property_absolute_value*chemical_property_derivative*step
-            """,
-        ),
-    )
-    CONFIG.declare(
-        "jacobian_scaling_type",
-        ConfigValue(
-            default=JacScalingTypes.variable_scaling,
-            domain=IsInstance((str, JacScalingTypes)),
-            description="Defines how to scale Jacobian matrix",
-            doc="""
-            Defines methods for jacobian scaling:
-            - if option is no_scaling, jacobian scale will == 1 for all outputs
-            - if option is 'variable_scaling' will use output variable scaling factors
-            - if option is jacobian_matrix will use actual jac matrix to calculate scaling factors
-            - if user_scaling is not None then uses user provided scaling
-            """,
-        ),
-    )
-    CONFIG.declare(
-        "jacobian_user_scaling",
-        ConfigValue(
-            default=None,
-            domain=IsInstance((float, list, dict)),
-            description="Manual scaling factors for jacobian",
-            doc="""
-            Applies user provided jacobian scaling values:
-             - either single value that will be applied to all outputs in jacobian
-             - array applied across jacobian
-             - dict that specifics output and scaling factor to which apply scaling, (variable_scaling will be applied to non specified outputs)
-                e.g. {output_name:scaling_factor} applies to specific jac output 
-            """,
-        ),
-    )
-    CONFIG.declare(
-        "reaktoro_solver_tolerance",
-        ConfigValue(
-            default=1e-8,
-            domain=float,
-            description="Tolerance for reaktoro solver",
-            doc="""Tolerance for primary reaktoro solver""",
-        ),
-    )
-    CONFIG.declare(
-        "reaktoro_epsilon",
-        ConfigValue(
-            default=1e-32,
-            domain=float,
-            description="epsilon for reaktoro solver",
-            doc="""Defines what is considered to be 0 for ion composition""",
-        ),
-    )
-    CONFIG.declare(
-        "reaktoro_max_iterations",
-        ConfigValue(
-            default=400,
-            domain=int,
-            description="Maximum number of iterations for reaktoro solver",
-            doc="""The maximum number of iterations for reaktoro solver""",
-        ),
-    )
-    CONFIG.declare(
-        "presolve_during_initialization",
-        ConfigValue(
-            default=False,
-            domain=bool,
-            description="Option to pre-solve to low tolerance first, before primary solve but only during initialization",
-            doc="""In some cases reaktoro might fail to solve to high tolerance first,
-            a presolve at low tolerance can enable the reaktoro solve to high tolerance, this will only presolve during initialization""",
-        ),
-    )
-    CONFIG.declare(
-        "presolve_property_block",
-        ConfigValue(
-            default=False,
-            domain=bool,
-            description="Option to pre-solve to low tolerance first on main property block, before primary solve",
-            doc="""In some cases reaktoro might fail to solve to high tolerance first,
-            a presolve at low tolerance can enable the reaktoro solve to high tolerance""",
-        ),
-    )
-    CONFIG.declare(
-        "presolve_speciation_block",
-        ConfigValue(
-            default=False,
-            domain=bool,
-            description="Option to pre-solve to low tolerance for specification block, before primary solve",
-            doc="""In some cases reaktoro might fail to solve to high tolerance first,
-            a presolve at low tolerance can enable the reaktoro solve to high tolerance""",
-        ),
-    )
-    CONFIG.declare(
-        "presolve_reaktoro_max_iterations",
-        ConfigValue(
-            default=400,
-            domain=int,
-            description="Presolve maximum number of iterations for reaktoro solver",
-            doc="""The maximum number of iterations for reaktoro pre-solver""",
-        ),
-    )
-    CONFIG.declare(
-        "presolve_reaktoro_solver_tolerance",
-        ConfigValue(
-            default=1e-4,
-            domain=float,
-            description="Tolerance for reaktoro pre-solve",
-            doc="""Tolerance for reaktoro pre-solver""",
-        ),
-    )
-    CONFIG.declare(
-        "presolve_reaktoro_epsilon",
-        ConfigValue(
-            default=1e-32,
-            domain=float,
-            description="Tolerance for reaktoro pre-solve",
-            doc="""Defines what is considered to be 0 for ion composition""",
-        ),
-    )
-    CONFIG.declare(
-        "hessian_type",
-        ConfigValue(
-            default="Jt.J",
-            domain=IsInstance((str, HessTypes)),
-            description="Hessian type to use for reaktor gray box",
-            doc="""Hessian type to use, some might provide better stability
-                options (Jt.J, BFGS, BFGS-mod,BFGS-damp, BFGS-ipopt""",
-        ),
-    )
-    CONFIG.declare(
-        "open_species_on_property_block",
-        ConfigValue(
-            default=None,
-            domain=IsInstance((str, list)),
-            description="Registers species to open to optimization, this can help with solvability of some problems",
-            doc="""Registers species (or list of species) to open to optimization and write empty constraint for,
-            this can help with solvability of some problems, but can
-            lead to unexpected results depending on database, activity coefficients, and inputs chosen.
-            This generally should not be left as None""",
-        ),
-    )
-    CONFIG.declare(
-        "open_species_on_speciation_block",
-        ConfigValue(
-            default=None,
-            domain=IsInstance((str, list)),
-            description="Registers species to open to optimization, this can help with solvability of some problems",
-            doc="""Registers species (or list of species) to open to optimization and write empty constraint for,
-            this can help with solvability of some problems, but can
-            lead to unexpected results depending on database, activity coefficients, and inputs chosen.
-            This generally should not be needed""",
-        ),
+        "reaktoro_presolve_options",
+        ReaktoroSolverOptions().get_dict(presolve_options=True),
     )
 
     def build(self):
@@ -617,7 +240,6 @@ class ReaktoroBlockData(ProcessBlockData):
                 self,
                 speciation_block=False,
                 speciation_block_built=True,
-                input_composition=self.speciation_block.outputs,
             )
             self.build_rkt_inputs(
                 self, speciation_block=False, speciation_block_built=True
@@ -637,7 +259,6 @@ class ReaktoroBlockData(ProcessBlockData):
         block,
         speciation_block=False,
         speciation_block_built=False,
-        input_composition=None,
     ):
         """This will build our reaktoro state specified block.
         The keyword arguments are for automatic configuration of speciation and property blocks
@@ -648,85 +269,142 @@ class ReaktoroBlockData(ProcessBlockData):
             add mineral or gas phases (unless configured to do so), and only outputs speciesAmount from the rktModel
         speciation_block_built -- this should only be True if speciation block was built, in this case the model
             will build user requested outputs, not provide user supplied pH and disable charge neutrality
-        input_composition -- if alternate input composition should be used rather one provided by config (used to pass in
-            speciesAmount output from speciation_block)
-
         """
 
         """Defining which indices should be indexed 
          if block is not indexed, index is None 
          if specific input is set to be not Indexed the index will be set to None"""
 
-        index = self.index()
-        # creating these as copies so we can set them to NOne based on config options below
-        composition_indexed = index
-        temperature_indexed = index
-        pressure_indexed = index
-        pH_indexed = index
+        """ Function to return index only when requested by user and 
+        when we specify if speciation_block_built was built """
 
-        # setting indexes to none if requested by config
-        if self.config.composition_indexed == False:
-            composition_indexed = None
-        if self.config.temperature_indexed == False:
-            temperature_indexed = None
-        if self.config.pressure_indexed == False:
-            pressure_indexed = None
-        if self.config.pH_indexed == False:
-            pH_indexed = None
-        if input_composition is None:
-            input_composition = self.config.composition
+        def building_prop_block_after_speciation():
+            if speciation_block == False and speciation_block_built:
+                return True
+            else:
+                return False
 
-        convert_to_rkt_species = self.config.convert_to_rkt_species
-        pH = self.config.pH
-        if speciation_block == False and speciation_block_built:
-            """speciation block already used pH to calculate
-            state and we are getting back exact species as inputs"""
-            pH = None
-            convert_to_rkt_species = False
-            composition_indexed = None  # passing speciation output directly
+        def get_indexing(index_enabled, speciation_block_built=False):
+            if index_enabled == False or speciation_block_built:
+                return None
+            else:
+                return self.index()
+
+        """return False when building property block after building speciation block 
+         (e.g. When speciation_block=True and speciation_block_built=False) """
+
+        def return_false_option(input_option):
+            if building_prop_block_after_speciation():
+                return False
+            else:
+                return input_option
+
+        """return None when building property block after building speciation block 
+         (e.g. When speciation_block=True and speciation_block_built=False) """
+
+        def return_none_option(input_option):
+            if building_prop_block_after_speciation():
+                return None
+            else:
+                return input_option
+
+        def return_empty_dict_option(input_option):
+            if building_prop_block_after_speciation():
+                return {}
+            else:
+                return input_option
+
+        def get_phases(phase_type):
+            if (
+                building_prop_block_after_speciation()
+                and getattr(self.config, phase_type).phase_components is None
+            ):
+                return getattr(self.speciation_block.rkt_state, phase_type)
+            else:
+                return getattr(self.config, phase_type).phase_components
+
         block.rkt_state = ReaktoroState()
+
         """ setup database """
         block.rkt_state.set_database(
             dbtype=self.config.database, database=self.config.database_file
         )
-        """ setup inputs """
-        block.rkt_state.register_inputs(
-            composition=input_composition,
-            temperature=self.config.temperature,
-            pressure=self.config.pressure,
-            pH=pH,
-            convert_to_rkt_species=convert_to_rkt_species,
-            species_to_rkt_species_dict=self.config.species_to_rkt_species_dict,
-            composition_is_elements=self.config.composition_is_elements,
-            composition_index=composition_indexed,
-            temperature_index=temperature_indexed,
-            pressure_index=pressure_indexed,
-            pH_index=pH_indexed,
-        )
 
+        """ setup input for different phaseoptions """
+        for phase in RktInputTypes.supported_phases:
+            options = getattr(self.config, phase)
+            block.rkt_state.set_input_options(
+                phase,
+                convert_to_rkt_species=return_false_option(
+                    options.convert_to_rkt_species
+                ),
+                species_to_rkt_species_dict=options.species_to_rkt_species_dict,
+                composition_is_elements=options.composition_is_elements,
+            )
+
+        """ setup system inputs """
+        block.rkt_state.register_system_inputs(
+            temperature=self.config.system_state.temperature,
+            pressure=self.config.system_state.pressure,
+            temperature_index=get_indexing(
+                self.config.system_state.temperature_indexed
+            ),
+            pressure_index=get_indexing(self.config.system_state.pressure_indexed),
+        )
+        """ setup aqueous inputs """
+        if building_prop_block_after_speciation():
+            input_composition = self.speciation_block.outputs
+        else:
+            input_composition = self.config.aqueous_phase.composition
+        input_composition.display()
+        block.rkt_state.register_aqueous_inputs(
+            composition=input_composition,
+            composition_index=get_indexing(
+                self.config.aqueous_phase.composition_indexed, speciation_block_built
+            ),
+            pH=return_none_option(self.config.aqueous_phase.pH),
+            pH_index=get_indexing(self.config.aqueous_phase.pH_indexed),
+        )
+        block.rkt_state.register_gas_inputs(
+            composition=return_empty_dict_option(self.config.gas_phase.composition),
+            composition_index=get_indexing(self.config.gas_phase.composition_indexed),
+        )
+        block.rkt_state.register_mineral_inputs(
+            composition=return_empty_dict_option(self.config.mineral_phase.composition),
+            composition_index=get_indexing(
+                self.config.mineral_phase.composition_indexed
+            ),
+        )
+        block.rkt_state.register_ion_exchange_inputs(
+            composition=return_empty_dict_option(
+                self.config.ion_exchange_phase.composition
+            ),
+            composition_index=get_indexing(
+                self.config.ion_exchange_phase.composition_indexed
+            ),
+        )
         """ register phases"""
         if speciation_block == False or self.config.build_speciation_block_with_phases:
             """dont add phases if we are speciating"""
-            if self.config.gas_phase is not None:
-                block.rkt_state.register_gas_phase(self.config.gas_phase)
-            if self.config.mineral_phases is not None:
-                block.rkt_state.register_mineral_phases(self.config.mineral_phases)
-            if self.config.ion_exchange_phase is not None:
-                block.rkt_state.register_ion_exchange_phase(
-                    self.config.ion_exchange_phase
-                )
+            block.rkt_state.register_aqueous_phase(get_phases("aqueous_phase"))
+            block.rkt_state.register_gas_phase(get_phases("gas_phase"))
+            block.rkt_state.register_mineral_phases(get_phases("mineral_phase"))
+            block.rkt_state.register_ion_exchange_phase(
+                get_phases("ion_exchange_phase")
+            )
+
         """ setup activity models - if no phases present they will do nothing """
         block.rkt_state.set_aqueous_phase_activity_model(
-            self.config.aqueous_phase_activity_model
+            self.config.aqueous_phase.activity_model
         )
         block.rkt_state.set_gas_phase_activity_model(
-            self.config.gas_phase_activity_model
+            self.config.gas_phase.activity_model
         )
         block.rkt_state.set_mineral_phase_activity_model(
-            self.config.mineral_phase_activity_model
+            self.config.mineral_phase.activity_model
         )
         block.rkt_state.register_ion_exchange_phase(
-            self.config.ion_exchange_phase_activity_model
+            self.config.ion_exchange_phase.activity_model
         )
         """ build state """
         block.rkt_state.build_state()
@@ -764,15 +442,17 @@ class ReaktoroBlockData(ProcessBlockData):
                     self.config.chemistry_modifier, index=chemistry_modifier_indexed
                 )
             block.rkt_inputs.register_open_species(
-                self.config.open_species_on_property_block
+                self.config.reaktoro_solve_options.open_species_on_property_block
             )
         else:
             block.rkt_inputs.register_open_species(
-                self.config.open_species_on_speciation_block
+                self.config.reaktoro_solve_options.open_species_on_speciation_block
             )
 
         """ register aqueous solvent phase"""
-        block.rkt_inputs.register_aqueous_solvent(self.config.aqueous_solvent_specie)
+        block.rkt_inputs.register_aqueous_solvent(
+            self.config.aqueous_phase.aqueous_solvent_specie
+        )
 
         """ register charge neutrality"""
         if (
@@ -849,9 +529,9 @@ class ReaktoroBlockData(ProcessBlockData):
         """ config outputs """
         block.rkt_jacobian = ReaktoroJacobianSpec(block.rkt_state, block.rkt_outputs)
         block.rkt_jacobian.configure_numerical_jacobian(
-            jacobian_type=self.config.numerical_jacobian_type,
-            order=self.config.numerical_jacobian_order,
-            step_size=self.config.numerical_jacobian_step,
+            jacobian_type=self.config.jacobian_options.numerical_type,
+            order=self.config.jacobian_options.numerical_order,
+            step_size=self.config.jacobian_options.numerical_step,
         )
 
     def build_rkt_solver(self, block, speciation_block=False):
@@ -876,18 +556,18 @@ class ReaktoroBlockData(ProcessBlockData):
             block_name=name,
         )
         if speciation_block:
-            presolve = self.config.presolve_speciation_block
+            presolve = self.config.reaktoro_presolve_options.presolve_speciation_block
         else:
-            presolve = self.config.presolve_property_block
+            presolve = self.config.reaktoro_presolve_options.presolve_property_block
         block.rkt_solver.set_solver_options(
-            tolerance=self.config.reaktoro_solver_tolerance,
-            epsilon=self.config.reaktoro_epsilon,
+            tolerance=self.config.reaktoro_solve_options.solver_tolerance,
+            epsilon=self.config.reaktoro_solve_options.epsilon,
             presolve=presolve,
-            presolve_tolerance=self.config.presolve_reaktoro_solver_tolerance,
-            presolve_epsilon=self.config.presolve_reaktoro_epsilon,
-            max_iters=self.config.reaktoro_max_iterations,
-            presolve_max_iters=self.config.presolve_reaktoro_max_iterations,
-            hessian_type=self.config.hessian_type,
+            presolve_tolerance=self.config.reaktoro_presolve_options.solver_tolerance,
+            presolve_epsilon=self.config.reaktoro_presolve_options.epsilon,
+            max_iters=self.config.reaktoro_solve_options.max_iterations,
+            presolve_max_iters=self.config.reaktoro_presolve_options.max_iterations,
+            hessian_type=self.config.jacobian_options.hessian_type,
         )
 
     def build_gray_box(self, block):
@@ -898,8 +578,8 @@ class ReaktoroBlockData(ProcessBlockData):
         block -- pyomo block to build the model on
         """
         """ build block"""
-        scaling = self.config.jacobian_user_scaling
-        scaling_type = self.config.jacobian_scaling_type
+        scaling = self.config.jacobian_options.user_scaling
+        scaling_type = self.config.jacobian_options.scaling_type
         block.rkt_block_builder = ReaktoroBlockBuilder(
             block, block.rkt_solver, build_on_init=False
         )
@@ -950,9 +630,9 @@ class ReaktoroBlockData(ProcessBlockData):
 
     def initialize(self):
         if (
-            self.config.presolve_during_initialization
-            or self.config.presolve_speciation_block
-            or self.config.presolve_property_block
+            self.config.reaktoro_presolve_options.presolve_during_initialization
+            or self.config.reaktoro_presolve_options.presolve_speciation_block
+            or self.config.reaktoro_presolve_options.presolve_property_block
         ):
             presolve = True
         else:

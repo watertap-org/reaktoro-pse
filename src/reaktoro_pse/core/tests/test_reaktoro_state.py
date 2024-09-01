@@ -43,12 +43,14 @@ def build_rkt_state_with_species():
     m.composition["Ca"].fix(0.01)
     m.composition["HCO3"].fix(0.01)
     m.composition["CO2"].fix(0.001)
-    rkt_state = rktState.ReaktoroState()
 
+    rkt_state = rktState.ReaktoroState()
     rkt_state.set_database()
-    rkt_state.register_inputs(
-        composition=m.composition, temperature=m.temp, pressure=m.pressure, pH=m.pH
+    rkt_state.set_input_options(
+        "aqueous_phase",
     )
+    rkt_state.register_system_inputs(temperature=m.temp, pressure=m.pressure)
+    rkt_state.register_aqueous_inputs(composition=m.composition, pH=m.pH)
     rkt_state.set_aqueous_phase_activity_model()
     return m, rkt_state
 
@@ -81,9 +83,11 @@ def build_rkt_state_with_species_mass_basis():
     rkt_state = rktState.ReaktoroState()
 
     rkt_state.set_database()
-    rkt_state.register_inputs(
-        composition=m.composition, temperature=m.temp, pressure=m.pressure, pH=m.pH
+    rkt_state.set_input_options(
+        "aqueous_phase",
     )
+    rkt_state.register_system_inputs(temperature=m.temp, pressure=m.pressure)
+    rkt_state.register_aqueous_inputs(composition=m.composition, pH=m.pH)
     rkt_state.set_aqueous_phase_activity_model()
     return m, rkt_state
 
@@ -112,9 +116,11 @@ def build_rkt_state_with_species_no_ph():
     rkt_state = rktState.ReaktoroState()
 
     rkt_state.set_database()
-    rkt_state.register_inputs(
-        composition=m.composition, temperature=m.temp, pressure=m.pressure
+    rkt_state.set_input_options(
+        "aqueous_phase",
     )
+    rkt_state.register_system_inputs(temperature=m.temp, pressure=m.pressure)
+    rkt_state.register_aqueous_inputs(composition=m.composition)
     rkt_state.set_aqueous_phase_activity_model()
     return m, rkt_state
 
@@ -142,14 +148,13 @@ def build_rkt_state_with_elements():
     rkt_state = rktState.ReaktoroState()
 
     rkt_state.set_database()
-    rkt_state.register_inputs(
-        composition=composition,
-        temperature=temp,
-        pressure=pressure,
-        pH=pH,
+    rkt_state.set_input_options(
+        "aqueous_phase",
         convert_to_rkt_species=False,
         composition_is_elements=True,
     )
+    rkt_state.register_system_inputs(temperature=temp, pressure=pressure)
+    rkt_state.register_aqueous_inputs(composition=composition, pH=pH)
     rkt_state.set_aqueous_phase_activity_model()
     return rkt_state
 

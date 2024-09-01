@@ -133,29 +133,26 @@ def add_standard_properties(m):
     are apriori. 
     """
     m.eq_feed_properties = ReaktoroBlock(
-        composition=m.feed_composition,
-        temperature=m.feed_temperature,
-        pressure=m.feed_pressure,
-        pH=m.feed_pH,
+        aqueous_phase={
+            "composition": m.feed_composition,
+            "convert_to_rkt_species": True,
+            "pH": m.feed_pH,
+            "activity_model": rkt.ActivityModelPitzer(),
+        },
+        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
         outputs={"speciesAmount": True},  # get exact speciation for the feed
-        aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
         dissolve_species_in_reaktoro=True,
-        # we can use default converter as its defined for default database (Phreeqc and pitzer)
-        convert_to_rkt_species=True,
-        # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=False,
     )
     m.eq_ratio_feed_2_properties = ReaktoroBlock(
-        composition=m.ratio_feed_composition_2,
-        temperature=m.feed_temperature,
-        pressure=m.feed_pressure,
-        pH=m.feed_2_pH,
+        aqueous_phase={
+            "composition": m.ratio_feed_composition_2,
+            "convert_to_rkt_species": True,
+            "pH": m.feed_2_pH,
+            "activity_model": rkt.ActivityModelPitzer(),
+        },
+        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
         outputs={"speciesAmount": True},  # get exact speciation for the feed
-        aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
-        dissolve_species_in_reaktoro=True,
-        # we can use default converter as its defined for default database (Phreeqc and pitzer)
-        convert_to_rkt_species=True,
-        # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=False,
     )
 
@@ -175,18 +172,16 @@ def add_standard_properties(m):
     reaktoro to get new properties
     """
     m.eq_mixed_properties = ReaktoroBlock(
-        composition=m.mixed_speciation,
-        temperature=m.feed_temperature,
-        pressure=m.feed_pressure,
+        aqueous_phase={
+            "composition": m.mixed_speciation,
+            "convert_to_rkt_species": False,
+            "activity_model": rkt.ActivityModelPitzer(),
+        },
+        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
         outputs=m.modified_properties,  # get exact speciation for the feed
-        aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
         dissolve_species_in_reaktoro=True,
         exact_speciation=True,
-        # we can use default converter as its defined for default database (Phreeqc and pitzer)
-        convert_to_rkt_species=False,
-        # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=False,
-        # open_species_on_property_block=["H+", "OH-"],
     )
     scale_model(m)
 

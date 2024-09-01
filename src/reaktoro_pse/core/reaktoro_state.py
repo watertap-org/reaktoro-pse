@@ -9,6 +9,7 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
+from cmath import phase
 import reaktoro as rkt
 from pyomo.environ import units as pyunits
 
@@ -27,45 +28,81 @@ __author__ = "Alexander Dudchenko"
 
 class ReaktoroState:
     def __init__(self):
-        """initialize for all parameters need to build reaktor solver"""
+        """initialize all parameters need to build reaktor solver"""
         self.inputs = RktInputs.RktInputs()
-        self.mineral_phases = []
+        self.mineral_phase = []
+        self.aqueous_phase = None
         self.gas_phase = None
         self.ion_exchange_phase = None
 
-    def register_inputs(
+    def register_system_inputs(
         self,
-        composition,
         temperature=None,
         pressure=None,
-        pH=None,
+        temperature_index=None,
+        pressure_index=None,
+    ):
+        """registers inputs
+
+        Keyword arguments:
+
+        temperature -- pyomo var that contains temperature data (293.15K)
+        pressure -- pyomo var that contains pressure data (default 1 atm)
+        temperature_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[temperature_index])
+        pressure_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[pressure_index])
+        """
+        if temperature is not None:
+            self.inputs[RktInputTypes.temperature] = self.process_input(
+                temperature, temperature_index
+            )
+            self.inputs[RktInputTypes.temperature].set_input_type(
+                RktInputTypes.system_state
+            )
+        if pressure is not None:
+            self.inputs[RktInputTypes.pressure] = self.process_input(
+                pressure, pressure_index
+            )
+            self.inputs[RktInputTypes.temperature].set_input_type(
+                RktInputTypes.system_state
+            )
+
+    def set_input_options(
+        self,
+        phase_type,
         convert_to_rkt_species=True,
         species_to_rkt_species_dict="default",
         composition_is_elements=False,
+    ):
+        """registers inputs
+
+        Keyword arguments:
+        convert_to_rkt_species -- if set to True, specie input names are converted to RKT species names (set this to False if providing exact elemental input composition)
+        species_to_rkt_species_dict -- dictionary that defines how to convert species to rkt species, "default" converter supports limited number of databases and files
+        """
+
+        self.inputs.enable_rkt_species_conversion(
+            phase_type, convert_to_rkt_species, species_to_rkt_species_dict
+        )
+        self.inputs.set_composition_is_elements(phase_type, composition_is_elements)
+
+    def register_aqueous_inputs(
+        self,
+        composition,
+        pH=None,
         composition_index=None,
-        temperature_index=None,
-        pressure_index=None,
         pH_index=None,
     ):
         """registers inputs
 
         Keyword arguments:
         composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
-        temperature -- pyomo var that contains temperature data (293.15K)
-        pressure -- pyomo var that contains pressure data (default 1 atm)
         pH -- pyomo var that contains solution pH (default None)
-        convert_to_rkt_species -- if set to True, specie input names are converted to RKT species names (set this to False if providing exact elemental input composition)
-        species_to_rkt_species_dict -- dictionary that defines how to convert species to rkt species, "default" converter supports limited number of databases and files
         composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
         temperature_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[temperature_index])
         pressure_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[pressure_index])
         pH_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[pH_index])
         """
         # unfold input for composition
-        self.inputs.enable_rkt_species_conversion(
-            convert_to_rkt_species, species_to_rkt_species_dict
-        )
-        self.inputs.set_composition_is_elements(composition_is_elements)
         for props, pyo_obj in composition.items():
             if composition_index is None or composition_index in props:
                 if isinstance(props, str):
@@ -73,26 +110,82 @@ class ReaktoroState:
                 else:
                     specie = props[-1]
                 self.inputs[specie] = pyo_obj
-        if temperature is not None:
-            self.inputs[RktInputTypes.temperature] = self.process_input(
-                temperature, temperature_index
-            )
-        if pressure is not None:
-            self.inputs[RktInputTypes.pressure] = self.process_input(
-                pressure, pressure_index
-            )
-
+                self.inputs[specie].set_input_type(RktInputTypes.aqueous_phase)
         if pH is not None:
             self.inputs[RktInputTypes.pH] = self.process_input(pH, pH_index)
-        """ generates rkt speciation"""
-        self.aqueous_phase = rkt.AqueousPhase(rkt.speciate(self.inputs.species_list))
-        """ verify units"""
-        self.verify_specie_units()
+            self.inputs[RktInputTypes.pH].set_input_type(RktInputTypes.aqueous_phase)
+        self._inputs_not_processed = True  # flag that inputs ver modified
+
+    def register_gas_inputs(
+        self,
+        composition,
+        composition_index=None,
+    ):
+        """registers inputs
+
+        Keyword arguments:
+        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
+        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
+        """
+        # unfold input for composition
+        for props, pyo_obj in composition.items():
+            if composition_index is None or composition_index in props:
+                if isinstance(props, str):
+                    specie = props
+                else:
+                    specie = props[-1]
+                self.inputs[specie] = pyo_obj
+                self.inputs[specie].set_input_type(RktInputTypes.gas_phase)
+        self._inputs_not_processed = True  # flag that inputs ver modified
+
+    def register_mineral_inputs(
+        self,
+        composition,
+        composition_index=None,
+    ):
+        """registers inputs
+
+        Keyword arguments:
+        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
+        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
+        """
+        # unfold input for composition
+        for props, pyo_obj in composition.items():
+            if composition_index is None or composition_index in props:
+                if isinstance(props, str):
+                    specie = props
+                else:
+                    specie = props[-1]
+                self.inputs[specie] = pyo_obj
+                self.inputs[specie].set_input_type(RktInputTypes.mineral_phase)
+        self._inputs_not_processed = True  # flag that inputs ver modified
+
+    def register_ion_exchange_inputs(
+        self,
+        composition,
+        composition_index=None,
+    ):
+        """registers inputs
+
+        Keyword arguments:
+        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
+        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
+        """
+        # unfold input for composition
+        for props, pyo_obj in composition.items():
+            if composition_index is None or composition_index in props:
+                if isinstance(props, str):
+                    specie = props
+                else:
+                    specie = props[-1]
+                self.inputs[specie] = pyo_obj
+                self.inputs[specie].set_input_type(RktInputTypes.ion_exchange_phase)
 
     def verify_specie_units(self):
-        for specie in self.inputs.species_list:
-            mw, unit = self.get_molar_mass(specie)
-            self.verify_unit(self.inputs[specie], mw, unit)
+        for phase_type in self.inputs.registered_phases:
+            for specie in self.inputs.species_list[phase_type]:
+                mw, unit = self.get_molar_mass(specie)
+                self.verify_unit(self.inputs[specie], mw, unit)
 
     def verify_unit(self, rkt_input_object, mw, mw_unit):
         if (
@@ -140,30 +233,40 @@ class ReaktoroState:
         else:
             return phase
 
+    def register_aqueous_phase(self, aqueous_phases=[]):
+        """register possible mineral phases"""
+        if aqueous_phases != [] and aqueous_phases is not None:
+            if isinstance(aqueous_phases, (list, str)):
+                self.aqueous_phase = rkt.AqueousPhase(rkt.speciate(aqueous_phases))
+            else:
+                self.aqueous_phase = aqueous_phases
+
     def register_mineral_phases(self, mineral_phases=[]):
         """register possible mineral phases"""
-        if isinstance(mineral_phases, list) == False:
-            mineral_phases = [mineral_phases]
-
-        for mineral_phase in mineral_phases:
-            self.mineral_phases.append(
-                self._process_phase(mineral_phase, rkt.MineralPhase)
-            )
+        if mineral_phases != [] and mineral_phases is not None:
+            if isinstance(mineral_phases, list) == False:
+                mineral_phases = [mineral_phases]
+            for mineral_phase in mineral_phases:
+                self.mineral_phase.append(
+                    self._process_phase(mineral_phase, rkt.MineralPhase)
+                )
 
     def register_gas_phase(self, gas_phase=[]):
         """register possible gas phases"""
-        if isinstance(gas_phase, str):
-            gas_phase = [gas_phase]
-        self.gas_phase = self._process_phase(gas_phase, rkt.GaseousPhase)
+        if gas_phase != [] and gas_phase is not None:
+            if isinstance(gas_phase, str):
+                gas_phase = [gas_phase]
+            self.gas_phase = self._process_phase(gas_phase, rkt.GaseousPhase)
 
     def register_ion_exchange_phase(self, ion_phase=[]):
         """register possible ion exchange phases"""
-        if isinstance(ion_phase, str):
-            ion_phase = [ion_phase]
-        if self.ion_exchange_phase is not None:
-            self.ion_exchange_phase = self._process_phase(
-                ion_phase, rkt.IonExchangePhase
-            )
+        if ion_phase != [] and ion_phase is not None:
+            if isinstance(ion_phase, str):
+                ion_phase = [ion_phase]
+            if self.ion_exchange_phase is not None:
+                self.ion_exchange_phase = self._process_phase(
+                    ion_phase, rkt.IonExchangePhase
+                )
 
     def set_database(self, dbtype="PhreeqcDatabase", database="pitzer.dat"):
         """set data base of reaktoro"""
@@ -200,39 +303,86 @@ class ReaktoroState:
         return activity_model
 
     def set_aqueous_phase_activity_model(
-        self, activity_model="ActivityModelIdealAqueous"
+        self,
+        activity_model=None,
     ):
         """set activity model of aqueous phases in reaktoro"""
+        self.process_registered_inputs()
+        if self.aqueous_phase is not None:
+            if activity_model is None:
+                activity_model = "ActivityModelIdealAqueous"
+            activity_model = self._process_activity(activity_model)
+            self.aqueous_phase.set(activity_model)
 
-        activity_model = self._process_activity(activity_model)
-        self.aqueous_phase.set(activity_model)
-
-    def set_gas_phase_activity_model(self, activity_model="ActivityModelIdealGas"):
+    def set_gas_phase_activity_model(self, activity_model=None):
         """set activity model of gas phases in reaktoro"""
+        self.process_registered_inputs()
+        if activity_model is None:
+            activity_model = "ActivityModelIdealGas"
         activity_model = self._process_activity(activity_model)
-        # for phase in self.gas_phase:
         if self.gas_phase is not None:
             self.gas_phase.set(activity_model)
 
-    def set_mineral_phase_activity_model(
-        self, activity_model="ActivityModelIdealSolution"
-    ):
+    def set_mineral_phase_activity_model(self, activity_model=None):
         """set activity model of mineral phases in reaktoro"""
+        self.process_registered_inputs()
+        if activity_model is None:
+            activity_model = "ActivityModelIdealSolution"
         activity_model = self._process_activity(
             activity_model, state_of_matter=rkt.StateOfMatter.Solid
         )
-        for phase in self.mineral_phases:
+        for phase in self.mineral_phase:
             phase.set(activity_model)
 
-    def set_ion_exchange_phase_activity_model(
-        self, activity_model="ActivityModelIonExchange"
-    ):
+    def set_ion_exchange_phase_activity_model(self, activity_model=None):
         """set activity model of mineral phases in reaktoro"""
+        self.process_input()
+        if activity_model is None:
+            activity_model = "ActivityModelIonExchange"
         activity_model = self._process_activity(
             activity_model,
         )
         for phase in self.ion_exchange_phase:
             phase.set(activity_model)
+
+    def process_registered_inputs(self):
+        """this will process all inputs, this function must be called before setting activity models!"""
+        if self._inputs_not_processed:
+            """post-process inputs-this converts input specs to rkt and registers phases"""
+            self.inputs.process_inputs()
+            """ verify units"""
+            self.verify_specie_units()
+            """ register any added phases """
+            self.register_all_input_phases()
+            self._inputs_not_processed = False
+
+    def register_all_input_phases(self):
+        '''this will add phases to reaktoro state that are privided as inputs,
+        this removes the need for user to manualy specifies phase inputs if they are already
+        part of explicity inputs.
+        E.g. if user proivded CO2 in gas phase, this will add CO2 as gas phase to reaktoro
+        with out the need to call "register_gas_phase"'''
+        all_species = self.inputs.species_list[RktInputTypes.aqueous_phase][:]
+        [
+            all_species.append(spc)
+            for spc in self.inputs.species_list[RktInputTypes.ion_exchange_phase]
+        ]
+        [
+            all_species.append(spc)
+            for spc in self.inputs.species_list[RktInputTypes.gas_phase]
+        ]
+        [
+            all_species.append(spc)
+            for spc in self.inputs.species_list[RktInputTypes.mineral_phase]
+        ]
+        self.register_aqueous_phase(all_species)
+        self.register_mineral_phases(
+            self.inputs.species_list[RktInputTypes.mineral_phase]
+        )
+        self.register_gas_phase(self.inputs.species_list[RktInputTypes.gas_phase])
+        self.register_ion_exchange_phase(
+            self.inputs.species_list[RktInputTypes.ion_exchange_phase]
+        )
 
     def build_state(self):
         """this will build reaktor states"""
@@ -244,7 +394,7 @@ class ReaktoroState:
         self.system = rkt.ChemicalSystem(
             self.database,
             self.aqueous_phase,
-            *self.mineral_phases,
+            *self.mineral_phase,
             *phases,
         )
         self.state = rkt.ChemicalState(self.system)
@@ -262,26 +412,30 @@ class ReaktoroState:
                 self.inputs["pressure"].get_value(),
                 self.inputs["pressure"].main_unit,
             )
-
-        """ set apparant species if used """
-        if self.inputs.composition_is_elements == False:
-            for species in self.inputs.species_list:
-                if species in self.inputs:  # user might not provide all
-                    if self.inputs[species].get_value() != 0:
-                        unit = self.inputs[species].main_unit
-                        if unit == "dimensionless":
-                            """assume correct units are provided"""
-                            self.state.set(
-                                species,
-                                self.inputs[species].get_value(apply_conversion=True),
-                                "mol",
-                            )
-                        else:
-                            self.state.set(
-                                species,
-                                self.inputs[species].get_value(apply_conversion=False),
-                                self.inputs[species].main_unit,
-                            )
+        """ set apparent species if used """
+        for phase in self.inputs.registered_phases:
+            if self.inputs.composition_is_elements[phase] == False:
+                for species in self.inputs.species_list[phase]:
+                    if species in self.inputs:  # user might not provide all
+                        if self.inputs[species].get_value() != 0:
+                            unit = self.inputs[species].main_unit
+                            if unit == "dimensionless":
+                                """assume correct units are provided"""
+                                self.state.set(
+                                    species,
+                                    self.inputs[species].get_value(
+                                        apply_conversion=True
+                                    ),
+                                    "mol",
+                                )
+                            else:
+                                self.state.set(
+                                    species,
+                                    self.inputs[species].get_value(
+                                        apply_conversion=False
+                                    ),
+                                    self.inputs[species].main_unit,
+                                )
         # _jac_phases = [phase.name() for phase in self.state.system().phases()]
 
     def equilibrate_state(self):

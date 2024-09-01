@@ -31,6 +31,10 @@ import reaktoro as rkt
 This examples demonstrates how Reaktoro graybox can be used to estimates 
 properties in desalination process.
 
+This example demonstrates how to:
+(1) Setup up basic ReaktoroBlock
+(2) Calculate basic properties for Scaling Tendency, pH, and Osmotic pressure 
+(3) Optimize system pH for operation at target Scaling Tendency
 Key assumptions:
 Assumes that process concentrating the feed does not alter the pH. 
 This might be a good assumptions for process such as RO, but might be a poor
@@ -141,19 +145,20 @@ def build_simple_desal(open_species=False):
     else:
         species_to_open = None
     m.eq_desal_properties = ReaktoroBlock(
-        composition=m.desal_composition,
-        temperature=m.feed_temperature,
-        pressure=m.feed_pressure,
-        pH=m.feed_pH,
+        aqueous_phase={
+            "composition": m.desal_composition,
+            "convert_to_rkt_species": True,
+            "pH": m.feed_pH,
+            "activity_model": rkt.ActivityModelPitzer(),
+        },
+        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
         outputs=m.desal_properties,
         chemistry_modifier={"HCl": m.acid_addition},
-        aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
         dissolve_species_in_reaktoro=True,
         # we can use default converter as its defined for default database (Phreeqc and pitzer)
-        convert_to_rkt_species=True,
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
-        open_species_on_property_block=species_to_open,
+        reaktoro_solve_options={"open_species_on_property_block": species_to_open},
     )
     scale_model(m)
     return m

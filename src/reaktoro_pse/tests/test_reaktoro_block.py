@@ -80,17 +80,20 @@ def test_blockBuild(build_rkt_state_with_species):
     m = build_rkt_state_with_species
     m.outputs.display()
     m.property_block = ReaktoroBlock(
-        composition=m.composition,
-        temperature=m.temp,
-        pressure=m.pressure,
-        pH=m.pH,
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+            "pH": m.pH,
+        },
+        system_state={"temperature": m.temp, "pressure": m.pressure},
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
-        numerical_jacobian_type="average",
-        numerical_jacobian_order=2,
-        numerical_jacobian_step=1e-8,
+        jacobian_options={
+            "numerical_type": "average",
+            "numerical_order": 2,
+            "numerical_step": 1e-8,
+        },
         outputs=m.outputs,
-        convert_to_rkt_species=True,
     )
     print("rkt block")
     m.property_block.reaktoro_model.display()
@@ -121,21 +124,26 @@ def test_blockBuild_solids_gas(build_rkt_state_with_species):
         initialize=0.5,
     )
     m.property_block = ReaktoroBlock(
-        composition=m.composition,
-        temperature=m.temp,
-        pressure=m.pressure,
-        pH=m.pH,
-        mineral_phases=["Calcite"],
-        gas_phase=["H2O(g)"],
-        gas_phase_activity_model="ActivityModelRedlichKwong",
-        aqueous_phase_activity_model="ActivityModelPitzer",
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+            "pH": m.pH,
+            "activity_model": "ActivityModelPitzer",
+        },
+        system_state={"temperature": m.temp, "pressure": m.pressure},
+        mineral_phase={"phase_components": "Calcite"},
+        gas_phase={
+            "phase_components": ["H2O(g)"],
+            "activity_model": "ActivityModelRedlichKwong",
+        },
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
-        numerical_jacobian_type="average",
-        numerical_jacobian_order=2,
-        numerical_jacobian_step=1e-8,
+        jacobian_options={
+            "numerical_type": "average",
+            "numerical_order": 2,
+            "numerical_step": 1e-8,
+        },
         outputs=m.solid_gas_outputs,
-        convert_to_rkt_species=True,
     )
     m.display()
     m.property_block.initialize()
@@ -160,22 +168,22 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
     m.CaO.fix()
     m.outputs.display()
     m.property_block = ReaktoroBlock(
-        composition=m.composition,
-        temperature=m.temp,
-        pressure=m.pressure,
-        chemistry_modifier=m.CaO,
-        pH=m.pH,
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+            "pH": m.pH,
+        },
+        system_state={"temperature": m.temp, "pressure": m.pressure},
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
-        numerical_jacobian_type="average",
-        numerical_jacobian_order=2,
-        numerical_jacobian_step=1e-8,
+        jacobian_options={
+            "numerical_type": "average",
+            "numerical_order": 2,
+            "numerical_step": 1e-8,
+        },
+        chemistry_modifier=m.CaO,
         outputs=m.outputs,
-        convert_to_rkt_species=True,
         build_speciation_block=True,
-        # dissolve_species_in_reaktoro=False,
-        # presolve_during_initialization=True,
-        # presolve_tolerance=1e-16,
     )
     m.property_block.initialize()
     cy_solver = get_solver(solver="cyipopt-watertap")
@@ -244,19 +252,21 @@ def test_blockBuild_with_speciation_block_no_chem_addition(
     m = build_rkt_state_with_species
     m.outputs.display()
     m.property_block = ReaktoroBlock(
-        composition=m.composition,
-        temperature=m.temp,
-        pressure=m.pressure,
-        pH=m.pH,
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+            "pH": m.pH,
+        },
+        system_state={"temperature": m.temp, "pressure": m.pressure},
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
-        numerical_jacobian_type="average",
-        numerical_jacobian_order=2,
-        numerical_jacobian_step=1e-8,
+        jacobian_options={
+            "numerical_type": "average",
+            "numerical_order": 2,
+            "numerical_step": 1e-8,
+        },
         outputs=m.outputs,
-        convert_to_rkt_species=True,
         build_speciation_block=True,
-        presolve_during_initialization=True,
     )
     m.property_block.initialize()
     cy_solver = get_solver(solver="cyipopt-watertap")
@@ -291,21 +301,23 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
     m.CaO = Var(["CaO"], initialize=0.002, units=pyunits.mol / pyunits.s)
     m.CaO.fix()
     m.property_block = ReaktoroBlock(
-        composition=m.composition,
-        temperature=m.temp,
-        pressure=m.pressure,
-        pH=m.pH,
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+            "species_to_rkt_species_dict": translation_dict,
+            "pH": m.pH,
+        },
+        system_state={"temperature": m.temp, "pressure": m.pressure},
         chemistry_modifier=m.CaO,
         database="SupcrtDatabase",
         database_file="supcrtbl",
-        numerical_jacobian_type="average",
-        numerical_jacobian_order=2,
-        numerical_jacobian_step=1e-8,
+        jacobian_options={
+            "numerical_type": "average",
+            "numerical_order": 2,
+            "numerical_step": 1e-8,
+        },
         outputs=m.outputs,
-        convert_to_rkt_species=True,
-        species_to_rkt_species_dict=translation_dict,
         build_speciation_block=True,
-        presolve_during_initialization=True,
     )
     for e, con in m.property_block.rkt_inputs.constraint_dict.items():
         print(e, con)
@@ -334,17 +346,20 @@ def test_indexed_blockBuild(build_rkt_state_with_indexed_species):
     m.outputs.display()
     m.property_block = ReaktoroBlock(
         [0, 1],
-        composition=m.composition,
-        temperature=m.temp,
-        pressure=m.pressure,
-        pH=m.pH,
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+            "pH": m.pH,
+        },
+        system_state={"temperature": m.temp, "pressure": m.pressure},
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
-        numerical_jacobian_type="average",
-        numerical_jacobian_order=2,
-        numerical_jacobian_step=1e-8,
+        jacobian_options={
+            "numerical_type": "average",
+            "numerical_order": 2,
+            "numerical_step": 1e-8,
+        },
         outputs=m.outputs,
-        convert_to_rkt_species=True,
     )
     for blk in m.property_block:
         m.property_block[blk].initialize()
@@ -370,18 +385,21 @@ def test_indexed_blockBuild_with_speciation_block(
     m.outputs.display()
     m.property_block = ReaktoroBlock(
         [0, 1],
-        composition=m.composition,
-        temperature=m.temp,
-        pressure=m.pressure,
-        pH=m.pH,
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+            "pH": m.pH,
+        },
+        system_state={"temperature": m.temp, "pressure": m.pressure},
         chemistry_modifier=m.CaO,
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
-        numerical_jacobian_type="average",
-        numerical_jacobian_order=2,
-        numerical_jacobian_step=1e-8,
+        jacobian_options={
+            "numerical_type": "average",
+            "numerical_order": 2,
+            "numerical_step": 1e-8,
+        },
         outputs=m.outputs,
-        convert_to_rkt_species=True,
         build_speciation_block=True,
     )
     for blk in m.property_block:

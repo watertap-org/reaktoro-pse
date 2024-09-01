@@ -27,6 +27,12 @@ class RktInputTypes:
     pressure = "pressure"
     dimensionless = "dimensionless"
     mass_units = ["kg", "mg"]
+    system_state = "system_state"
+    aqueous_phase = "aqueous_phase"
+    gas_phase = "gas_phase"
+    mineral_phase = "mineral_phase"
+    ion_exchange_phase = "ion_exchange_phase"
+    supported_phases = [aqueous_phase, gas_phase, mineral_phase, ion_exchange_phase]
 
 
 class RktInput:
@@ -44,6 +50,7 @@ class RktInput:
         self.required_unit = None
         self.rkt_name = var_name
         self.lower_bound = None
+        self.input_type = None
         if pyomo_var is not None:
             if isinstance(pyomo_var, (Var, VarData)) == False:
                 raise TypeError(
@@ -54,6 +61,12 @@ class RktInput:
             self.check_unit()
         else:
             self.pyomo_var = None
+
+    def get_input_type(self):
+        return self.input_type
+
+    def set_input_type(self, input_type):
+        self.input_type = input_type
 
     def update_values(self, update_temp=False):
         if self.pyomo_var is not None:
@@ -171,17 +184,27 @@ class RktInput:
 
 class RktInputs(dict):
     def __init__(self):
-        self.species_list = []
+
         self.rkt_input_list = []
-        self.convert_to_rkt_species = False
-        self.composition_is_elements = False
+        self.registered_phases = []
+        self.species_list = {}
+        self.convert_to_rkt_species = {}
+        self.composition_is_elements = {}
+        self.conversion_method = {}
+        for phase in RktInputTypes.supported_phases:
+            self.species_list[phase] = []
+            self.convert_to_rkt_species[phase] = False
+            self.composition_is_elements[phase] = False
+            self.conversion_method[phase] = "default"
 
-    def enable_rkt_species_conversion(self, convert=False, conversion_method="default"):
-        self.convert_to_rkt_species = convert
-        self.conversion_method = conversion_method
+    def enable_rkt_species_conversion(
+        self, phase, convert=False, conversion_method="default"
+    ):
+        self.convert_to_rkt_species[phase] = convert
+        self.conversion_method[phase] = conversion_method
 
-    def set_composition_is_elements(self, comp_is_elements=False):
-        self.composition_is_elements = comp_is_elements
+    def set_composition_is_elements(self, phase, comp_is_elements=False):
+        self.composition_is_elements[phase] = comp_is_elements
 
     def __setitem__(self, var_name, var):
         if isinstance(var, RktInput):
@@ -190,33 +213,39 @@ class RktInputs(dict):
         else:
             # create new one if its a pyomo var or vardata
             rkt_input = RktInput(var_name, var)
-
-        self._set_species(var_name, rkt_input)
         return super().__setitem__(var_name, rkt_input)
+
+    def process_inputs(self):
+        keys = list(self.keys())
+        for key in keys:
+            phase = self[key].get_input_type()
+            self._set_species(key, self[key], phase)
 
     def auto_convert_to_rkt_species(self, var_name):
         if self.convert_to_rkt_species:
             var_name = self.convert_rkt_species_fun(var_name)
         return var_name
 
-    def convert_rkt_species_fun(self, var_name):
-        if self.conversion_method == "default":
+    def convert_rkt_species_fun(self, var_name, phase):
+        if self.conversion_method[phase] == "default":
             var_name = specie_to_rkt_species(var_name)
-        elif isinstance(self.conversion_method, dict):
-            var_name = self.conversion_method[var_name]
+        elif isinstance(self.conversion_method[phase], dict):
+            var_name = self.conversion_method[phase][var_name]
         else:
             raise TypeError(
-                f"Conversion method of {type(self.conversion_method)} is not supported)"
+                f"Conversion method of {type(self.conversion_method[phase] )} is not supported)"
             )
         return var_name
 
-    def _set_species(self, var_name, var):
+    def _set_species(self, var_name, var, phase):
         if var_name not in ["pH", "temperature", "pressure"]:
-            if var_name not in self.species_list:
-                if self.convert_to_rkt_species:
-                    var_name = self.convert_rkt_species_fun(var_name)
+            if var_name not in self.species_list[phase]:
+                if self.convert_to_rkt_species[phase]:
+                    var_name = self.convert_rkt_species_fun(var_name, phase)
                     super().__setitem__(var_name, var)
-                self.species_list.append(var_name)
+                self.species_list[phase].append(var_name)
+            if phase not in self.registered_phases:
+                self.registered_phases.append(phase)
 
     def __getitem__(self, var_name):
         var = super().__getitem__(var_name)

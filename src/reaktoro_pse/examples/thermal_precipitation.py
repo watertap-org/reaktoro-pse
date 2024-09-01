@@ -240,88 +240,116 @@ def build_simple_precipitation():
     """ we can import new database using initialized reaktoro object as shown in this block, or as strings in block down below"""
     database = reaktoro.SupcrtDatabase("supcrtbl")
     m.eq_feed_properties = ReaktoroBlock(
-        composition=m.feed_composition,
-        temperature=m.feed_temperature,
-        pressure=m.feed_pressure,
-        pH=m.feed_pH,
+        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
+        aqueous_phase={
+            "composition": m.feed_composition,
+            "convert_to_rkt_species": True,
+            "species_to_rkt_species_dict": translation_dict,
+            "pH": m.feed_pH,
+            "activity_model": "ActivityModelPitzer",
+        },
         outputs=m.feed_properties,
-        aqueous_phase_activity_model="ActivityModelPitzer",
-        mineral_phases=["Calcite", "Anhydrite"],
-        gas_phase=["H2O(g)", "N2(g)"],
-        gas_phase_activity_model="ActivityModelRedlichKwong",
+        mineral_phase={"phase_components": ["Calcite", "Anhydrite"]},
+        gas_phase={
+            "phase_components": ["H2O(g)", "N2(g)"],
+            "activity_model": "ActivityModelRedlichKwong",
+        },
         database=database,  # need to specify new data base to use
-        species_to_rkt_species_dict=translation_dict,
-        convert_to_rkt_species=True,
         dissolve_species_in_reaktoro=False,
-        jacobian_user_scaling={
-            ("molarEnthalpy", None): 1,
-            ("specificHeatCapacityConstP", None): 1,
+        jacobian_options={
+            "user_scaling": {
+                ("molarEnthalpy", None): 1,
+                ("specificHeatCapacityConstP", None): 1,
+            },
         },
     )
 
     # """ need to get precipitator enthalpy to find required power input """
     m.eq_precipitation_properties = ReaktoroBlock(
-        composition=m.precipitator_composition,
-        temperature=m.precipitator_temperature,
-        pressure=m.feed_pressure,  # assume all systems operate at same pressure - not
-        pH=m.feed_pH,
+        system_state={
+            "temperature": m.precipitator_temperature,
+            "pressure": m.feed_pressure,
+        },
+        aqueous_phase={
+            "composition": m.precipitator_composition,
+            "convert_to_rkt_species": True,
+            "species_to_rkt_species_dict": translation_dict,
+            "pH": m.feed_pH,
+            "activity_model": "ActivityModelPitzer",
+        },
         outputs=m.precipitation_properties,
-        aqueous_phase_activity_model="ActivityModelPitzer",
-        mineral_phases=["Calcite", "Anhydrite"],
-        gas_phase=["H2O(g)", "N2(g)"],
-        gas_phase_activity_model="ActivityModelRedlichKwong",
-        database="SupcrtDatabase",  # need to specify new data base to use
-        database_file="supcrtbl",  # need to specify specific data base file to use
-        species_to_rkt_species_dict=translation_dict,
-        convert_to_rkt_species=True,
+        mineral_phase={"phase_components": ["Calcite", "Anhydrite"]},
+        gas_phase={
+            "phase_components": ["H2O(g)", "N2(g)"],
+            "activity_model": "ActivityModelRedlichKwong",
+        },
+        database=database,  # need to specify new data base to use
         dissolve_species_in_reaktoro=False,
         build_speciation_block=True,
-        jacobian_user_scaling={
-            ("molarEnthalpy", None): 1,
-            ("specificHeatCapacityConstP", None): 1,
+        jacobian_options={
+            "user_scaling": {
+                ("molarEnthalpy", None): 1,
+                ("specificHeatCapacityConstP", None): 1,
+            },
         },
     )
+
     m.eq_treated_properties = ReaktoroBlock(
-        composition=m.treated_composition,
-        temperature=m.precipitator_temperature,
-        pressure=m.feed_pressure,  # assume all systems operate at same pressure - not
-        pH=m.precipitation_properties[("pH", None)],
+        system_state={
+            "temperature": m.precipitator_temperature,
+            "pressure": m.feed_pressure,
+        },
+        aqueous_phase={
+            "composition": m.treated_composition,
+            "convert_to_rkt_species": True,
+            "species_to_rkt_species_dict": translation_dict,
+            "pH": m.precipitation_properties[("pH", None)],
+            "activity_model": "ActivityModelPitzer",
+        },
         outputs=m.treated_properties,
-        aqueous_phase_activity_model="ActivityModelPitzer",
-        mineral_phases=["Calcite", "Anhydrite"],
-        gas_phase=["H2O(g)", "N2(g)"],
-        gas_phase_activity_model="ActivityModelRedlichKwong",
-        database="SupcrtDatabase",  # need to specify new data base to use
-        database_file="supcrtbl",  # need to specify specific data base file to use
-        species_to_rkt_species_dict=translation_dict,
-        convert_to_rkt_species=True,
+        mineral_phase={"phase_components": ["Calcite", "Anhydrite"]},
+        gas_phase={
+            "phase_components": ["H2O(g)", "N2(g)"],
+            "activity_model": "ActivityModelRedlichKwong",
+        },
+        database=database,  # need to specify new data base to use
         dissolve_species_in_reaktoro=False,
-        jacobian_user_scaling={
-            ("molarEnthalpy", None): 1,
-            ("specificHeatCapacityConstP", None): 1,
+        jacobian_options={
+            "user_scaling": {
+                ("molarEnthalpy", None): 1,
+                ("specificHeatCapacityConstP", None): 1,
+            },
         },
     )
+
     m.eq_cooled_treated_properties = ReaktoroBlock(
-        composition=m.treated_composition,
-        temperature=m.cooled_treated_temperature,
-        pressure=m.feed_pressure,  # assume all systems operate at same pressure - not
-        pH=m.precipitation_properties[("pH", None)],
-        outputs=m.cooled_treated_properties,
-        aqueous_phase_activity_model="ActivityModelPitzer",
-        mineral_phases=["Calcite", "Anhydrite"],
-        gas_phase=["H2O(g)", "N2(g)"],
-        gas_phase_activity_model="ActivityModelRedlichKwong",
-        database="SupcrtDatabase",  # need to specify new data base to use
-        database_file="supcrtbl",  # need to specify specific data base file to use
-        species_to_rkt_species_dict=translation_dict,
-        convert_to_rkt_species=True,
-        dissolve_species_in_reaktoro=False,
-        jacobian_user_scaling={
-            ("molarEnthalpy", None): 1,
-            ("specificHeatCapacityConstP", None): 1,
+        system_state={
+            "temperature": m.cooled_treated_temperature,
+            "pressure": m.feed_pressure,
         },
-        # presolve=True, # when solids are include, presolving can help with stability
+        aqueous_phase={
+            "composition": m.treated_composition,
+            "convert_to_rkt_species": True,
+            "species_to_rkt_species_dict": translation_dict,
+            "pH": m.precipitation_properties[("pH", None)],
+            "activity_model": "ActivityModelPitzer",
+        },
+        outputs=m.cooled_treated_properties,
+        mineral_phase={"phase_components": ["Calcite", "Anhydrite"]},
+        gas_phase={
+            "phase_components": ["H2O(g)", "N2(g)"],
+            "activity_model": "ActivityModelRedlichKwong",
+        },
+        database=database,  # need to specify new data base to use
+        dissolve_species_in_reaktoro=False,
+        jacobian_options={
+            "user_scaling": {
+                ("molarEnthalpy", None): 1,
+                ("specificHeatCapacityConstP", None): 1,
+            },
+        },
     )
+
     scale_model(m)
     return m
 

@@ -78,28 +78,31 @@ def add_standard_properties(m):
         initialize=1,
     )
     m.eq_modified_properties = ReaktoroBlock(
-        composition=m.feed_composition,
-        temperature=m.feed_temperature,
-        pressure=m.feed_pressure,
-        pH=m.feed_pH,
+        aqueous_phase={
+            "composition": m.feed_composition,
+            "convert_to_rkt_species": True,
+            "pH": m.feed_pH,
+            "activity_model": rkt.ActivityModelPitzer(),
+        },
+        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
         outputs=m.modified_properties,
         chemistry_modifier={
             "HCl": m.acid_addition,
             "H2O_evaporation": m.modified_properties_water_removal,
             "NaOH": m.base_addition,
         },
-        aqueous_phase_activity_model=rkt.ActivityModelPitzer(),
         dissolve_species_in_reaktoro=False,
         # we can use default converter as its defined for default database (Phreeqc and pitzer)
-        convert_to_rkt_species=True,
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
-        open_species_on_property_block=["H+", "OH-"],
-        jacobian_user_scaling={
-            ("saturationIndex", "Calcite"): 1,
-            ("saturationIndex", "Gypsum"): 1,
-            ("pH", None): 1,
-            ("speciesActivityLn", "H2O"): 1,
+        reaktoro_solve_options={"open_species_on_property_block": ["H+", "OH-"]},
+        jacobian_options={
+            "user_scaling": {
+                ("saturationIndex", "Calcite"): 1,
+                ("saturationIndex", "Gypsum"): 1,
+                ("pH", None): 1,
+                ("speciesActivityLn", "H2O"): 1,
+            },
         },
     )
     scale_model(m)
