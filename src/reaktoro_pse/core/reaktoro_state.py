@@ -167,7 +167,10 @@ class ReaktoroState:
 
     def set_database(self, dbtype="PhreeqcDatabase", database="pitzer.dat"):
         """set data base of reaktoro"""
-        self.database = getattr(rkt, dbtype)(database)
+        if isinstance(dbtype, str):
+            self.database = getattr(rkt, dbtype)(database)
+        else:
+            self.database = dbtype
         self.database_species = [specie.name() for specie in self.database.species()]
         self.database_elements = [
             element.symbol() for element in self.database.elements()

@@ -306,9 +306,10 @@ class ReaktoroBlockData(ProcessBlockData):
         "database",
         ConfigValue(
             default="PhreeqcDatabase",
-            domain=str,
-            description="Database to use with reaktoro",
-            doc="Defines which database to use in reaktoro",
+            description="Database to use with reaktoro (string, or initialized reaktoro database)",
+            doc="""Defines which database to use in reaktoro.
+            If providing database as string, then must also include database_file name as string, 
+            Otherwise, can be supplied as initialized reaktoro database object e.g. database = reaktoro.PhreeqcDatabase('pitzer.dat')""",
         ),
     )
     CONFIG.declare(

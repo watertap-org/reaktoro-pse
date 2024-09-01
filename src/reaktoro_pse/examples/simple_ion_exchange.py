@@ -28,10 +28,12 @@ import reaktoro as rkt
 """
 This examples demonstrates how Reaktoro graybox can be used to estimates removal of specific ion through use of ion exchange material.
 
-This example shows:
-(1) How to set up ReaktoroBlock for charge neutralizing the feed composition 
-(2) How to use outputs from spetiation block as inputs into a second property block
-(3) How to add Ion Exchange phase and species into ReaktoroBlock
+This example shows how to:
+(1) Set up ReaktoroBlock for charge neutralizing the feed composition 
+(2) Use outputs from speciation block as inputs into a second property block
+(3) Add Ion Exchange phase and species into ReaktoroBlock
+(4) Optimize addition of acid and bases for maximizing Calcium removal selectivity over Magnesium
+
 """
 
 
@@ -74,7 +76,7 @@ def build_simple_desal():
     m.feed_pressure.fix()
     m.feed_pH = Var(initialize=7, bounds=(4, 12), units=pyunits.dimensionless)
     m.feed_pH.fix()
-    m.treated_pH = Var(initialize=7, bounds=(0, 12), units=pyunits.dimensionless)
+    m.treated_pH = Var(initialize=7, bounds=(0, 13), units=pyunits.dimensionless)
     m.Ca_to_Mg_selectivity = Var(initialize=1, units=pyunits.dimensionless)
 
     # acid addition
@@ -277,7 +279,7 @@ def initialize(m):
 def setup_optimization(m):
     """Find resin amount and base/acid addition that maximize calcium selectivity"""
     m.objective = Objective(
-        expr=(1 / m.Ca_to_Mg_selectivity) + m.base_addition + m.acid_addition
+        expr=(1 / m.Ca_to_Mg_selectivity) + m.base_addition * 10 + m.acid_addition * 10
     )
     m.base_addition.unfix()
     m.acid_addition.unfix()

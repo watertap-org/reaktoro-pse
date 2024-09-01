@@ -68,9 +68,9 @@ def test_thermal_precipt():
 def test_ion_exchange():
     m = simple_ion_exchange.main()
 
-    assert pytest.approx(m.removal_percent["Mg"].value, 1e-1) == -39.04818610627
-    assert pytest.approx(m.removal_percent["Ca"].value, 1e-1) == -55.06860821131281
-
-    assert pytest.approx(m.treated_pH.value, 1e-2) == 11.9999999879611
-    assert pytest.approx(m.base_addition.value, 1e-2) == 0.021871793648501815
-    assert pytest.approx(m.acid_addition.value, 1e-2) == 0.007052275426462343
+    assert pytest.approx(m.removal_percent["Mg"].value, 1e-1) == -41.66215869753205
+    assert pytest.approx(m.removal_percent["Ca"].value, 1e-1) == -58.29250731752792
+    assert pytest.approx(m.removal_percent["Na"].value, 1e-1) == 98.97272111801175
+    assert pytest.approx(m.treated_pH.value, 1e-2) == 12.00707098722806
+    assert pytest.approx(m.base_addition.value, 1e-2) == 0.010525694006761978
+    assert pytest.approx(m.acid_addition.value, 1e-2) == 5.115504183194669e-11

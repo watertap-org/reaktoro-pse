@@ -21,7 +21,7 @@ from pyomo.environ import (
 )
 from watertap.core.solvers import get_solver
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
-
+import reaktoro
 import idaes.core.util.scaling as iscale
 
 """
@@ -33,6 +33,11 @@ refere to these two discussions:
 https://github.com/reaktoro/reaktoro/discussions/398
 https://github.com/reaktoro/reaktoro/discussions/285
 
+This example demonstrates:
+(1) How to configure different database from default
+(2) How to get enthalpy and vapor pressure from Reaktoro
+(3) How to setup precipitation calculation 
+(4) Setup simulation for removal of Calcite over different temperatures and estimate required energy input
 
 Key assumptions:
 Assumes that process concentrating the feed does not alter the pH. 
@@ -231,6 +236,9 @@ def build_simple_precipitation():
     }
     """ note how we included nitrogen as one of gas species, this will prevent 
         PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)"""
+
+    """ we can import new database using initialized reaktoro object as shown in this block, or as strings in block down below"""
+    database = reaktoro.SupcrtDatabase("supcrtbl")
     m.eq_feed_properties = ReaktoroBlock(
         composition=m.feed_composition,
         temperature=m.feed_temperature,
@@ -241,8 +249,7 @@ def build_simple_precipitation():
         mineral_phases=["Calcite", "Anhydrite"],
         gas_phase=["H2O(g)", "N2(g)"],
         gas_phase_activity_model="ActivityModelRedlichKwong",
-        database="SupcrtDatabase",  # need to specify new data base to use
-        database_file="supcrtbl",  # need to specify specific data base file to use
+        database=database,  # need to specify new data base to use
         species_to_rkt_species_dict=translation_dict,
         convert_to_rkt_species=True,
         dissolve_species_in_reaktoro=False,
