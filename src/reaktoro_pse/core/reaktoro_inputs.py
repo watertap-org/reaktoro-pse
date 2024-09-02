@@ -197,7 +197,7 @@ class ReaktoroInputSpec:
             specs_object.charge()
             if self.neutrality_ion is not None:
                 self.ignore_elements_for_constraints.append(self.neutrality_ion)
-               
+
                 if self.neutrality_ion not in specs_object.namesInputs():
                     """needs to be a species!"""
                     specs_object.openTo(self.neutrality_ion)

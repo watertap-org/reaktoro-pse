@@ -136,11 +136,13 @@ def add_standard_properties(m):
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-           
             "activity_model": rkt.ActivityModelPitzer(),
         },
-        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure,
-                       "pH": m.feed_pH,},
+        system_state={
+            "temperature": m.feed_temperature,
+            "pressure": m.feed_pressure,
+            "pH": m.feed_pH,
+        },
         outputs={"speciesAmount": True},  # get exact speciation for the feed
         dissolve_species_in_reaktoro=True,
         build_speciation_block=False,
@@ -149,11 +151,13 @@ def add_standard_properties(m):
         aqueous_phase={
             "composition": m.ratio_feed_composition_2,
             "convert_to_rkt_species": True,
-           
             "activity_model": rkt.ActivityModelPitzer(),
         },
-        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure,
-                       "pH": m.feed_2_pH,},
+        system_state={
+            "temperature": m.feed_temperature,
+            "pressure": m.feed_pressure,
+            "pH": m.feed_2_pH,
+        },
         outputs={"speciesAmount": True},  # get exact speciation for the feed
         build_speciation_block=False,
     )
