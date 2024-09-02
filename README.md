@@ -51,6 +51,9 @@ Currently, repo includes several tutorials and examples.
     * Use outputs from speciation block as inputs into a second property block
     * Add Ion Exchange phase and species into ReaktoroBlock
     * Optimize addition of acid and bases for maximizing Calcium removal selectivity over Magnesium
+4. [Example of biogas combustion](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/biogas_combustion.py) that demonstrates how to:
+    * Set up ReaktoroBlock for customized database
+    * Use Condensed phase
 
 *Comparisons of Reaktoro-pse to PhreeqC when simulating*
 

@@ -265,12 +265,17 @@ def initialize(m):
 def setup_optimization(m):
     """Find resin amount and base/acid addition that maximize calcium selectivity"""
     m.objective = Objective(
-        expr=(1 / m.Ca_to_Mg_selectivity) * 10 + m.base_addition + m.acid_addition
+        expr=(
+            (1 / m.Ca_to_Mg_selectivity) * 100
+            + m.base_addition * 10
+            + m.acid_addition * 10
+        )
+        ** 2
     )
     m.base_addition.unfix()
     m.acid_addition.unfix()
-    m.removal_percent["Mg"].setub(-5)
-    m.removal_percent["Ca"].setub(-5)
+    m.removal_percent["Mg"].setub(-10)
+    m.removal_percent["Ca"].setub(-10)
 
 
 def display_results(m):
