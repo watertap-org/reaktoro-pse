@@ -25,6 +25,8 @@ import idaes.core.util.scaling as iscale
 import pyomo.environ as pyo
 import reaktoro as rkt
 
+from reaktoro_pse.reaktoro_block_config import jacobian_options
+
 """
 This examples demonstrates how Reaktoro graybox can be used to estimates removal of specific ion through use of ion exchange material.
 
@@ -76,7 +78,7 @@ def build_simple_desal():
     m.feed_pressure.fix()
     m.feed_pH = Var(initialize=7, bounds=(4, 12), units=pyunits.dimensionless)
     m.feed_pH.fix()
-    m.treated_pH = Var(initialize=7, bounds=(0, 13), units=pyunits.dimensionless)
+    m.treated_pH = Var(initialize=7, bounds=(0, 12), units=pyunits.dimensionless)
     m.Ca_to_Mg_selectivity = Var(initialize=1, units=pyunits.dimensionless)
 
     # acid addition
@@ -125,7 +127,6 @@ def build_simple_desal():
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
         build_speciation_block=False,
-        # reaktoro_solve_options={"open_species_on_property_block": ["OH-"]},
     )
 
     """ build the IX block """
@@ -154,7 +155,10 @@ def build_simple_desal():
         chemistry_modifier={"NaOH": m.base_addition, "HCl": m.acid_addition},
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
-        reaktoro_solve_options={"open_species_on_property_block": ["OH-"]},
+        reaktoro_solve_options={
+            "solver_tolerance": 1e-12,
+            "open_species_on_property_block": ["OH-"],
+        },
         # we do not need to re-speciate.
         exact_speciation=True,
         build_speciation_block=False,
@@ -241,17 +245,18 @@ def scale_model(m):
     for key in m.eq_used_ix:
         iscale.set_scaling_factor(m.used_ion_exchange_material[key], 10)
         iscale.constraint_scaling_transform(m.eq_used_ix[key], 10)
-    iscale.constraint_scaling_transform(m.eq_selectivity, 1)
-    iscale.set_scaling_factor(m.acid_addition, 1e5)
-    iscale.set_scaling_factor(m.base_addition, 1e5)
-    iscale.set_scaling_factor(m.Ca_to_Mg_selectivity, 1)
-    iscale.set_scaling_factor(m.feed_charge, 1)
-    iscale.set_scaling_factor(m.treated_feed_charge, 1)
+    iscale.constraint_scaling_transform(m.eq_selectivity, 10)
+    iscale.set_scaling_factor(m.acid_addition, 1e2)
+    iscale.set_scaling_factor(m.base_addition, 1e2)
+    iscale.set_scaling_factor(m.Ca_to_Mg_selectivity, 10)
+    iscale.set_scaling_factor(m.feed_charge, 1e8)
+    iscale.set_scaling_factor(m.treated_feed_charge, 1e8)
 
 
 def initialize(m):
     m.eq_speciation_block.initialize()
     m.eq_ix_properties.initialize()
+    m.eq_ix_properties.display_jacobian_scaling()
     for key in m.treated_composition:
         calculate_variable_from_constraint(
             m.treated_composition[key], m.eq_treated_comp[key]
@@ -266,14 +271,13 @@ def setup_optimization(m):
     """Find resin amount and base/acid addition that maximize calcium selectivity"""
     m.objective = Objective(
         expr=(
-            (1 / m.Ca_to_Mg_selectivity) * 100
+            (1 / m.Ca_to_Mg_selectivity) * 10
             + m.base_addition * 10
             + m.acid_addition * 10
         )
-        ** 2
     )
     m.base_addition.unfix()
-    m.acid_addition.unfix()
+    m.acid_addition.fix()
     m.removal_percent["Mg"].setub(-10)
     m.removal_percent["Ca"].setub(-10)
 

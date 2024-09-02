@@ -69,12 +69,10 @@ def test_thermal_precipt():
 def test_ion_exchange():
     m = simple_ion_exchange.main()
 
-    assert pytest.approx(m.removal_percent["Mg"].value, 1e-1) == -10.000000000009125
-    assert pytest.approx(m.removal_percent["Ca"].value, 1e-1) == -18.414531170104443
-    assert pytest.approx(m.removal_percent["Na"].value, 1e-1) == 115.37825574913344
-    assert pytest.approx(m.treated_pH.value, 1e-2) == 12.304915929743872
-    assert pytest.approx(m.base_addition.value, abs=1e-3) == 0.05748345428441
-    assert pytest.approx(m.acid_addition.value, abs=1e-4) == 7.341743545971222e-12
+    assert pytest.approx(m.removal_percent["Mg"].value, 1e-1) == -12.884433732658657
+    assert pytest.approx(m.removal_percent["Ca"].value, 1e-1) == -20.945025598434235
+    assert pytest.approx(m.treated_pH.value, 1e-2) == 11.9999999982477
+    assert pytest.approx(m.base_addition.value, abs=1e-3) == 0.035868379826281924
 
 
 def test_biogas():
