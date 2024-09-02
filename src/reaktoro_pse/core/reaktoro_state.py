@@ -126,6 +126,10 @@ class ReaktoroState:
         )
 
     def register_inputs(self, composition, composition_index, phase):
+        """generic input registration method,
+        unpacks composition (assumes its a dict or indexed var)
+        if user provides index then extract values only for that index and
+        phase to specify which phase input belongs to"""
         for props, pyo_obj in composition.items():
             if composition_index is None or composition_index in props:
                 if isinstance(props, str):
@@ -233,6 +237,8 @@ class ReaktoroState:
                 self.verify_unit(self.inputs[specie], mw, unit)
 
     def verify_unit(self, rkt_input_object, mw, mw_unit):
+        """verify user provides mass or mol basis for species
+        other wise do nothing"""
         if (
             rkt_input_object.main_unit == RktInputTypes.mol
             or rkt_input_object.main_unit == RktInputTypes.dimensionless
@@ -247,6 +253,7 @@ class ReaktoroState:
             )
 
     def get_molar_mass(self, comp):
+        """get mw from database from specie or element"""
         if comp in self.database_species:
             return self.get_molar_mass_specie(comp)
         elif comp in self.database_elements:
@@ -273,6 +280,11 @@ class ReaktoroState:
             return var
 
     def _process_phase(self, phase, default_phase):
+        """
+        if phsae is list of speices convert it to single string
+        other wise pass it in directly into phase object
+        if phase object is not list, tuple or str assume its user initialized phase
+        and use directly"""
         if isinstance(phase, (list, tuple)):
             return default_phase(" ".join(phase))
         elif isinstance(phase, str):
@@ -281,7 +293,7 @@ class ReaktoroState:
             return phase
 
     def _process_phases(self, phase, default_phase, list_mode=False):
-        # List mode is used for when we expect ot build a list of phases, such as Mineral and Solid Phase objects
+        # List mode is used for when we expect to build a list of phases, such as Mineral and Solid Phase objects
         if phase != [] and phase is not None:
             if isinstance(phase, (str)):
                 phase = [phase]
@@ -385,6 +397,8 @@ class ReaktoroState:
 
     def set_database(self, dbtype="PhreeqcDatabase", database="pitzer.dat"):
         """set data base of reaktoro"""
+        """ assume that if database is string we need to find and init in reaktoro
+        other wise assume we received activated reaktoro db"""
         if isinstance(dbtype, str):
             self.database = getattr(rkt, dbtype)(database)
         else:
@@ -397,6 +411,10 @@ class ReaktoroState:
     def _process_activity(
         self, activity_model, state_of_matter=None, default_activity_model=None
     ):
+        """this will process give activity model if user provides a strng it will
+        find it on reaktoro and initialize it either by it self or passing in state of matter argument
+        if user provides intialized reaktoro activity model we use it directly."""
+
         def get_func(activity_model, state_of_matter):
             if isinstance(activity_model, str):
                 if state_of_matter is None:
@@ -455,7 +473,7 @@ class ReaktoroState:
             self.gas_phase.set(activity_model)
 
     def set_condensed_phase_activity_model(self, activity_model=None):
-        """set activity model of gas phases in reaktoro"""
+        """set activity model of ccondensed phases in reaktoro"""
         self.process_registered_inputs()
         activity_model = self._process_activity(
             activity_model,
@@ -478,7 +496,7 @@ class ReaktoroState:
                 phase.set(activity_model)
 
     def set_solid_phase_activity_model(self, activity_model=None):
-        """set activity model of mineral phases in reaktoro"""
+        """set activity model of solid phases in reaktoro"""
         self.process_registered_inputs()
         activity_model = self._process_activity(
             activity_model,
