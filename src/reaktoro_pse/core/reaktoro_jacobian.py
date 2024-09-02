@@ -14,6 +14,7 @@ import reaktoro as rkt
 import numpy as np
 from reaktoro_pse.core.reaktoro_outputs import PropTypes
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
+from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from reaktoro_pse.core.reaktoro_outputs import (
     ReaktoroOutputSpec,
 )
@@ -134,7 +135,7 @@ class JacboianRows:
         return self.property[idx], self.property_index[idx]
 
     def check_key(self, key, index=None):
-        if (key, index) in self.keys:
+        if (key, index) in self.standard_keys:
             return self.get_index((key, index))
         else:
             return False
@@ -213,12 +214,16 @@ class ReaktoroJacobianSpec:
         self.aqueous_prop_states = []
         for step in self.numerical_steps:
             self.chem_prop_states.append(rkt.ChemicalProps(self.state.state))
-            self.aqueous_prop_states.append(rkt.AqueousProps(self.chem_prop_states[-1]))
+            if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
+                self.aqueous_prop_states.append(
+                    rkt.AqueousProps(self.chem_prop_states[-1])
+                )
 
     def update_states(self, new_states):
         for i in range(len(self.numerical_steps)):
             self.chem_prop_states[i].update(new_states[:, i])
-            self.aqueous_prop_states[i].update(self.chem_prop_states[i])
+            if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
+                self.aqueous_prop_states[i].update(self.chem_prop_states[i])
 
     def get_state_values(self, output_object):
         output_vals = []
@@ -260,7 +265,7 @@ class ReaktoroJacobianSpec:
         return out_types
 
     def check_existing_jacobian_props(self):
-        """check if jacobian is available in current properties and identfy function to use
+        """check if jacobian is available in current properties and identify function to use
         for getting values"""
         for idx, key in enumerate(self.jac_rows.standard_keys):
             prop, prop_index = self.jac_rows.get_property(key)

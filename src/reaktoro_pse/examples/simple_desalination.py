@@ -148,10 +148,13 @@ def build_simple_desal(open_species=False):
         aqueous_phase={
             "composition": m.desal_composition,
             "convert_to_rkt_species": True,
-            "pH": m.feed_pH,
             "activity_model": rkt.ActivityModelPitzer(),
         },
-        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
+        system_state={
+            "temperature": m.feed_temperature,
+            "pressure": m.feed_pressure,
+            "pH": m.feed_pH,
+        },
         outputs=m.desal_properties,
         chemistry_modifier={"HCl": m.acid_addition},
         dissolve_species_in_reaktoro=True,

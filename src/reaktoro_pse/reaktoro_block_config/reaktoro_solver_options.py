@@ -95,5 +95,4 @@ class ReaktoroSolverOptions:
                     This generally should not be needed""",
                 ),
             )
-
         return CONFIG

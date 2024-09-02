@@ -14,6 +14,7 @@ from reaktoro_pse.examples import (
     simple_desalination,
     simple_ion_exchange,
     thermal_precipitation,
+    bigasificaiton_example,
 )
 
 
@@ -68,9 +69,16 @@ def test_thermal_precipt():
 def test_ion_exchange():
     m = simple_ion_exchange.main()
 
-    assert pytest.approx(m.removal_percent["Mg"].value, 1e-1) == -41.66215869753205
-    assert pytest.approx(m.removal_percent["Ca"].value, 1e-1) == -58.29250731752792
-    assert pytest.approx(m.removal_percent["Na"].value, 1e-1) == 98.97272111801175
-    assert pytest.approx(m.treated_pH.value, 1e-2) == 12.00707098722806
-    assert pytest.approx(m.base_addition.value, 1e-2) == 0.010525694006761978
-    assert pytest.approx(m.acid_addition.value, 1e-2) == 5.115504183194669e-11
+    assert pytest.approx(m.removal_percent["Mg"].value, 1e-1) == -5.000000005534077
+    assert pytest.approx(m.removal_percent["Ca"].value, 1e-1) == -10.800409844332075
+    assert pytest.approx(m.removal_percent["Na"].value, 1e-1) == 126.94292855983791
+    assert pytest.approx(m.treated_pH.value, 1e-2) == 12.57850184575838
+    assert pytest.approx(m.base_addition.value, 1e-2) == 0.09050676244974129
+    assert pytest.approx(m.acid_addition.value, 1e-2) == 8.32016553459784e-11
+
+
+def test_biogas():
+    m = bigasificaiton_example.main()
+
+    assert pytest.approx(m.air_to_fuel_ratio.value, 1e-1) == 3.8751662012681587
+    assert pytest.approx(m.exhaust_temperature.value, 1e-1) == 2000

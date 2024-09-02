@@ -24,6 +24,7 @@ class RktInputTypes:
     Pa = "Pa"
     pH = "pH"
     temperature = "temperature"
+    enthalpy = "enthalpy"
     pressure = "pressure"
     dimensionless = "dimensionless"
     mass_units = ["kg", "mg"]
@@ -32,7 +33,19 @@ class RktInputTypes:
     gas_phase = "gas_phase"
     mineral_phase = "mineral_phase"
     ion_exchange_phase = "ion_exchange_phase"
-    supported_phases = [aqueous_phase, gas_phase, mineral_phase, ion_exchange_phase]
+    liquid_phase = "liquid_phase"
+    solid_phase = "solid_phase"
+    condensed_phase = "condensed_phase"
+    supported_phases = [
+        aqueous_phase,
+        gas_phase,
+        mineral_phase,
+        solid_phase,
+        ion_exchange_phase,
+        condensed_phase,
+        liquid_phase,
+    ]
+    non_species_types = [pH, enthalpy, pressure, temperature]
 
 
 class RktInput:
@@ -166,11 +179,10 @@ class RktInput:
         the primary mass unit from time unit and
         also convert them to string"""
         default_unit = str(pyunits.get_units(self.pyomo_var))
-        if default_unit == RktInputTypes.dimensionless and self.var_name not in [
-            RktInputTypes.pH,
-            RktInputTypes.temperature,
-            RktInputTypes.pressure,
-        ]:
+        if (
+            default_unit == RktInputTypes.dimensionless
+            and self.var_name not in RktInputTypes.non_species_types
+        ):
             self.main_unit = RktInputTypes.mol
             self.time_unit = None
         split_units = default_unit.split("/")
@@ -188,6 +200,7 @@ class RktInputs(dict):
         self.rkt_input_list = []
         self.registered_phases = []
         self.species_list = {}
+        self.all_species = []
         self.convert_to_rkt_species = {}
         self.composition_is_elements = {}
         self.conversion_method = {}
@@ -238,12 +251,15 @@ class RktInputs(dict):
         return var_name
 
     def _set_species(self, var_name, var, phase):
-        if var_name not in ["pH", "temperature", "pressure"]:
+        if var_name not in RktInputTypes.non_species_types:
             if var_name not in self.species_list[phase]:
                 if self.convert_to_rkt_species[phase]:
                     var_name = self.convert_rkt_species_fun(var_name, phase)
                     super().__setitem__(var_name, var)
                 self.species_list[phase].append(var_name)
+            if var_name not in self.all_species:
+                self.all_species.append(var_name)
+
             if phase not in self.registered_phases:
                 self.registered_phases.append(phase)
 

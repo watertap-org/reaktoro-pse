@@ -14,6 +14,7 @@ import reaktoro as rkt
 import json
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
 import reaktoro_pse.core.pyomo_property_writer.property_functions as propFuncs
+from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 
 # disabling warnings
 
@@ -228,24 +229,32 @@ class ReaktoroOutputSpec:
             raise TypeError("Reator outputs require rektoroState class")
         self.supported_properties = {}
         self.supported_properties[PropTypes.chem_prop] = self.state.state.props()
-        self.supported_properties[PropTypes.aqueous_prop] = rkt.AqueousProps(
-            self.state.state.props()
-        )
-        self.supported_properties[PropTypes.pyomo_built_prop] = PyomoProperties(
-            self.state,
-            self.supported_properties[PropTypes.chem_prop],
-            self.supported_properties[PropTypes.aqueous_prop],
-        )
-        self.supported_properties[PropTypes.pyomo_built_prop].osmoticPressure("Calcite")
+        if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
+            self.supported_properties[PropTypes.aqueous_prop] = rkt.AqueousProps(
+                self.state.state.props()
+            )
+            self.supported_properties[PropTypes.pyomo_built_prop] = PyomoProperties(
+                self.state,
+                self.supported_properties[PropTypes.chem_prop],
+                self.supported_properties[PropTypes.aqueous_prop],
+            )
+        else:
+            self.supported_properties[PropTypes.pyomo_built_prop] = PyomoProperties(
+                self.state,
+                self.supported_properties[PropTypes.chem_prop],
+                None,
+            )
+
         self.rkt_outputs = {}  # outputs that reaktoro needs to generate
         self.user_outputs = {}  # outputs user requests
         self.get_possible_indexes()
 
     def update_supported_props(self):
         self.state.state.props().update(self.state.state)
-        self.supported_properties[PropTypes.aqueous_prop].update(
-            self.state.state.props()
-        )
+        if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
+            self.supported_properties[PropTypes.aqueous_prop].update(
+                self.state.state.props()
+            )
 
     def evaluate_property(
         self, RktOutputObject, property_type=None, update_values_in_object=False
@@ -404,12 +413,13 @@ class ReaktoroOutputSpec:
             specie.symbol() for specie in self.state.state.system().elements()
         ]
         self.species = [specie.name() for specie in self.state.state.system().species()]
-        self.saturation_species = [
-            specie.name()
-            for specie in self.supported_properties[
-                PropTypes.aqueous_prop
-            ].saturationSpecies()
-        ]
+
+        # self.saturation_species = [
+        #     specie.name()
+        #     for specie in self.supported_properties[
+        #         PropTypes.aqueous_prop
+        #     ].saturationSpecies()
+        # ]
 
     """ start of possible call function to extract values from reactoro properties"""
 

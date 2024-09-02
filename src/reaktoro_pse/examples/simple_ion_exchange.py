@@ -64,10 +64,10 @@ def build_simple_desal():
     )
     m.feed_composition.construct()
     m.feed_composition["H2O"].fix(55)
-    m.feed_composition["Mg"].fix(0.01)
-    m.feed_composition["Na"].fix(0.025)
-    m.feed_composition["Cl"].fix(0.025)
-    m.feed_composition["Ca"].fix(0.001)
+    m.feed_composition["Mg"].fix(0.1)
+    m.feed_composition["Na"].fix(0.25)
+    m.feed_composition["Cl"].fix(0.25)
+    m.feed_composition["Ca"].fix(0.01)
     m.feed_composition["HCO3"].fix(0.01)
     m.feed_composition["SO4"].fix(0.01)
     m.feed_temperature = Var(initialize=293.15, units=pyunits.K)
@@ -86,7 +86,7 @@ def build_simple_desal():
     m.base_addition = Var(initialize=0.00001, units=pyunits.mol / pyunits.s)
     m.base_addition.fix()
     m.feed_charge = Var(initialize=0.00001, units=pyunits.mol / pyunits.s)
-
+    m.treated_feed_charge = Var(initialize=0.00001, units=pyunits.mol / pyunits.s)
     # Clean ion exchange
     m.ion_exchange_material = Var(
         ["NaX", "CaX2", "MgX2"],
@@ -101,18 +101,21 @@ def build_simple_desal():
     # We have a resin that is fresh and primarily contains Na balancing ions
     # note that each NaX/CaX2/MgX2 is really a site on a resin material rather then
     # total mass of resin
-    m.ion_exchange_material["NaX"].fix(0.1)
+    m.ion_exchange_material["NaX"].fix(0.4)
     m.ion_exchange_material["CaX2"].fix(1e-5)
     m.ion_exchange_material["MgX2"].fix(1e-5)
 
     """We will build a block to charge neutralize the feed and adjust apparent species 
     to achieve this and then build a separate block to do ion exchange calculation"""
     m.eq_speciation_block = ReaktoroBlock(
-        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
+        system_state={
+            "temperature": m.feed_temperature,
+            "pressure": m.feed_pressure,
+            "pH": m.feed_pH,
+        },
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-            "pH": m.feed_pH,
             "activity_model": rkt.ActivityModelPitzer(),
         },
         outputs={
@@ -146,11 +149,14 @@ def build_simple_desal():
         outputs={
             "speciesAmount": True,
             ("pH", None): m.treated_pH,
+            ("charge", None): m.treated_feed_charge,
         },
         chemistry_modifier={"NaOH": m.base_addition, "HCl": m.acid_addition},
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
+        reaktoro_solve_options={"open_species_on_property_block": ["OH-"]},
         # we do not need to re-speciate.
+        exact_speciation=True,
         build_speciation_block=False,
     )
 
@@ -240,6 +246,7 @@ def scale_model(m):
     iscale.set_scaling_factor(m.base_addition, 1e5)
     iscale.set_scaling_factor(m.Ca_to_Mg_selectivity, 1)
     iscale.set_scaling_factor(m.feed_charge, 1)
+    iscale.set_scaling_factor(m.treated_feed_charge, 1)
 
 
 def initialize(m):
@@ -258,12 +265,12 @@ def initialize(m):
 def setup_optimization(m):
     """Find resin amount and base/acid addition that maximize calcium selectivity"""
     m.objective = Objective(
-        expr=(1 / m.Ca_to_Mg_selectivity) + m.base_addition * 10 + m.acid_addition * 10
+        expr=(1 / m.Ca_to_Mg_selectivity) * 10 + m.base_addition + m.acid_addition
     )
     m.base_addition.unfix()
     m.acid_addition.unfix()
-    m.removal_percent["Mg"].setub(0)
-    m.removal_percent["Ca"].setub(-20)
+    m.removal_percent["Mg"].setub(-5)
+    m.removal_percent["Ca"].setub(-5)
 
 
 def display_results(m):
@@ -278,6 +285,7 @@ def display_results(m):
     print(f"feed pH {m.feed_pH.value}, treated pH {m.treated_pH.value}")
     print(f"HCl added {m.acid_addition.value}")
     print(f"NaOH added {m.base_addition.value}")
+    print(f"Treated solution charge {m.treated_feed_charge.value}")
 
 
 def solve(m):

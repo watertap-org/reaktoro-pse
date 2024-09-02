@@ -83,10 +83,13 @@ def add_vapor_pressure_properties(m):
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-            "pH": m.feed_pH,
             "activity_model": rkt.ActivityModelPitzer(),
         },
-        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
+        system_state={
+            "temperature": m.feed_temperature,
+            "pressure": m.feed_pressure,
+            "pH": m.feed_pH,
+        },
         outputs=m.modified_properties,
         gas_phase={
             "phase_components": ["H2O(g)", "Ntg(g)"],

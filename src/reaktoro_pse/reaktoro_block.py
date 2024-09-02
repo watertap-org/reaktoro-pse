@@ -54,10 +54,20 @@ class ReaktoroBlockData(ProcessBlockData):
     CONFIG = ProcessBlockData.CONFIG()
     CONFIG.declare(
         RktInputTypes.aqueous_phase,
-        PhaseInput().get_dict(include_pH=True, include_aqueous_solvent_species=True),
+        PhaseInput().get_dict(
+            include_pH=True, aqueous_phase=True, include_solvent_species=True
+        ),
+    )
+    CONFIG.declare(
+        RktInputTypes.liquid_phase,
+        PhaseInput().get_dict(
+            include_pH=True, aqueous_phase=False, include_solvent_species=True
+        ),
     )
     CONFIG.declare(RktInputTypes.gas_phase, PhaseInput().get_dict())
+    CONFIG.declare(RktInputTypes.condensed_phase, PhaseInput().get_dict())
     CONFIG.declare(RktInputTypes.mineral_phase, PhaseInput().get_dict())
+    CONFIG.declare(RktInputTypes.solid_phase, PhaseInput().get_dict())
     CONFIG.declare(RktInputTypes.ion_exchange_phase, PhaseInput().get_dict())
     CONFIG.declare(RktInputTypes.system_state, SystemInput().get_dict())
 
@@ -81,6 +91,7 @@ class ReaktoroBlockData(ProcessBlockData):
             doc="If true, then the problem will constrain all elements to equal to provided inputs after dissolution",
         ),
     )
+
     CONFIG.declare(
         "build_speciation_block_with_phases",
         ConfigValue(
@@ -96,7 +107,6 @@ class ReaktoroBlockData(ProcessBlockData):
              """,
         ),
     )
-
     CONFIG.declare(
         "database_file",
         ConfigValue(
@@ -346,24 +356,56 @@ class ReaktoroBlockData(ProcessBlockData):
         block.rkt_state.register_system_inputs(
             temperature=self.config.system_state.temperature,
             pressure=self.config.system_state.pressure,
+            enthalpy=self.config.system_state.enthalpy,
+            enthalpy_index=get_indexing(self.config.system_state.enthalpy_indexed),
             temperature_index=get_indexing(
                 self.config.system_state.temperature_indexed
             ),
             pressure_index=get_indexing(self.config.system_state.pressure_indexed),
+            pH=return_none_option(self.config.system_state.pH),
+            pH_index=get_indexing(self.config.system_state.pH_indexed),
         )
         """ setup aqueous inputs """
+        aqueous_input_composition = self.config.aqueous_phase.composition
+        liquid_input_composition = self.config.liquid_phase.composition
+        condensed_input_composition = self.config.condensed_phase.composition
         if building_prop_block_after_speciation():
-            input_composition = self.speciation_block.outputs
+            if aqueous_input_composition is not {}:
+                aqueous_input_composition = self.speciation_block.outputs
+                liquid_input_composition = {}
+                condensed_input_composition = {}
+            elif liquid_input_composition is not {}:
+                aqueous_input_composition = {}
+                liquid_input_composition = self.speciation_block.outputs
+                condensed_input_composition = {}
+            elif condensed_input_composition is not {}:
+                aqueous_input_composition = {}
+                liquid_input_composition = {}
+                condensed_input_composition = self.speciation_block.outputs
+            else:
+                raise ValueError(
+                    "Speciation block requires that either liquid or aqueous phase is provided"
+                )
         else:
-            input_composition = self.config.aqueous_phase.composition
-        input_composition.display()
+            aqueous_input_composition = self.config.aqueous_phase.composition
+
         block.rkt_state.register_aqueous_inputs(
-            composition=input_composition,
+            composition=aqueous_input_composition,
             composition_index=get_indexing(
                 self.config.aqueous_phase.composition_indexed, speciation_block_built
             ),
-            pH=return_none_option(self.config.aqueous_phase.pH),
-            pH_index=get_indexing(self.config.aqueous_phase.pH_indexed),
+        )
+        block.rkt_state.register_liquid_inputs(
+            composition=liquid_input_composition,
+            composition_index=get_indexing(
+                self.config.aqueous_phase.composition_indexed, speciation_block_built
+            ),
+        )
+        block.rkt_state.register_condensed_inputs(
+            composition=condensed_input_composition,
+            composition_index=get_indexing(
+                self.config.condensed_phase.composition_indexed, speciation_block_built
+            ),
         )
         block.rkt_state.register_gas_inputs(
             composition=return_empty_dict_option(self.config.gas_phase.composition),
@@ -387,6 +429,9 @@ class ReaktoroBlockData(ProcessBlockData):
         if speciation_block == False or self.config.build_speciation_block_with_phases:
             """dont add phases if we are speciating"""
             block.rkt_state.register_aqueous_phase(get_phases("aqueous_phase"))
+            block.rkt_state.register_liquid_phase(get_phases("liquid_phase"))
+            block.rkt_state.register_solid_phases(get_phases("solid_phase"))
+            block.rkt_state.register_condensed_phase(get_phases("condensed_phase"))
             block.rkt_state.register_gas_phase(get_phases("gas_phase"))
             block.rkt_state.register_mineral_phases(get_phases("mineral_phase"))
             block.rkt_state.register_ion_exchange_phase(
@@ -397,13 +442,22 @@ class ReaktoroBlockData(ProcessBlockData):
         block.rkt_state.set_aqueous_phase_activity_model(
             self.config.aqueous_phase.activity_model
         )
+        block.rkt_state.set_liquid_phase_activity_model(
+            self.config.liquid_phase.activity_model
+        )
         block.rkt_state.set_gas_phase_activity_model(
             self.config.gas_phase.activity_model
+        )
+        block.rkt_state.set_condensed_phase_activity_model(
+            self.config.condensed_phase.activity_model
+        )
+        block.rkt_state.set_solid_phase_activity_model(
+            self.config.solid_phase.activity_model
         )
         block.rkt_state.set_mineral_phase_activity_model(
             self.config.mineral_phase.activity_model
         )
-        block.rkt_state.register_ion_exchange_phase(
+        block.rkt_state.set_ion_exchange_phase_activity_model(
             self.config.ion_exchange_phase.activity_model
         )
         """ build state """
@@ -449,11 +503,15 @@ class ReaktoroBlockData(ProcessBlockData):
                 self.config.reaktoro_solve_options.open_species_on_speciation_block
             )
 
-        """ register aqueous solvent phase"""
-        block.rkt_inputs.register_aqueous_solvent(
-            self.config.aqueous_phase.aqueous_solvent_specie
+        """ register solvents and elements to open for aqueous and liquid phase"""
+        block.rkt_inputs.register_fixed_solvent_specie(
+            RktInputTypes.aqueous_phase, self.config.aqueous_phase.fixed_solvent_specie
         )
-
+        block.rkt_inputs.register_fixed_solvent_specie(
+            RktInputTypes.liquid_phase, self.config.liquid_phase.fixed_solvent_specie
+        )
+        block.rkt_inputs.register_free_elements(self.config.aqueous_phase.free_element)
+        block.rkt_inputs.register_free_elements(self.config.liquid_phase.free_element)
         """ register charge neutrality"""
         if (
             speciation_block_built == False
@@ -555,6 +613,11 @@ class ReaktoroBlockData(ProcessBlockData):
             block.rkt_jacobian,
             block_name=name,
         )
+        block.rkt_solver.set_system_bounds(
+            self.config.system_state.temperature_bounds,
+            self.config.system_state.pressure_bounds,
+        )
+
         if speciation_block:
             presolve = self.config.reaktoro_presolve_options.presolve_speciation_block
         else:
@@ -627,7 +690,6 @@ class ReaktoroBlockData(ProcessBlockData):
             self.rkt_block_builder.set_user_jacobian_scaling(user_scaling_dict)
 
     # TODO: Update to use new initialization method https://idaes-pse.readthedocs.io/en/stable/reference_guides/initialization/developing_initializers.html?highlight=Initializer
-
     def initialize(self):
         if (
             self.config.reaktoro_presolve_options.presolve_during_initialization

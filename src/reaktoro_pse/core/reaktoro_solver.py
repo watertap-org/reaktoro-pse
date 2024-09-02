@@ -12,7 +12,7 @@
 import reaktoro as rkt
 
 import numpy as np
-
+from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
 from reaktoro_pse.core.reaktoro_outputs import (
     ReaktoroOutputSpec,
@@ -70,6 +70,7 @@ class ReaktoroSolver:
             self.input_specs.equilibrium_specs
         )
         self.set_solver_options()
+        self.set_system_bounds()
         self._sequential_fails = 0
         self._max_fails = 30
 
@@ -95,20 +96,33 @@ class ReaktoroSolver:
         """
         self.solver_options.epsilon = epsilon
         self.solver_options.optima.maxiters = max_iters
-
-        # self.rktSolverOptions.optima.output.active = True
         self.solver_options.optima.convergence.tolerance = tolerance
 
         self.presolve_options.epsilon = presolve_epsilon
         self.presolve_options.optima.maxiters = presolve_max_iters
-
-        # self.rktPresolveOptions.optima.output.active = True
         self.presolve_options.optima.convergence.tolerance = presolve_tolerance
         self.presolve = presolve
         self.solver.setOptions(self.solver_options)
         self.hessian_type = hessian_type
         if self.input_specs.assert_charge_neutrality:
             self.conditions.charge(0)
+
+    def set_system_bounds(
+        self,
+        temperature_bounds=(10, 10000),
+        pressure_bounds=(1, 10000),
+    ):
+        self.conditions.setLowerBoundPressure(pressure_bounds[0])
+        self.conditions.setUpperBoundPressure(pressure_bounds[1])
+        self.conditions.setLowerBoundTemperature(temperature_bounds[0])
+        self.conditions.setUpperBoundTemperature(temperature_bounds[1])
+
+    def set_custom_bound(self, custom_bound, value, index=None):
+        """setting custom bounds, eg titrants etc."""
+        if index == None:
+            getattr(self.conditions, custom_bound)(value)
+        else:
+            getattr(self.conditions, custom_bound)(index, value)
 
     def update_specs(self, params):
         for input_key in self.input_specs.rkt_inputs.rkt_input_list:
@@ -118,11 +132,14 @@ class ReaktoroSolver:
             else:
                 value = params.get(input_key)
                 input_obj.set_temp_value(value)
+
             unit = input_obj.main_unit
-            if input_key == "temperature":
+            if input_key == RktInputTypes.temperature:
                 self.conditions.temperature(value, unit)
-            elif input_key == "pressure":
+            elif input_key == RktInputTypes.pressure:
                 self.conditions.pressure(value, unit)
+            elif input_key == RktInputTypes.enthalpy:
+                self.conditions.enthalpy(value, unit)
             else:
                 # TODO figure out how deal with units...
                 self.conditions.set(input_obj.get_rkt_input_name(), value)
@@ -156,7 +173,6 @@ class ReaktoroSolver:
     ):
         """here we solve reaktor model and return the jacobian matrix and solution, as
         well as update relevant reaktoroSpecs"""
-        ts = time.time()
         self.update_specs(params)
 
         result = self.try_solve(presolve)
@@ -191,14 +207,5 @@ class ReaktoroSolver:
             self.sensitivity,
             self.conditions,
         )
-        _jac_phases = [phase.name() for phase in self.state.state.system().phases()]
-
-        # print(self.state.state.props())
-        # if "GaseousPhase" in _jac_phases:
-        #     print(self.state.state.props())
-        #     #     print(_jac_phases)
-        #     print(self.state.state.props().volume())
-        #     print(self.state.state.props().phaseProps("GaseousPhase").pressure())
-        #     print(self.state.state.props().phaseProps("GaseousPhase").volume())
         self.output_specs.update_supported_props()
         return result

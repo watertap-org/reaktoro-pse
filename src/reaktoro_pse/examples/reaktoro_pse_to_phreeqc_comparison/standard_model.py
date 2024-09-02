@@ -81,10 +81,13 @@ def add_standard_properties(m):
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-            "pH": m.feed_pH,
             "activity_model": rkt.ActivityModelPitzer(),
         },
-        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
+        system_state={
+            "temperature": m.feed_temperature,
+            "pressure": m.feed_pressure,
+            "pH": m.feed_pH,
+        },
         outputs=m.modified_properties,
         chemistry_modifier={
             "HCl": m.acid_addition,

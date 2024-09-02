@@ -83,9 +83,12 @@ def test_blockBuild(build_rkt_state_with_species):
         aqueous_phase={
             "composition": m.composition,
             "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
             "pH": m.pH,
         },
-        system_state={"temperature": m.temp, "pressure": m.pressure},
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
         jacobian_options={
@@ -127,10 +130,13 @@ def test_blockBuild_solids_gas(build_rkt_state_with_species):
         aqueous_phase={
             "composition": m.composition,
             "convert_to_rkt_species": True,
-            "pH": m.pH,
             "activity_model": "ActivityModelPitzer",
         },
-        system_state={"temperature": m.temp, "pressure": m.pressure},
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+        },
         mineral_phase={"phase_components": "Calcite"},
         gas_phase={
             "phase_components": ["H2O(g)"],
@@ -171,9 +177,12 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
         aqueous_phase={
             "composition": m.composition,
             "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
             "pH": m.pH,
         },
-        system_state={"temperature": m.temp, "pressure": m.pressure},
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
         jacobian_options={
@@ -255,9 +264,12 @@ def test_blockBuild_with_speciation_block_no_chem_addition(
         aqueous_phase={
             "composition": m.composition,
             "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
             "pH": m.pH,
         },
-        system_state={"temperature": m.temp, "pressure": m.pressure},
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
         jacobian_options={
@@ -305,9 +317,12 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
             "composition": m.composition,
             "convert_to_rkt_species": True,
             "species_to_rkt_species_dict": translation_dict,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
             "pH": m.pH,
         },
-        system_state={"temperature": m.temp, "pressure": m.pressure},
         chemistry_modifier=m.CaO,
         database="SupcrtDatabase",
         database_file="supcrtbl",
@@ -349,9 +364,12 @@ def test_indexed_blockBuild(build_rkt_state_with_indexed_species):
         aqueous_phase={
             "composition": m.composition,
             "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
             "pH": m.pH,
         },
-        system_state={"temperature": m.temp, "pressure": m.pressure},
         database="PhreeqcDatabase",
         database_file="pitzer.dat",
         jacobian_options={
@@ -388,9 +406,12 @@ def test_indexed_blockBuild_with_speciation_block(
         aqueous_phase={
             "composition": m.composition,
             "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
             "pH": m.pH,
         },
-        system_state={"temperature": m.temp, "pressure": m.pressure},
         chemistry_modifier=m.CaO,
         database="PhreeqcDatabase",
         database_file="pitzer.dat",

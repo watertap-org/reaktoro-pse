@@ -1,3 +1,4 @@
+from ast import Is
 from pyomo.common.config import ConfigValue, IsInstance, ConfigDict
 
 from pyomo.core.base.var import IndexedVar, Var, VarData
@@ -7,7 +8,9 @@ class PhaseInput:
     def __init__(self):
         pass
 
-    def get_dict(self, include_pH=False, include_aqueous_solvent_species=False):
+    def get_dict(
+        self, include_pH=False, aqueous_phase=False, include_solvent_species=False
+    ):
         phase_input = ConfigDict()
         phase_input.declare(
             "composition",
@@ -87,36 +90,36 @@ class PhaseInput:
             """,
             ),
         )
-        if include_pH:
+        if include_solvent_species:
+            if aqueous_phase:
+                default = "H2O"
+            else:
+                default = None
             phase_input.declare(
-                "pH",
+                "fixed_solvent_specie",
+                ConfigValue(
+                    default=default,
+                    domain=str,
+                    description="Defines solvent specie to fix when speciating system",
+                    doc="""When speciating, the exact amount of all elements is rarely known, as such fixing exact amount of solvent 
+                    provides a simpler and more stable alterative.
+                    For aqueous systems its amount of H2O, for organic system it would be primary solvent specie. If omitted the equilibrium will
+                    be found assuming all species provide appropriate mass balance.
+                    Providing this option will open all elements in solvent to optimization (e.g. if H2O is provided amount of O nad H will 
+                    be open in equilibrium calculations)
+                    if enabled""",
+                ),
+            ),
+            phase_input.declare(
+                "free_element",
                 ConfigValue(
                     default=None,
-                    domain=IsInstance((VarData, Var, dict, IndexedVar)),
-                    description="Input pH for reaktoro block",
-                    doc="Var or IndexedVar that references system pH",
-                ),
-            )
-            phase_input.declare(
-                "pH_indexed",
-                ConfigValue(
-                    default=True,
-                    domain=bool,
-                    description="pH is indexed",
-                    doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
-                    - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
-                    - If false, all indexed blocks will get same input""",
-                ),
-            )
-        if include_aqueous_solvent_species:
-            phase_input.declare(
-                "aqueous_solvent_specie",
-                ConfigValue(
-                    default="H2O",
-                    domain=str,
-                    description="Defines aqueous specie to use when speciating system",
-                    doc="""When speciating, the H2O is fixed, while H and O is unfixed to allow system to equilibrate,
-                    this should be same specie as being passed in composition, it will be automatically translated to reaktoro notation
+                    domain=IsInstance((str, list, tuple)),
+                    description="Defines free element to unfix during speciation",
+                    doc="""When speciating exact amount all elements might not be known, as such freeing one to be found 
+                    might be required - for example in Aqueous systems the total amount of oxygen might be known due to measurement of 
+                    all oxygen containing species, but amount of H might not be due to required pH balance. Although in general even amount of 
+                    Oxygen is unknown due to various non-measured species in solution contain oxygen (for example NaOH) as such its 
                     if enabled""",
                 ),
             )
@@ -167,6 +170,64 @@ class SystemInput:
                 doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
                     - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
                     - If false, all indexed blocks will get same input""",
+            ),
+        )
+        system_input.declare(
+            "enthalpy",
+            ConfigValue(
+                default=None,
+                domain=IsInstance((VarData, Var, dict, IndexedVar)),
+                description="Input enthalpy for reaktoro block",
+                doc="Var or IndexedVar that references system enthalpy",
+            ),
+        )
+        system_input.declare(
+            "enthalpy_indexed",
+            ConfigValue(
+                default=True,
+                domain=bool,
+                description="enthalpy is indexed",
+                doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
+                    - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
+                    - If false, all indexed blocks will get same input""",
+            ),
+        )
+        system_input.declare(
+            "pH",
+            ConfigValue(
+                default=None,
+                domain=IsInstance((VarData, Var, dict, IndexedVar)),
+                description="Input pH for reaktoro block",
+                doc="Var or IndexedVar that references system pH",
+            ),
+        )
+        system_input.declare(
+            "pH_indexed",
+            ConfigValue(
+                default=True,
+                domain=bool,
+                description="pH is indexed",
+                doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
+                - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
+                - If false, all indexed blocks will get same input""",
+            ),
+        )
+        system_input.declare(
+            "temperature_bounds",
+            ConfigValue(
+                default=(10, 10000),
+                domain=tuple,
+                description="Bounds for temperature, only needed if we are temperature is being solved for ",
+                doc="""Defines bounds used by reaktoro solver for temperature""",
+            ),
+        )
+        system_input.declare(
+            "pressure_bounds",
+            ConfigValue(
+                default=(1, 10000),
+                domain=tuple,
+                description="Bounds for pressure, only needed if we are setting pressure to be unknown",
+                doc="""Defines bounds used by reaktoro solver for pressure""",
             ),
         )
         return system_input

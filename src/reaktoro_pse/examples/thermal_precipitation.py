@@ -240,12 +240,15 @@ def build_simple_precipitation():
     """ we can import new database using initialized reaktoro object as shown in this block, or as strings in block down below"""
     database = reaktoro.SupcrtDatabase("supcrtbl")
     m.eq_feed_properties = ReaktoroBlock(
-        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
+        system_state={
+            "temperature": m.feed_temperature,
+            "pressure": m.feed_pressure,
+            "pH": m.feed_pH,
+        },
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
             "species_to_rkt_species_dict": translation_dict,
-            "pH": m.feed_pH,
             "activity_model": "ActivityModelPitzer",
         },
         outputs=m.feed_properties,
@@ -269,12 +272,12 @@ def build_simple_precipitation():
         system_state={
             "temperature": m.precipitator_temperature,
             "pressure": m.feed_pressure,
+            "pH": m.feed_pH,
         },
         aqueous_phase={
             "composition": m.precipitator_composition,
             "convert_to_rkt_species": True,
             "species_to_rkt_species_dict": translation_dict,
-            "pH": m.feed_pH,
             "activity_model": "ActivityModelPitzer",
         },
         outputs=m.precipitation_properties,
@@ -298,12 +301,12 @@ def build_simple_precipitation():
         system_state={
             "temperature": m.precipitator_temperature,
             "pressure": m.feed_pressure,
+            "pH": m.precipitation_properties[("pH", None)],
         },
         aqueous_phase={
             "composition": m.treated_composition,
             "convert_to_rkt_species": True,
             "species_to_rkt_species_dict": translation_dict,
-            "pH": m.precipitation_properties[("pH", None)],
             "activity_model": "ActivityModelPitzer",
         },
         outputs=m.treated_properties,
@@ -326,12 +329,12 @@ def build_simple_precipitation():
         system_state={
             "temperature": m.cooled_treated_temperature,
             "pressure": m.feed_pressure,
+            "pH": m.precipitation_properties[("pH", None)],
         },
         aqueous_phase={
             "composition": m.treated_composition,
             "convert_to_rkt_species": True,
             "species_to_rkt_species_dict": translation_dict,
-            "pH": m.precipitation_properties[("pH", None)],
             "activity_model": "ActivityModelPitzer",
         },
         outputs=m.cooled_treated_properties,

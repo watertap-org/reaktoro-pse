@@ -77,10 +77,13 @@ def add_mineral_properties(m):
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-            "pH": m.feed_pH,
             "activity_model": rkt.ActivityModelPitzer(),
         },
-        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
+        system_state={
+            "temperature": m.feed_temperature,
+            "pressure": m.feed_pressure,
+            "pH": m.feed_pH,
+        },
         outputs=m.modified_properties,
         mineral_phase={"phase_components": ["Calcite", "Gypsum"]},
         chemistry_modifier={"CaO": m.lime_addition},
