@@ -522,13 +522,19 @@ class ReaktoroState:
         all_species = self.inputs.all_species
         """register liquid type phases"""
         if len(self.inputs.species_list[RktInputTypes.aqueous_phase]) > 0:
-            self.register_aqueous_phase(all_species)
+            self.register_aqueous_phase(
+                self.inputs.species_list[RktInputTypes.aqueous_phase]
+            )
 
         if len(self.inputs.species_list[RktInputTypes.liquid_phase]) > 0:
-            self.register_liquid_phase(all_species)
+            self.register_liquid_phase(
+                self.inputs.species_list[RktInputTypes.liquid_phase]
+            )
 
         if len(self.inputs.species_list[RktInputTypes.condensed_phase]) > 0:
-            self.register_condensed_phase(all_species)
+            self.register_condensed_phase(
+                self.inputs.species_list[RktInputTypes.condensed_phase]
+            )
 
         """ register gas phases"""
         if len(self.inputs.species_list[RktInputTypes.mineral_phase]) > 0:

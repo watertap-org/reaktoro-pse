@@ -144,14 +144,15 @@ def build_biogas(open_species=False):
         system_state={
             "pressure": m.feed_pressure,
             "enthalpy": m.heat_duty,
-            "temperature_bounds": (500, 10000),
+            "temperature_bounds": (750, 5000),
         },
         outputs=m.outputs,
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
         database=db,
         build_speciation_block=False,
-        jacobian_options={"user_scaling": {("temperature", None): 1}},
+        # exact_speciation=False,
+        # jacobian_options={"user_scaling": {("temperature", None): 1000}},
     )
 
     m.eq_gtoc = Constraint(

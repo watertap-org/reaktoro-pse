@@ -78,7 +78,7 @@ def build_simple_desal():
     m.feed_pressure.fix()
     m.feed_pH = Var(initialize=7, bounds=(4, 12), units=pyunits.dimensionless)
     m.feed_pH.fix()
-    m.treated_pH = Var(initialize=7, bounds=(0, 12), units=pyunits.dimensionless)
+    m.treated_pH = Var(initialize=7, bounds=(0, 14), units=pyunits.dimensionless)
     m.Ca_to_Mg_selectivity = Var(initialize=1, units=pyunits.dimensionless)
 
     # acid addition
@@ -96,7 +96,7 @@ def build_simple_desal():
         units=pyunits.mol / pyunits.s,
     )
     m.used_ion_exchange_material = Var(
-        ["NaX", "CaX2", "MgX2", "X-"],
+        ["NaX", "CaX2", "MgX2"],  # , "X-"],
         initialize=0,
         units=pyunits.mol / pyunits.s,
     )
@@ -135,6 +135,8 @@ def build_simple_desal():
     from our specitated and charge balanced block aad adjusted due to addition of resin - which will 
     impact both charge balance and final pH of solution
     """
+    m.eq_speciation_block.display_reaktoro_state()
+    m.eq_speciation_block.outputs.display()
     m.eq_ix_properties = ReaktoroBlock(
         aqueous_phase={
             "composition": m.eq_speciation_block.outputs,
@@ -163,7 +165,8 @@ def build_simple_desal():
         exact_speciation=True,
         build_speciation_block=False,
     )
-
+    m.eq_ix_properties.display_reaktoro_state()
+    # assert False
     """Currently ReaktoroBlock does not support 
     automatic conversion of output True species to Apparent species, instead
     we can use lower level core api to get input to output conversion dictionary
@@ -257,6 +260,7 @@ def initialize(m):
     m.eq_speciation_block.initialize()
     m.eq_ix_properties.initialize()
     m.eq_ix_properties.display_jacobian_scaling()
+    m.eq_ix_properties.display_reaktoro_state()
     for key in m.treated_composition:
         calculate_variable_from_constraint(
             m.treated_composition[key], m.eq_treated_comp[key]
