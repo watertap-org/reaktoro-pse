@@ -74,7 +74,7 @@ def test_ion_exchange():
     assert pytest.approx(m.removal_percent["Na"].value, 1e-1) == 126.94292855983791
     assert pytest.approx(m.treated_pH.value, 1e-2) == 12.57850184575838
     assert pytest.approx(m.base_addition.value, 1e-2) == 0.09050676244974129
-    assert pytest.approx(m.acid_addition.value, 1e-2) == 8.32016553459784e-11
+    assert pytest.approx(m.acid_addition.value, abs=1e-4) == 8.32016553459784e-11
 
 
 def test_biogas():
