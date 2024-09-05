@@ -39,7 +39,6 @@ Key assumptions:
 Assumes that process concentrating the feed does not alter the pH. 
 This might be a good assumptions for process such as RO, but might be a poor
 assumption for evaporative processes. 
-
 """
 
 

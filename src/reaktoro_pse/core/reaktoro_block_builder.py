@@ -246,6 +246,9 @@ class ReaktoroBlockBuilder:
                 rkt_var = self.block.reaktoro_model.outputs[key]
                 output_constraint = self.block.output_constraints[key]
                 calculate_variable_from_constraint(rkt_var, output_constraint)
+                iscale.constraint_scaling_transform(
+                    output_constraint, self.get_sf(obj.get_pyomo_var())
+                )
 
                 if iscale.get_scaling_factor(rkt_var) is None:
                     iscale.set_scaling_factor(rkt_var, self.get_sf(obj.get_pyomo_var()))

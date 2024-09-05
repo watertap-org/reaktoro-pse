@@ -43,7 +43,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_step",
             ConfigValue(
-                default=1e-6,
+                default=1e-5,
                 domain=float,
                 description="Defines the step to use for numerical descritiazaiton",
                 doc="""This will define how small of a step to use for numerical derivative propagation which takes
@@ -85,7 +85,7 @@ class JacobianOptions:
         CONFIG.declare(
             "hessian_type",
             ConfigValue(
-                default="Jt.J",
+                default="BFGS-damp",
                 domain=IsInstance((str, HessTypes)),
                 description="Hessian type to use for reaktor gray box",
                 doc="""Hessian type to use, some might provide better stability
