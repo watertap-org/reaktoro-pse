@@ -29,7 +29,7 @@ from pyomo.util.calc_var_value import calculate_variable_from_constraint
 import idaes.core.util.scaling as iscale
 import cyipopt
 import idaes.logger as idaeslog
-
+import math
 
 __author__ = "Alexander Dudchenko"
 
@@ -203,19 +203,24 @@ class ReaktoroBlockBuilder:
         _log.info(f"Initialized rkt block")
 
     def get_sf(self, pyo_var):
+
+        def calc_scale(value):
+            if value == 0:
+                return 10 ** (-1 * math.log(abs(1), 10))
+            else:
+                return 10 ** (-1 * math.log(abs(value), 10))
+
         if pyo_var.value == 0:
             return 1
         else:
             if iscale.get_scaling_factor(pyo_var) is not None:
                 return iscale.get_scaling_factor(pyo_var)
 
-            sf = 1 / abs(pyo_var.value)
+            sf = calc_scale(abs(pyo_var.value))
             if sf > 1e16:
                 _log.warning(f"Var {pyo_var} scale >1e16")
-                # sf = 1e16
             if sf < 1e-16:
                 _log.warning(f"Var {pyo_var} scale <1e-16")
-                # sf = 1e-16
             return sf
 
     def initialize_output_variables_and_constraints(self):
@@ -285,7 +290,7 @@ class ReaktoroBlockBuilder:
             user_scaling = self.user_scaling
 
         for i, (key, obj) in enumerate(self.solver.output_specs.rkt_outputs.items()):
-            if key in user_scaling:
+            if user_scaling.get(key) != None:
                 scale = user_scaling[key]
                 self.solver.jacobian_scaling_values[i] = scale
 
