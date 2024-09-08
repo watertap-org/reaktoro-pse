@@ -73,6 +73,7 @@ class ReaktoroSolver:
         self.set_system_bounds()
         self._sequential_fails = 0
         self._max_fails = 30
+        self._input_params = {}
 
     def set_solver_options(
         self,
@@ -134,6 +135,7 @@ class ReaktoroSolver:
                 input_obj.set_temp_value(value)
 
             unit = input_obj.main_unit
+            self._input_params[input_key] = value
             if input_key == RktInputTypes.temperature:
                 self.conditions.temperature(value, unit)
             elif input_key == RktInputTypes.pressure:
@@ -179,9 +181,12 @@ class ReaktoroSolver:
         self.outputs = self.get_outputs()
         self.jacobian_matrix = self.get_jacobian()
         if result.succeeded() == False or display:
-            _log.info(
+            _log.warning(
                 f"warning, solve was not successful for {self.blockName}, fail# {self._sequential_fails}"
             )
+            _log.warning("----inputs were -----")
+            for key, value in self._input_params.items():
+                _log.warning(f"{key}: {value}")
             self._sequential_fails += 1
             if self._sequential_fails > self._max_fails:
                 assert False

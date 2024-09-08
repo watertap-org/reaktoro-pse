@@ -700,5 +700,7 @@ class ReaktoroBlockData(ProcessBlockData):
         else:
             presolve = False
         if self.config.build_speciation_block:
+            _log.info(f"---initializing speciation block for {str(self)}----")
             self.speciation_block.rkt_block_builder.initialize(presolve)
+        _log.info(f"---initializing property block for {str(self)}----")
         self.rkt_block_builder.initialize(presolve)

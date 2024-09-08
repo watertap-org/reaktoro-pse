@@ -319,9 +319,9 @@ class ReaktoroJacobianSpec:
             else:
                 values = self.get_state_values(output_obj)
                 if JacType.average:
-                    jac_val = np.average(
-                        np.diff(values) / np.diff(self.numerical_steps * input_value)
-                    )
+                    diff = np.diff(values)
+                    step = np.diff(self.numerical_steps * input_value)
+                    jac_val = np.average(diff / step)
                 elif JacType.center_difference:
                     jac_val = np.array(values) * self.cdf_multipliers
                     jac_val = np.sum(jac_val) / (
