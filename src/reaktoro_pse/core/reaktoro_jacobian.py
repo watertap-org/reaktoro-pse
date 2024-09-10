@@ -90,7 +90,7 @@ class JacboianRows:
         self.keys.extend([("correctiveMolarVolumeP", p) for p in _jac_phases])
         # mole frac derivative of corrective molar volume * # _jac_phases
         self.keys.extend(
-            [("speciesCorrectiveMolarVolumeI", s) for s in _jac_species]
+            [("speciesCorrectiveMolarVolume", s) for s in _jac_species]
         )  # not sure what this is
         # corrective gibbs free energy * # _jac_phases
         self.keys.extend([("correctiveMolarGibbsEnergy", p) for p in _jac_phases])

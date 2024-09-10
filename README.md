@@ -75,7 +75,7 @@ Please include a minimal example using Reaktoro for your specific feature or iss
 Reaktoro-pse depends on the following packages and/or versions:
 
 - Python 3.9 through 3.12
-- Reaktoro 2.12
+- Reaktoro>=2.12.3
 - CyIpopt 1.4.1
 - Pyomo>=6.8.0
 - idaes-pse>=2.5.0
@@ -93,7 +93,7 @@ Reaktoro-pse depends on the following packages and/or versions:
 ```sh
 git clone https://github.com/watertap-org/reaktoro-pse.git
 cd reaktoro-pse
-conda create --yes -c conda-forge --name reaktoro-pse-dev python=3.11 reaktoro=2.12.1 cyipopt=1.4.1
+conda create --yes -c conda-forge --name reaktoro-pse-dev python=3.11 reaktoro=2.12.3 cyipopt=1.4.1
 conda activate reaktoro-pse-dev
 pip install -r requirements-dev.txt
 ```
