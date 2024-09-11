@@ -17,7 +17,7 @@ class JacobianOptions:
                 domain=IsInstance((str, JacType)),
                 description="Defines method for numerical jacobian approximations",
                 doc="""
-                Derivatives for many of the properties in reaktro are not directly available, 
+                Derivatives for many of the properties in Reaktro are not directly available, 
                 thus we numerically propagate derivatives from chemical state to methods for estimation of these properties. 
                 Two methods are available, average and center_difference
                     - average methods takes defined number of derivatives by numerical_jacobian_order from center points and gets the average of them
@@ -78,7 +78,7 @@ class JacobianOptions:
                 - either single value that will be applied to all outputs in jacobian
                 - array applied across jacobian
                 - dict that specifics output and scaling factor to which apply scaling, (variable_scaling will be applied to non specified outputs)
-                    e.g. {output_name:scaling_factor} applies to specific jac output 
+                    e.g. {output_name: scaling_factor} applies to specific jac output 
                 """,
             ),
         )

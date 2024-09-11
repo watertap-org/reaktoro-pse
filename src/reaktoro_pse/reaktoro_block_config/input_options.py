@@ -17,7 +17,7 @@ class PhaseInput:
             ConfigValue(
                 default=dict,
                 domain=IsInstance((dict, IndexedVar)),
-                description="Input composition to reaktoro block",
+                description="Input composition to Reaktoro block",
                 doc="An input dictionary, or IndexedVar that contains species and their amounts",
             ),
         )
@@ -27,8 +27,8 @@ class PhaseInput:
                 default=True,
                 domain=bool,
                 description="composition is indexed",
-                doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
-                    - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
+                doc="""Option that defines how to treat input variable when building indexed ReaktoroBlock":
+                    - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed ReaktoroBlock
                     - If false, all indexed blocks will get same input""",
             ),
         )
@@ -42,7 +42,7 @@ class PhaseInput:
             Accepts:
                 component name for phase
                 list of phases or elements making up the phases
-                single or list of initialized reaktoro phase object (e.g. reaktoro.MineralPhase('Calcite'))
+                single or list of initialized Reaktoro phase object (e.g. Reaktoro.MineralPhase('Calcite'))
             """,
             ),
         )
@@ -52,7 +52,7 @@ class PhaseInput:
                 default=False,
                 domain=bool,
                 description="Defines if provided species should be converted to RKT notation",
-                doc="Enable conversion provided species names to reaktoro names - (currently supports PhreeqC database)",
+                doc="Enable conversion provided species names to Reaktoro names - (currently supports PhreeqC database)",
             ),
         )
         phase_input.declare(
@@ -62,8 +62,12 @@ class PhaseInput:
                 domain=IsInstance((dict, str)),
                 description="Dictionary for translating user supplied species to RKT species specific to selected database",
                 doc="""
-                    Dictionary that connects user species to reaktoro data base species (please reference chosen data base in question):
-                    Dictionary should have following structure {user_species:reaktoro_database_specie}""",
+                    Dictionary that connects user species to Reaktoro data base species (please reference chosen data base in question):
+                    Dictionary should have following structure {user_species: reaktoro_database_specie}. 
+                    e.g.
+                    {'Na':'Na+',
+                    'Ca':'Ca+2'}
+                    """,
             ),
         )
         phase_input.declare(
@@ -81,11 +85,11 @@ class PhaseInput:
                 default=None,
                 description="Activity model for phase",
                 doc="""
-            Defines which activity model to use for aqueous phase in reaktoro
+            Defines which activity model to use for aqueous phase in Reaktoro
             Accepts:
             String name of activity model
-            Initialized reaktoro.ActivityModel (e.g. reaktoro.ActivityModelIdealAqueous())
-            Chain of reaktoro activity models (reaktoro.chain(reaktoro.ActivityModelA, reaktoro.ActivityModelB))
+            Initialized Reaktoro.ActivityModel (e.g. reaktoro.ActivityModelIdealAqueous())
+            Chain of Reaktoro activity models (reaktoro.chain(reaktoro.ActivityModelA, reaktoro.ActivityModelB))
             List of activity models strings or reaktoro.ActivityModel initialized objects.
             """,
             ),
@@ -101,13 +105,15 @@ class PhaseInput:
                     default=default,
                     domain=str,
                     description="Defines solvent specie to fix when speciating system",
-                    doc="""When speciating, the exact amount of all elements is rarely known, as such fixing exact amount of solvent 
+                    doc="""
+                    When speciating, the exact amount of all elements is rarely known, as such fixing exact amount of solvent 
                     provides a simpler and more stable alterative.
                     For aqueous systems its amount of H2O, for organic system it would be primary solvent specie. If omitted the equilibrium will
                     be found assuming all species provide appropriate mass balance.
                     Providing this option will open all elements in solvent to optimization (e.g. if H2O is provided amount of O nad H will 
                     be open in equilibrium calculations)
-                    if enabled""",
+                    if enabled
+                    """,
                 ),
             ),
             phase_input.declare(
@@ -116,11 +122,13 @@ class PhaseInput:
                     default=None,
                     domain=IsInstance((str, list, tuple)),
                     description="Defines free element to unfix during speciation",
-                    doc="""When speciating exact amount all elements might not be known, as such freeing one to be found 
+                    doc="""
+                    When speciating exact amount all elements might not be known, as such freeing one to be found 
                     might be required - for example in Aqueous systems the total amount of oxygen might be known due to measurement of 
                     all oxygen containing species, but amount of H might not be due to required pH balance. Although in general even amount of 
                     Oxygen is unknown due to various non-measured species in solution contain oxygen (for example NaOH) as such its 
-                    if enabled""",
+                    if enabled
+                    """,
                 ),
             )
         return phase_input

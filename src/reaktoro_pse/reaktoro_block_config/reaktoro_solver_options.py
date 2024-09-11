@@ -16,8 +16,8 @@ class ReaktoroSolverOptions:
             ConfigValue(
                 default=1e-8,
                 domain=float,
-                description="Tolerance for reaktoro solver",
-                doc="""Tolerance for primary reaktoro solver""",
+                description="Tolerance for Reaktoro solver",
+                doc="""Tolerance for primary Reaktoro solver""",
             ),
         )
         CONFIG.declare(
@@ -25,7 +25,7 @@ class ReaktoroSolverOptions:
             ConfigValue(
                 default=1e-32,
                 domain=float,
-                description="epsilon for reaktoro solver",
+                description="epsilon for Reaktoro solver",
                 doc="""Defines what is considered to be 0 for ion composition""",
             ),
         )
@@ -34,8 +34,8 @@ class ReaktoroSolverOptions:
             ConfigValue(
                 default=400,
                 domain=int,
-                description="Maximum number of iterations for reaktoro solver",
-                doc="""The maximum number of iterations for reaktoro solver""",
+                description="Maximum number of iterations for Reaktoro solver",
+                doc="""The maximum number of iterations for Reaktoro solver""",
             ),
         )
         if presolve_options:
@@ -45,8 +45,8 @@ class ReaktoroSolverOptions:
                     default=False,
                     domain=bool,
                     description="Option to pre-solve to low tolerance first, before primary solve but only during initialization",
-                    doc="""In some cases reaktoro might fail to solve to high tolerance first,
-                a presolve at low tolerance can enable the reaktoro solve to high tolerance, this will only presolve during initialization""",
+                    doc="""In some cases Reaktoro might fail to solve to high tolerance first,
+                a presolve at low tolerance can enable the Reaktoro solve to high tolerance, this will only presolve during initialization""",
                 ),
             )
             CONFIG.declare(
@@ -55,8 +55,8 @@ class ReaktoroSolverOptions:
                     default=False,
                     domain=bool,
                     description="Option to pre-solve to low tolerance first on main property block, before primary solve",
-                    doc="""In some cases reaktoro might fail to solve to high tolerance first,
-                    a presolve at low tolerance can enable the reaktoro solve to high tolerance""",
+                    doc="""In some cases Reaktoro might fail to solve to high tolerance first,
+                    a presolve at low tolerance can enable the Reaktoro solve to high tolerance""",
                 ),
             )
             CONFIG.declare(
@@ -65,8 +65,8 @@ class ReaktoroSolverOptions:
                     default=False,
                     domain=bool,
                     description="Option to pre-solve to low tolerance first on main property block, before primary solve",
-                    doc="""In some cases reaktoro might fail to solve to high tolerance first,
-                    a presolve at low tolerance can enable the reaktoro solve to high tolerance""",
+                    doc="""In some cases Reaktoro might fail to solve to high tolerance first,
+                    a presolve at low tolerance can enable the Reaktoro solve to high tolerance""",
                 ),
             )
         if advanced_options:
