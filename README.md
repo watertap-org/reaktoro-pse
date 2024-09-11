@@ -71,12 +71,12 @@ To-date, this has only been tested with [cyipopt](https://cyipopt.readthedocs.io
 ## 6. Known issues
 
 ### Closing dual infeasibility 
-In some cases IPOPT might struggle to close unscaled dual infeasibility even when primal is reduced to <1e-8. This will be typically seen in the solver trace, that shows **inf_pr** being reduced to <1e-8 and **inf_du** being reduced to <1e-8 while solver does not terminate or terminates with **Solved to Acceptable level**. [This is a result of using approximated hessian in the GrayBox model causing issues in calculations of dual infeasibility error.](https://list.coin-or.org/pipermail/ipopt/2007-February/000700.html)
+In some cases Ipopt might struggle to close unscaled dual infeasibility even when primal is reduced to <1e-8. This will be typically seen in the solver trace, that shows **inf_pr** being reduced to <1e-8 and **inf_du** stops being reduced and solver does not terminate or terminates with **Solved to Acceptable level**. [This is a result of using approximated hessian in the GrayBox model causing issues in calculations of dual infeasibility error.](https://list.coin-or.org/pipermail/ipopt/2007-February/000700.html)
 
 ### Solutions
 A. Set Ipopt solver option "recalc_y" to "yes"
 
-This option will force ipopt to use least squares method to calculate dual infeasibility, potentially improving accuracy of its estimates and reduce it to below tolerance level. Details on the [recalc_y](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_recalc_y) and [recalc_y_feas_tol](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_recalc_y_feas_tol). 
+This option will force Ipopt to use least squares method to calculate dual infeasibility, potentially improving accuracy of its estimates and reduce it to below tolerance level. Details on the [recalc_y](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_recalc_y) and [recalc_y_feas_tol](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_recalc_y_feas_tol). 
 
     cy_solver = get_solver(solver="cyipopt-watertap")
     cy_solver.options['recalc_y']='yes'
@@ -84,9 +84,9 @@ This option will force ipopt to use least squares method to calculate dual infea
 
 B. Use exact derivatives instead of numeric
 
-The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your reaktoro block are exact or numeric by using **your_reaktor_block.display_jacobian_outputs()**. 
+The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your Reaktoro block are exact or numeric by using **your_reaktor_block.display_jacobian_outputs()**. 
 
-If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacoibanRows class](https://github.com/avdudchenko/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_jacobian.py#L51). These properties can be used to write pyomo constraints that calculate the desired property. Some properties are already supported and examples are shown of how to build them in [PyomoProperties](https://github.com/avdudchenko/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_outputs.py#L118) class. 
+If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacoibanRows class](https://github.com/avdudchenko/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_jacobian.py#L51). These properties can be used to write Pyomo constraints that calculate the desired property. Some properties are already supported and examples are shown of how to build them in [PyomoProperties](https://github.com/avdudchenko/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_outputs.py#L118) class. 
 
 Supported PyomoProperties with exact derivatives:
 
