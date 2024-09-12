@@ -156,7 +156,7 @@ class SystemInput:
                 domain=bool,
                 description="Temperature is indexed",
                 doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
-                    - If true, the input has same indexing as block, and each indexed input willbe passed into respective indexed reaktoroBlock
+                    - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
                     - If false, all indexed blocks will get same input""",
             ),
         )

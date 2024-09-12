@@ -132,7 +132,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ConfigValue(
             default=True,
             domain=bool,
-            description="Defines if species should be converted to elements using reaktoro or pyomo",
+            description="Defines if species should be converted to elements using reaktoro or Pyomo",
             doc="""
             The equilibrium calculation requires element amounts as an input,
             since normally species are provided, they need to be converted to elements, this can be done 
@@ -235,7 +235,7 @@ class ReaktoroBlockData(ProcessBlockData):
 
     def build(self):
         super().build()
-        """ configure state"""
+        """configure state"""
         if self.config.build_speciation_block:
             """create speciation block and then property block"""
             self.speciation_block = Block()
@@ -279,14 +279,14 @@ class ReaktoroBlockData(ProcessBlockData):
             add mineral or gas phases (unless configured to do so), and only outputs speciesAmount from the rktModel
         speciation_block_built -- this should only be True if speciation block was built, in this case the model
             will build user requested outputs, not provide user supplied pH and disable charge neutrality
-        """
 
-        """Defining which indices should be indexed 
+        Defining which indices should be indexed 
          if block is not indexed, index is None 
-         if specific input is set to be not Indexed the index will be set to None"""
+         if specific input is set to be not Indexed the index will be set to None
 
-        """ Function to return index only when requested by user and 
-        when we specify if speciation_block_built was built """
+        Function to return index only when requested by user and 
+        when we specify if speciation_block_built was built
+        """
 
         def building_prop_block_after_speciation():
             if speciation_block == False and speciation_block_built:
@@ -469,7 +469,7 @@ class ReaktoroBlockData(ProcessBlockData):
         speciation_block=False,
         speciation_block_built=False,
     ):
-        """this will buld our rkt inputs specified block.
+        """this will build our rkt inputs specified block.
         The keyword arguments are for automatic configuration of speciation and property blocks
 
         Keywords:
@@ -479,6 +479,7 @@ class ReaktoroBlockData(ProcessBlockData):
         speciation_block_built -- this should only be True if speciation block was built, in this case the model
             will build user requested outputs, not provide user supplied pH and disable charge neutrality
         """
+
         """ get index for chemicals - refer to build_rkt_state on indexing notes"""
         chemistry_modifier_indexed = self.index()
         if self.config.chemistry_modifier_indexed == False:
@@ -651,7 +652,7 @@ class ReaktoroBlockData(ProcessBlockData):
         )
         block.rkt_block_builder.build_reaktoro_block()
 
-    # TODO: Update to probide output locaiton (e.g. StringIO)
+    # TODO: Update to provide output location (e.g. StringIO)
     def display_jacobian_outputs(self):
         if self.config.build_speciation_block:
             _log.info("-----Displaying information for speciation block ------")
@@ -659,7 +660,7 @@ class ReaktoroBlockData(ProcessBlockData):
         _log.info("-----Displaying information for property block ------")
         self.rkt_jacobian.display_jacobian_output_types()
 
-    # TODO:# Update to probide output locaiton (e.g. StringIO)
+    # TODO:# Update to provide output location (e.g. StringIO)
     def display_jacobian_scaling(self):
         jacobian_scaling = {}
         if self.config.build_speciation_block:
@@ -673,7 +674,7 @@ class ReaktoroBlockData(ProcessBlockData):
         jacobian_scaling["property_block"] = jac_scale
         return jacobian_scaling
 
-    # TODO:# Update to probide output locaiton (e.g. StringIO)
+    # TODO:# Update to provide output location (e.g. StringIO)
     def display_reaktoro_state(self):
         if self.config.build_speciation_block:
             _log.info("-----Displaying information for speciation block ------")
@@ -700,7 +701,7 @@ class ReaktoroBlockData(ProcessBlockData):
         else:
             presolve = False
         if self.config.build_speciation_block:
-            _log.info(f"---initializing speciation block for {str(self)}----")
+            _log.info(f"---initializing speciation block {str(self)}----")
             self.speciation_block.rkt_block_builder.initialize(presolve)
-        _log.info(f"---initializing property block for {str(self)}----")
+        _log.info(f"---initializing property block {str(self)}----")
         self.rkt_block_builder.initialize(presolve)
