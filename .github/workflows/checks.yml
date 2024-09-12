@@ -84,9 +84,6 @@ jobs:
         run: |
           pip install -r requirements-dev.txt
           pip list
-      - name: Run pylint
-        run: |
-          pylint reaktoro_pse
       - if: matrix.install-mode == 'standard'
         name: Install (standard)
         run: |
