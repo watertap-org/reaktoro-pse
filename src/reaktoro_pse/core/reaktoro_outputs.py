@@ -182,6 +182,8 @@ class PyomoProperties:
         return required_props
 
     def osmoticPressure(self, property_index):
+
+        # reference  https://help.syscad.net/PHREEQC_Reverse_Osmosis
         """build osmoric pressure constraint, as its not available from reaktoro"""
         required_props = PyomoBuildOptions()
         required_props.register_property(

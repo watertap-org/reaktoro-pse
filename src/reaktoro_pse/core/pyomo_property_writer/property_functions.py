@@ -70,6 +70,7 @@ def build_vapor_pressure_constraint(rkt_output_object):
 
 
 def build_osmotic_constraint(rkt_output_object):
+    # reference  https://help.syscad.net/PHREEQC_Reverse_Osmosis
     user_output_var = rkt_output_object.pyomo_var
     build_properties = rkt_output_object.pyomo_build_options.properties
     build_options = rkt_output_object.pyomo_build_options.options
