@@ -15,6 +15,7 @@ dependencies = [
 [project.optional-dependencies]
 testing = [
     "pytest>=8",
+    "nbmake",
 ]
 
 [tool.setuptools_scm]
