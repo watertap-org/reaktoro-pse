@@ -280,11 +280,11 @@ class ReaktoroBlockData(ProcessBlockData):
         speciation_block_built -- this should only be True if speciation block was built, in this case the model
             will build user requested outputs, not provide user supplied pH and disable charge neutrality
 
-        Defining which indices should be indexed 
-         if block is not indexed, index is None 
+        Defining which indices should be indexed
+         if block is not indexed, index is None
          if specific input is set to be not Indexed the index will be set to None
 
-        Function to return index only when requested by user and 
+        Function to return index only when requested by user and
         when we specify if speciation_block_built was built
         """
 
