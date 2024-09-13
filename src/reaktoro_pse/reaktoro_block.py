@@ -11,30 +11,27 @@
 #################################################################################
 
 from idaes.core.base.process_base import declare_process_block_class, ProcessBlockData
+import idaes.logger as idaeslog
+
 from pyomo.common.config import ConfigValue, IsInstance
 from pyomo.core.base.var import IndexedVar
+from pyomo.environ import Block
 
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
 from reaktoro_pse.core.reaktoro_inputs import (
     ReaktoroInputSpec,
 )
 
+from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from reaktoro_pse.core.reaktoro_outputs import (
     ReaktoroOutputSpec,
 )
+
 from reaktoro_pse.core.reaktoro_jacobian import ReaktoroJacobianSpec
-from reaktoro_pse.core.reaktoro_solver import (
-    ReaktoroSolver,
-)
+from reaktoro_pse.core.reaktoro_solver import ReaktoroSolver
+from reaktoro_pse.core.reaktoro_block_builder import ReaktoroBlockBuilder
 
-from reaktoro_pse.core.reaktoro_block_builder import (
-    ReaktoroBlockBuilder,
-)
 
-from pyomo.environ import Block
-import idaes.logger as idaeslog
-
-from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from reaktoro_pse.reaktoro_block_config.jacobian_options import JacobianOptions
 from reaktoro_pse.reaktoro_block_config.reaktoro_solver_options import (
     ReaktoroSolverOptions,
@@ -46,7 +43,7 @@ from reaktoro_pse.reaktoro_block_config.input_options import (
 
 _log = idaeslog.getLogger(__name__)
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
 @declare_process_block_class("ReaktoroBlock")
@@ -235,9 +232,9 @@ class ReaktoroBlockData(ProcessBlockData):
 
     def build(self):
         super().build()
-        """configure state"""
+        # configure state
         if self.config.build_speciation_block:
-            """create speciation block and then property block"""
+            # create speciation block and then property block
             self.speciation_block = Block()
             self.build_rkt_state(self.speciation_block, speciation_block=True)
             self.build_rkt_inputs(self.speciation_block, speciation_block=True)
@@ -255,7 +252,7 @@ class ReaktoroBlockData(ProcessBlockData):
                 self, speciation_block=False, speciation_block_built=True
             )
         else:
-            """create property block only"""
+            # create property block only
             self.build_rkt_state(self)
             self.build_rkt_inputs(self)
 
@@ -300,8 +297,8 @@ class ReaktoroBlockData(ProcessBlockData):
             else:
                 return self.index()
 
-        """return False when building property block after building speciation block 
-         (e.g. When speciation_block=True and speciation_block_built=False) """
+        # return False when building property block after building speciation block
+        #  (e.g. When speciation_block=True and speciation_block_built=False) """
 
         def return_false_option(input_option):
             if building_prop_block_after_speciation():
@@ -309,8 +306,8 @@ class ReaktoroBlockData(ProcessBlockData):
             else:
                 return input_option
 
-        """return None when building property block after building speciation block 
-         (e.g. When speciation_block=True and speciation_block_built=False) """
+        # return None when building property block after building speciation block
+        #  (e.g. When speciation_block=True and speciation_block_built=False) """
 
         def return_none_option(input_option):
             if building_prop_block_after_speciation():
@@ -335,12 +332,12 @@ class ReaktoroBlockData(ProcessBlockData):
 
         block.rkt_state = ReaktoroState()
 
-        """ setup database """
+        # setup database
         block.rkt_state.set_database(
             dbtype=self.config.database, database=self.config.database_file
         )
 
-        """ setup input for different phaseoptions """
+        # setup input for different phaseoptions
         for phase in RktInputTypes.supported_phases:
             options = getattr(self.config, phase)
             block.rkt_state.set_input_options(
@@ -352,7 +349,7 @@ class ReaktoroBlockData(ProcessBlockData):
                 composition_is_elements=options.composition_is_elements,
             )
 
-        """ setup system inputs """
+        # setup system inputs
         block.rkt_state.register_system_inputs(
             temperature=self.config.system_state.temperature,
             pressure=self.config.system_state.pressure,
@@ -365,7 +362,7 @@ class ReaktoroBlockData(ProcessBlockData):
             pH=return_none_option(self.config.system_state.pH),
             pH_index=get_indexing(self.config.system_state.pH_indexed),
         )
-        """ setup aqueous inputs """
+        # setup aqueous inputs
         aqueous_input_composition = self.config.aqueous_phase.composition
         liquid_input_composition = self.config.liquid_phase.composition
         condensed_input_composition = self.config.condensed_phase.composition
@@ -425,9 +422,9 @@ class ReaktoroBlockData(ProcessBlockData):
                 self.config.ion_exchange_phase.composition_indexed
             ),
         )
-        """ register phases"""
+        # register phases
         if speciation_block == False or self.config.build_speciation_block_with_phases:
-            """dont add phases if we are speciating"""
+            # dont add phases if we are speciating
             block.rkt_state.register_aqueous_phase(get_phases("aqueous_phase"))
             block.rkt_state.register_liquid_phase(get_phases("liquid_phase"))
             block.rkt_state.register_solid_phases(get_phases("solid_phase"))
@@ -438,7 +435,7 @@ class ReaktoroBlockData(ProcessBlockData):
                 get_phases("ion_exchange_phase")
             )
 
-        """ setup activity models - if no phases present they will do nothing """
+        # setup activity models - if no phases present they will do nothing
         block.rkt_state.set_aqueous_phase_activity_model(
             self.config.aqueous_phase.activity_model
         )
@@ -460,7 +457,7 @@ class ReaktoroBlockData(ProcessBlockData):
         block.rkt_state.set_ion_exchange_phase_activity_model(
             self.config.ion_exchange_phase.activity_model
         )
-        """ build state """
+        # build state
         block.rkt_state.build_state()
 
     def build_rkt_inputs(
@@ -480,14 +477,14 @@ class ReaktoroBlockData(ProcessBlockData):
             will build user requested outputs, not provide user supplied pH and disable charge neutrality
         """
 
-        """ get index for chemicals - refer to build_rkt_state on indexing notes"""
+        # get index for chemicals - refer to build_rkt_state on indexing notes
         chemistry_modifier_indexed = self.index()
         if self.config.chemistry_modifier_indexed == False:
             chemistry_modifier_indexed = None
 
         block.rkt_inputs = ReaktoroInputSpec(block.rkt_state)
 
-        """ add chemical only if its not a speciation block (normal mode)"""
+        # add chemical only if its not a speciation block (normal mode)
         if speciation_block == False:
             block.rkt_inputs.register_modifier(
                 self.config.register_new_chemistry_modifiers
@@ -504,7 +501,7 @@ class ReaktoroBlockData(ProcessBlockData):
                 self.config.reaktoro_solve_options.open_species_on_speciation_block
             )
 
-        """ register solvents and elements to open for aqueous and liquid phase"""
+        # register solvents and elements to open for aqueous and liquid phase
         block.rkt_inputs.register_fixed_solvent_specie(
             RktInputTypes.aqueous_phase, self.config.aqueous_phase.fixed_solvent_specie
         )
@@ -513,12 +510,12 @@ class ReaktoroBlockData(ProcessBlockData):
         )
         block.rkt_inputs.register_free_elements(self.config.aqueous_phase.free_element)
         block.rkt_inputs.register_free_elements(self.config.liquid_phase.free_element)
-        """ register charge neutrality"""
+        # register charge neutrality
         if (
             speciation_block_built == False
             or self.config.assert_charge_neutrality_on_all_blocks
         ):
-            """only ensure charge neutrality when doing first calculation"""
+            # only ensure charge neutrality when doing first calculation
             block.rkt_inputs.register_charge_neutrality(
                 assert_neutrality=self.config.assert_charge_neutrality,
                 ion=self.config.charge_neutrality_ion,
@@ -528,8 +525,8 @@ class ReaktoroBlockData(ProcessBlockData):
                 exact_speciation=self.config.exact_speciation,
             )
         else:
-            """if we have built a speciation block, the feed should be charge neutral and
-            exact speciation is provided"""
+            # if we have built a speciation block, the feed should be charge neutral and
+            # exact speciation is provided
             block.rkt_inputs.register_charge_neutrality(
                 assert_neutrality=False, ion=self.config.charge_neutrality_ion
             )
@@ -549,17 +546,17 @@ class ReaktoroBlockData(ProcessBlockData):
             add mineral or gas phases (unless configured to do so), and only outputs speciesAmount from the rktModel
         """
 
-        """ configure outputs """
+        # configure outputs
         index = self.index()
 
         block.rkt_outputs = ReaktoroOutputSpec(block.rkt_state)
         if self.config.outputs is None:
             raise ValueError("Outputs must be provided!")
         if speciation_block:
-            """when speciating we only want species amounts as output"""
+            # when speciating we only want species amounts as output
             block.rkt_outputs.register_output("speciesAmount", get_all_indexes=True)
         else:
-            """build user requested outputs"""
+            # build user requested outputs
             for output_key, output_var in self.config.outputs.items():
                 if index is None or index in output_key:
                     if isinstance(output_key, tuple):
@@ -585,7 +582,7 @@ class ReaktoroBlockData(ProcessBlockData):
         Keywords:
         block -- pyomo block to build the model on
         """
-        """ config outputs """
+        # config outputs
         block.rkt_jacobian = ReaktoroJacobianSpec(block.rkt_state, block.rkt_outputs)
         block.rkt_jacobian.configure_numerical_jacobian(
             jacobian_type=self.config.jacobian_options.numerical_type,
@@ -603,7 +600,7 @@ class ReaktoroBlockData(ProcessBlockData):
             add mineral or gas phases (unless configured to do so), and only outputs speciesAmount from the rktModel
         """
 
-        """config solver """
+        # config solver
         name = str(self)
         if speciation_block:
             name = f"{name}_speciation_block"
@@ -641,7 +638,7 @@ class ReaktoroBlockData(ProcessBlockData):
         Keywords:
         block -- pyomo block to build the model on
         """
-        """ build block"""
+        # build block
         scaling = self.config.jacobian_options.user_scaling
         scaling_type = self.config.jacobian_options.scaling_type
         block.rkt_block_builder = ReaktoroBlockBuilder(
@@ -654,6 +651,7 @@ class ReaktoroBlockData(ProcessBlockData):
 
     # TODO: Update to provide output location (e.g. StringIO)
     def display_jacobian_outputs(self):
+        """Displays jacobian output types"""
         if self.config.build_speciation_block:
             _log.info("-----Displaying information for speciation block ------")
             self.speciation_block.rkt_jacobian.display_jacobian_output_types()
@@ -662,6 +660,7 @@ class ReaktoroBlockData(ProcessBlockData):
 
     # TODO:# Update to provide output location (e.g. StringIO)
     def display_jacobian_scaling(self):
+        """Displays jacobian scaling"""
         jacobian_scaling = {}
         if self.config.build_speciation_block:
             _log.info("-----Displaying information for speciation block ------")
@@ -676,22 +675,29 @@ class ReaktoroBlockData(ProcessBlockData):
 
     # TODO:# Update to provide output location (e.g. StringIO)
     def display_reaktoro_state(self):
+        """Displays reaktoro state"""
         if self.config.build_speciation_block:
             _log.info("-----Displaying information for speciation block ------")
             _log.info(self.speciation_block.rkt_state.state)
         _log.info("-----Displaying information for property block ------")
         _log.info(self.rkt_state.state)
 
-    def set_jacobian_scaling(self, user_scaling_dict, speciation_block=False):
-        if speciation_block:
+    def set_jacobian_scaling(self, user_scaling_dict, set_on_speciation_block=True):
+        """Sets jacobian scaling
+        Keywords:
+        user_scaling_dict -- Dictionary that contains jacobian keys and scaling block
+        set_on_speciation_block -- if scaling should be also set on speciation block if built.
+        """
+        if self.config.build_speciation_block and set_on_speciation_block:
             self.speciation_block.rkt_block_builder.set_user_jacobian_scaling(
                 user_scaling_dict
             )
-        else:
-            self.rkt_block_builder.set_user_jacobian_scaling(user_scaling_dict)
+
+        self.rkt_block_builder.set_user_jacobian_scaling(user_scaling_dict)
 
     # TODO: Update to use new initialization method https://idaes-pse.readthedocs.io/en/stable/reference_guides/initialization/developing_initializers.html?highlight=Initializer
     def initialize(self):
+        """Initialize reaktoro blocks"""
         if (
             self.config.reaktoro_presolve_options.presolve_during_initialization
             or self.config.reaktoro_presolve_options.presolve_speciation_block

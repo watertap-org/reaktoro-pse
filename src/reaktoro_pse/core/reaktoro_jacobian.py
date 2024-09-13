@@ -23,10 +23,10 @@ import idaes.logger as idaeslog
 
 _log = idaeslog.getLogger(__name__)
 
-__author__ = "Alexander Dudchenko, Paul Vecchiarelli, Ben Knueven"
+__author__ = "Alexander V. Dudchenko, Paul Vecchiarelli, Ben Knueven"
 
 
-"""class to setup jacobian for reaktoro"""
+# class to setup jacobian for reaktoro
 
 
 class JacType:
@@ -38,7 +38,7 @@ class JacType:
 
 class JacboianRows:
     def __init__(self, rkt_state):
-        """useing lists instead of dict to preserve order"""
+        # useing lists instead of dict to preserve order"""
         self.property = []
         self.property_index = []
         self.keys = []

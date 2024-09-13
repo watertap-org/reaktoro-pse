@@ -9,23 +9,20 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-from cmath import phase
-from numpy import isin
 import reaktoro as rkt
 from pyomo.environ import units as pyunits
-from sympy import comp
 
 import reaktoro_pse.core.util_classes.rkt_inputs as RktInputs
 from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
-from pyomo.core.base.var import IndexedVar, Var
+from pyomo.core.base.var import IndexedVar
 import idaes.logger as idaeslog
 
 _log = idaeslog.getLogger(__name__)
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
-""" base class for configuring reaktoro states and solver"""
+# base class for configuring reaktoro states and solver
 
 
 class ReaktoroState:
@@ -535,10 +532,7 @@ class ReaktoroState:
         E.g. if user provided CO2 in gas phase, this will add CO2 as gas phase to reaktoro
         with out the need to call "register_gas_phase"'''
 
-        """ assemble all input species into single list 
-        and pass into aqueous phase"""
-        all_species = self.inputs.all_species
-        """register liquid type phases"""
+        # register liquid type phases
         if len(self.inputs.species_list[RktInputTypes.aqueous_phase]) > 0:
             self.register_aqueous_phase(
                 self.inputs.species_list[RktInputTypes.aqueous_phase]
@@ -554,26 +548,26 @@ class ReaktoroState:
                 self.inputs.species_list[RktInputTypes.condensed_phase]
             )
 
-        """ register gas phases"""
+        # register gas phases
         if len(self.inputs.species_list[RktInputTypes.mineral_phase]) > 0:
             self.register_mineral_phases(
                 self.inputs.species_list[RktInputTypes.mineral_phase]
             )
-        """ register solid phase"""
+        # register solid phase
         if len(self.inputs.species_list[RktInputTypes.solid_phase]) > 0:
             self.register_solid_phases(
                 self.inputs.species_list[RktInputTypes.solid_phase]
             )
         if len(self.inputs.species_list[RktInputTypes.gas_phase]) > 0:
             self.register_gas_phase(self.inputs.species_list[RktInputTypes.gas_phase])
-        """ register ix phases"""
+        # register ix phases
         if len(self.inputs.species_list[RktInputTypes.ion_exchange_phase]) > 0:
             self.register_ion_exchange_phase(
                 self.inputs.species_list[RktInputTypes.ion_exchange_phase]
             )
 
     def build_state(self):
-        """this will build reaktor states"""
+        # this will build reaktor states
         phases = []
         if self.aqueous_phase is not None:
             phases.append(self.aqueous_phase)
@@ -596,7 +590,7 @@ class ReaktoroState:
         self.set_rkt_state()
 
     def set_rkt_state(self):
-        """sets initial rkt state using user provided inputs"""
+        # sets initial rkt state using user provided inputs
         if self.inputs.get("temperature") is not None:
             self.state.temperature(
                 self.inputs["temperature"].get_value(),
@@ -607,7 +601,7 @@ class ReaktoroState:
                 self.inputs["pressure"].get_value(),
                 self.inputs["pressure"].main_unit,
             )
-        """ set apparent species if used """
+        # set apparent species if used
         for phase in self.inputs.registered_phases:
             if self.inputs.composition_is_elements[phase] == False:
                 for species in self.inputs.species_list[phase]:
@@ -615,7 +609,7 @@ class ReaktoroState:
                         if self.inputs[species].get_value() != 0:
                             unit = self.inputs[species].main_unit
                             if unit == "dimensionless":
-                                """assume correct units are provided"""
+                                # assume correct units are provided
                                 self.state.set(
                                     species,
                                     self.inputs[species].get_value(

@@ -18,15 +18,15 @@ from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 
 # disabling warnings
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
-""" class to setup output constraints, outputs, and jacobian reaktoro solver class"""
+# class to setup output constraints, outputs, and jacobian reaktoro solver class
 
 
 # NOTE: Consider refactoring to inherit RktInput class
 class RktOutput:
-    """general class to stor output metadata and vars"""
+    """general class to store output metadata and vars"""
 
     def __init__(
         self,
@@ -182,9 +182,8 @@ class PyomoProperties:
         return required_props
 
     def osmoticPressure(self, property_index):
-
-        # reference  https://help.syscad.net/PHREEQC_Reverse_Osmosis
         """build osmoric pressure constraint, as its not available from reaktoro"""
+        # reference  https://help.syscad.net/PHREEQC_Reverse_Osmosis
         required_props = PyomoBuildOptions()
         required_props.register_property(
             PropTypes.chem_prop, "speciesStandardVolume", property_index
@@ -337,8 +336,8 @@ class ReaktoroOutputSpec:
                 pyomo_var=pyomo_var,
             )
             for index, prop in get_function.properties.items():
-                """chcek if prop already exists if it does ont add it outputs
-                otherwise overwrite it"""
+                # chcek if prop already exists if it does ont add it outputs
+                # otherwise overwrite it
                 if index not in self.rkt_outputs:
                     self.rkt_outputs[index] = prop
                 else:
@@ -423,7 +422,7 @@ class ReaktoroOutputSpec:
         #     ].saturationSpecies()
         # ]
 
-    """ start of possible call function to extract values from reactoro properties"""
+    #### start of possible call function to extract values from reactoro properties #####
 
     def _get_prop_phase_name_val(self, prop_type, prop_name, prop_index):
         """get prop based on phase, used for chem_props.phaseProp"""

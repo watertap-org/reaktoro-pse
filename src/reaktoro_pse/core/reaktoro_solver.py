@@ -9,6 +9,7 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
+from matplotlib.table import Cell
 import reaktoro as rkt
 
 import numpy as np
@@ -25,12 +26,11 @@ from reaktoro_pse.core.reaktoro_jacobian import (
 )
 import cyipopt
 import idaes.logger as idaeslog
-import time
 
-__author__ = "Alexander Dudchenko, Ben Knueven, Ilayda Akkor"
+__author__ = "Alexander V. Dudchenko, Ben Knueven, Ilayda Akkor"
 
 _log = idaeslog.getLogger(__name__)
-"""class to setup reaktor solver for reaktoro"""
+# class to setup reaktor solver for reaktoro
 
 
 class ReaktoroSolver:
@@ -119,7 +119,7 @@ class ReaktoroSolver:
         self.conditions.setUpperBoundTemperature(temperature_bounds[1])
 
     def set_custom_bound(self, custom_bound, value, index=None):
-        """setting custom bounds, eg titrants etc."""
+        # setting custom bounds, eg titrants etc.
         if index == None:
             getattr(self.conditions, custom_bound)(value)
         else:
@@ -173,8 +173,8 @@ class ReaktoroSolver:
         display=False,
         presolve=False,
     ):
-        """here we solve reaktor model and return the jacobian matrix and solution, as
-        well as update relevant reaktoroSpecs"""
+        # here we solve reaktor model and return the jacobian matrix and solution, as
+        # Cell as update relevant reaktoroSpecs
         self.update_specs(params)
 
         result = self.try_solve(presolve)
@@ -197,7 +197,7 @@ class ReaktoroSolver:
 
     def try_solve(self, presolve=False):
         if self.presolve or presolve:
-            """solve to loose tolerance first if selected"""
+            # solve to loose tolerance first if selected
             self.solver.setOptions(self.presolve_options)
             r = self.solver.solve(
                 self.state.state,

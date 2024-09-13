@@ -13,28 +13,25 @@ import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.standard_model a
 import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.comparison_utils as compUtils
 import reaktoro as rkt
 from reaktoro_pse.reaktoro_block import ReaktoroBlock
-from pyomo.environ import (
-    Var,
-)
+from pyomo.environ import Var
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
-"""
-This examples compares reaktoro_pse implementation to phreeqcinwt for calculation of vapor pressure at different temperatures. 
 
-NOTE: For water vapor calculations, pay attention to speciation and assumptions. Please
-refer to these two discussions:
-https://github.com/reaktoro/reaktoro/discussions/398
-https://github.com/reaktoro/reaktoro/discussions/285
+# This examples compares reaktoro_pse implementation to phreeqcinwt for calculation of vapor pressure at different temperatures.
 
-Key assumptions:
-The calculation is down with out fixed volume, or pressure and as such an equilibrium will find a pressure and volume. 
-No solids form due to heating. 
+# NOTE: For water vapor calculations, pay attention to speciation and assumptions. Please
+# refer to these two discussions:
+# https://github.com/reaktoro/reaktoro/discussions/398
+# https://github.com/reaktoro/reaktoro/discussions/285
 
-General note:
-Its strongly recommended that user explores their equilibrium problem in reaktoro directly for any vapor calculations 
-to understand the changes the system would under go before using reaktoro-pse.
-"""
+# Key assumptions:
+# The calculation is down with out fixed volume, or pressure and as such an equilibrium will find a pressure and volume.
+# No solids form due to heating.
+
+# General note:
+# Its strongly recommended that user explores their equilibrium problem in reaktoro directly for any vapor calculations
+# to understand the changes the system would under go before using reaktoro-pse.
 
 
 def main(save_fig=False, show_fig=True):
@@ -65,9 +62,9 @@ def main(save_fig=False, show_fig=True):
 
 
 def add_vapor_pressure_properties(m):
-    """getting vapor pressure, we
-    the system presure is unkown,(as we don't know vapor pressure),
-    and we are nod modifying state"""
+    # getting vapor pressure, we
+    # the system presure is unkown,(as we don't know vapor pressure),
+    # and we are nod modifying state"""
     m.modified_properties = Var(
         [
             # ("scalingTendency", "Calcite"),
@@ -77,8 +74,8 @@ def add_vapor_pressure_properties(m):
         initialize=1,
     )
     m.feed_pressure.fix(1e5)
-    """ note how we included nitrogen as one of gas species, this will prevent 
-    PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)"""
+    # note how we included nitrogen as one of gas species, this will prevent
+    # PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)
     m.eq_modified_properties = ReaktoroBlock(
         aqueous_phase={
             "composition": m.feed_composition,

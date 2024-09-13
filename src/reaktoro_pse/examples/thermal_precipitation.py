@@ -24,26 +24,25 @@ from pyomo.util.calc_var_value import calculate_variable_from_constraint
 import reaktoro
 import idaes.core.util.scaling as iscale
 
-"""
-This examples demonstrates how reaktoro graybox can be used to enthalpy and water vapor pressure. 
 
-NOTE: For water vapor calculations, pay attention to speciation and assumptions. Please
-refere to these two discussions:
+# This examples demonstrates how reaktoro graybox can be used to enthalpy and water vapor pressure.
 
-https://github.com/reaktoro/reaktoro/discussions/398
-https://github.com/reaktoro/reaktoro/discussions/285
+# NOTE: For water vapor calculations, pay attention to speciation and assumptions. Please
+# refere to these two discussions:
 
-This example demonstrates:
-(1) How to configure different database from default
-(2) How to get enthalpy and vapor pressure from Reaktoro
-(3) How to setup precipitation calculation 
-(4) Setup simulation for removal of Calcite over different temperatures and estimate required energy input
+# https://github.com/reaktoro/reaktoro/discussions/398
+# https://github.com/reaktoro/reaktoro/discussions/285
 
-Key assumptions:
-Assumes that process concentrating the feed does not alter the pH. 
-This might be a good assumptions for process such as RO, but might be a poor
-assumption for evaporative processes. 
-"""
+# This example demonstrates:
+# (1) How to configure different database from default
+# (2) How to get enthalpy and vapor pressure from Reaktoro
+# (3) How to setup precipitation calculation
+# (4) Setup simulation for removal of Calcite over different temperatures and estimate required energy input
+
+# Key assumptions:
+# Assumes that process concentrating the feed does not alter the pH.
+# This might be a good assumptions for process such as RO, but might be a poor
+# assumption for evaporative processes.
 
 
 def main():
@@ -104,8 +103,8 @@ def build_simple_precipitation():
     m.Q_recoverable = Var(initialize=0, units=pyunits.J / pyunits.s)
     m.Q_recovery_eff = Var(initialize=0.5, units=pyunits.dimensionless)
     m.Q_recovery_eff.fix()
-    """ we only need enthalpy - can also request output pH, and pass it to precipitator 
-    but dont need to - assume the temperature is not impacting pH"""
+    # we only need enthalpy - can also request output pH, and pass it to precipitator
+    # but dont need to - assume the temperature is not impacting pH
     m.feed_properties = Var(
         [
             ("molarEnthalpy", None),
@@ -216,14 +215,15 @@ def build_simple_precipitation():
                 == m.sludge_composition[key]
             )
 
-    """ we have to use super critical database to enthalpy data as 
-    our default PhreeqC data base with pitzer data file does not contain 
-    enthalpy information - please refer to reaktoro documentation on supported data bases """
-    """ we also need to define an ion translation dicionary for this data base 
-    as default translator only support PhreeqCdata base with pitzer data file notation 
-     - once again refer to reaktoro documentation on specific data base and species to define translation dictionory 
-     - this dict should connect the name of species you are supplying to name of species 
-     in the data base file"""
+    # We have to use super critical database to get enthalpy data as
+    # our default PhreeqC data base with pitzer data file does not contain
+    # enthalpy information - please refer to reaktoro documentation on supported data bases
+
+    # we also need to define an ion translation dicionary for this data base
+    # as default translator only support PhreeqCdata base with pitzer data file notation
+    #  - once again refer to reaktoro documentation on specific data base and species to define translation dictionary
+    #  - this dict should connect the name of species you are supplying to name of species in the databases
+    #  in the data base file
 
     translation_dict = {
         "H2O": "H2O(aq)",
@@ -234,10 +234,10 @@ def build_simple_precipitation():
         "Ca": "Ca+2",
         "HCO3": "HCO3-",
     }
-    """ note how we included nitrogen as one of gas species, this will prevent 
-        PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)"""
+    # note how we included nitrogen as one of gas species, this will prevent
+    # PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)"""
 
-    """ we can import new database using initialized reaktoro object as shown in this block, or as strings in block down below"""
+    # we can import new database using initialized reaktoro object as shown in this block, or as strings in block down below"""
     database = reaktoro.SupcrtDatabase("supcrtbl")
 
     m.eq_feed_properties = ReaktoroBlock(
@@ -406,13 +406,13 @@ def scale_model(m):
 
 
 def initialize(m):
-    """prop feed to precipitation comp"""
+    # propagate feed to precipitation comp
     for key in m.eq_precipitator_composition:
         calculate_variable_from_constraint(
             m.precipitator_composition[key], m.eq_precipitator_composition[key]
         )
-    """ initialize feed and precipitaiton properties
-    This will also get us initial precipitation amounts"""
+    # initialize feed and precipitation properties
+    # This will also get us initial precipitation amounts"""
     m.eq_feed_properties.initialize()
     m.eq_precipitation_properties.initialize()
     """ get sludge flow volume first """
@@ -420,10 +420,10 @@ def initialize(m):
         m.sludge_composition["H2O"], m.eq_sludge_composition["H2O"]
     )
 
-    """ we wrote lazy formulation and cant explicitly calculate 
-    treated or sludge ion composition, lets for initialization assume 
-    that treated comp is same as feed composition and use that to estimate 
-    initial sludge comp"""
+    # we wrote lazy formulation and cant explicitly calculate
+    # treated or sludge ion composition, lets for initialization assume
+    # that treated comp is same as feed composition and use that to estimate
+    # initial sludge comp
 
     for key, obj in m.feed_composition.items():
         if key == "H2O":

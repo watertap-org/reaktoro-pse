@@ -18,28 +18,27 @@ from pyomo.environ import (
     Constraint,
     units as pyunits,
 )
+
 from watertap.core.solvers import get_solver
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
-from pyomo.common.modeling import unique_component_name
 
-import pyomo.environ as pyo
+
 import reaktoro as rkt
 
-"""
-This examples demonstrates how Reaktoro graybox can be used to estimates 
-properties in desalination process.
 
-This example demonstrates how to:
-(1) Setup up basic ReaktoroBlock
-(2) Calculate basic properties for Scaling Tendency, pH, and Osmotic pressure 
-(3) Optimize system pH for operation at target Scaling Tendency
-Key assumptions:
-Assumes that process concentrating the feed does not alter the pH. 
-This might be a good assumptions for process such as RO, but might be a poor
-assumption for evaporative processes. 
-"""
+# This examples demonstrates how Reaktoro graybox can be used to estimates
+# properties in desalination process.
+
+# This example demonstrates how to:
+# (1) Setup up basic ReaktoroBlock
+# (2) Calculate basic properties for Scaling Tendency, pH, and Osmotic pressure
+# (3) Optimize system pH for operation at target Scaling Tendency
+# Key assumptions:
+# Assumes that process concentrating the feed does not alter the pH.
+# This might be a good assumptions for process such as RO, but might be a poor
+# assumption for evaporative processes.
 
 
 def main():
@@ -96,10 +95,10 @@ def build_simple_desal(open_species=False):
     m.water_recovery.fix()
     m.desal_osmotic_pressure = Var(initialize=1e5, units=pyunits.Pa)
 
-    """ Note how we declare different output variables and assemble them into
-    single dict to pass into reaktoro block, this enables user to 
-    mix outputs from different pyomo variables in their models and directly bind them as 
-    outputs in reaktoro model"""
+    # Note how we declare different output variables and assemble them into
+    # single dict to pass into reaktoro block, this enables user to
+    # mix outputs from different pyomo variables in their models and directly bind them as
+    # outputs in reaktoro model
     m.desal_scaling = Var(
         [
             ("scalingTendency", "Calcite"),
@@ -131,15 +130,15 @@ def build_simple_desal(open_species=False):
         expr=m.water_recovery == m.desal_product_flow / m.feed_composition["H2O"]
     )
     if open_species:
-        """
-        Example for opening additional species to improve
-        reaktoro solver stability,
-        Note how this does not alter reaktoro output results as
-        the H+ and OH- is already constrained by total H amount in property
-        block, as such the DOFs are still zero.
 
-        However, this can result in incorrect speciation for some databases, so please use with caution.
-        """
+        # Example for opening additional species to improve
+        # reaktoro solver stability,
+        # Note how this does not alter reaktoro output results as
+        # the H+ and OH- is already constrained by total H amount in property
+        # block, as such the DOFs are still zero.
+
+        # However, this can result in incorrect speciation for some databases, so please use with caution.
+
         species_to_open = ["H+", "OH-"]
     else:
         species_to_open = None

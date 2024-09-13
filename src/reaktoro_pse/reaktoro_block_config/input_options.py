@@ -1,6 +1,4 @@
-from ast import Is
 from pyomo.common.config import ConfigValue, IsInstance, ConfigDict
-
 from pyomo.core.base.var import IndexedVar, Var, VarData
 
 

@@ -9,7 +9,6 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-import reaktoro as rkt
 import pyomo.environ as pyo
 from pyomo.contrib.pynumero.interfaces.external_grey_box import (
     ExternalGreyBoxModel,
@@ -20,7 +19,7 @@ from scipy.sparse import coo_matrix, tril
 import copy
 import idaes.logger as idaeslog
 
-__author__ = "Ilayda Akkor, Alexander Dudchenko, Paul Vecchiarelli, Ben Knueven"
+__author__ = "Ilayda Akkor, Alexander V. Dudchenko, Paul Vecchiarelli, Ben Knueven"
 _log = idaeslog.getLogger(__name__)
 
 

@@ -13,17 +13,15 @@ import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.standard_model a
 import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.comparison_utils as compUtils
 
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
-"""
-This examples compares reaktoro_pse implementation to phreeqcinwt calculation of solution
-state after removing a specified amount of water (imitating desalination, or evaporation process).
+# This examples compares reaktoro_pse implementation to phreeqcinwt calculation of solution
+# state after removing a specified amount of water (imitating desalination, or evaporation process).
 
-Key assumptions:
-Removing water impacts pH (note in simple_desalination example its assumed removing water does not alter pH)
-No solids form
-"""
+# Key assumptions:
+# Removing water impacts pH (note in simple_desalination example its assumed removing water does not alter pH)
+# No solids form
 
 
 def main(save_fig=False, show_fig=True):
