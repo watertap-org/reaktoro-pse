@@ -17,7 +17,7 @@ import os
 import pathlib
 import reaktoro_pse
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
 def get_phreeqc_data():

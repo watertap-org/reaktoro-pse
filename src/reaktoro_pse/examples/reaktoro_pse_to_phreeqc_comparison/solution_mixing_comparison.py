@@ -22,7 +22,7 @@ import idaes.core.util.scaling as iscale
 import reaktoro as rkt
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
 # This examples compares reaktoro_pse implementation to phreeqcinwt calculation mixing two

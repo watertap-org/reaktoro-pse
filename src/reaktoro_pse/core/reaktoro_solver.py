@@ -27,7 +27,7 @@ from reaktoro_pse.core.reaktoro_jacobian import (
 import cyipopt
 import idaes.logger as idaeslog
 
-__author__ = "Alexander Dudchenko, Ben Knueven, Ilayda Akkor"
+__author__ = "Alexander V. Dudchenko, Ben Knueven, Ilayda Akkor"
 
 _log = idaeslog.getLogger(__name__)
 # class to setup reaktor solver for reaktoro

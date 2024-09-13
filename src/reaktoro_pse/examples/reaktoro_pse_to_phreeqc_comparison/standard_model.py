@@ -23,7 +23,7 @@ import idaes.core.util.scaling as iscale
 
 import reaktoro as rkt
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
 def build_modification_example(water_comp):

@@ -17,7 +17,7 @@ import idaes.logger as idaeslog
 
 _log = idaeslog.getLogger(__name__)
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 """ class to setup input constraints, and specs for reaktoro solver class"""
 

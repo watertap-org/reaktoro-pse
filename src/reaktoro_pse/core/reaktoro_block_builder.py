@@ -12,6 +12,8 @@
 from pyomo.contrib.pynumero.interfaces.external_grey_box import (
     ExternalGreyBoxBlock,
 )
+from pyomo.environ import Var
+
 import numpy as np
 from reaktoro_pse.core.reaktoro_outputs import PropTypes
 
@@ -30,7 +32,7 @@ import cyipopt
 import idaes.logger as idaeslog
 import math
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
 # class to build reaktoro block and constraints on provided block

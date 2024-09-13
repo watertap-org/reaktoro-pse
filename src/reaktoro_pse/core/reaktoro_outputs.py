@@ -18,7 +18,7 @@ from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 
 # disabling warnings
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
 # class to setup output constraints, outputs, and jacobian reaktoro solver class

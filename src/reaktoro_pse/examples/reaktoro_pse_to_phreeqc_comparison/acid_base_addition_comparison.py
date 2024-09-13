@@ -12,7 +12,7 @@
 import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.comparison_utils as compUtils
 import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.standard_model as standardModel
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
 # This examples compares reaktoro_pse implementation to phreeqcinwt calculation of solution

@@ -15,7 +15,7 @@ import reaktoro as rkt
 from reaktoro_pse.reaktoro_block import ReaktoroBlock
 from pyomo.environ import Var
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
 # This examples compares reaktoro_pse implementation to phreeqcinwt for calculation of vapor pressure at different temperatures.

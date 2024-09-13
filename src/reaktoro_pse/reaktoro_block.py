@@ -43,7 +43,7 @@ from reaktoro_pse.reaktoro_block_config.input_options import (
 
 _log = idaeslog.getLogger(__name__)
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
 @declare_process_block_class("ReaktoroBlock")
@@ -692,8 +692,8 @@ class ReaktoroBlockData(ProcessBlockData):
             self.speciation_block.rkt_block_builder.set_user_jacobian_scaling(
                 user_scaling_dict
             )
-        else:
-            self.rkt_block_builder.set_user_jacobian_scaling(user_scaling_dict)
+
+        self.rkt_block_builder.set_user_jacobian_scaling(user_scaling_dict)
 
     # TODO: Update to use new initialization method https://idaes-pse.readthedocs.io/en/stable/reference_guides/initialization/developing_initializers.html?highlight=Initializer
     def initialize(self):

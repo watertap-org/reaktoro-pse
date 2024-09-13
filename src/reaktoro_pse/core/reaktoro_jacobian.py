@@ -23,7 +23,7 @@ import idaes.logger as idaeslog
 
 _log = idaeslog.getLogger(__name__)
 
-__author__ = "Alexander Dudchenko, Paul Vecchiarelli, Ben Knueven"
+__author__ = "Alexander V. Dudchenko, Paul Vecchiarelli, Ben Knueven"
 
 
 # class to setup jacobian for reaktoro

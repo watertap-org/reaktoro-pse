@@ -20,7 +20,7 @@ from pyomo.environ import (
 )
 
 
-__author__ = "Alexander Dudchenko"
+__author__ = "Alexander V. Dudchenko"
 
 
 # This examples compares reaktoro_pse implementation to phreeqcinwt calculation of precipitation when adding lime.

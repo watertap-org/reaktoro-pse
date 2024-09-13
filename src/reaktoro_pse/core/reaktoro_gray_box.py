@@ -19,7 +19,7 @@ from scipy.sparse import coo_matrix, tril
 import copy
 import idaes.logger as idaeslog
 
-__author__ = "Ilayda Akkor, Alexander Dudchenko, Paul Vecchiarelli, Ben Knueven"
+__author__ = "Ilayda Akkor, Alexander V. Dudchenko, Paul Vecchiarelli, Ben Knueven"
 _log = idaeslog.getLogger(__name__)
 
 
