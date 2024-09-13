@@ -11,8 +11,9 @@
 #################################################################################
 import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.standard_model as standardModel
 import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.comparison_utils as compUtils
-import reaktoro as rkt
 from reaktoro_pse.reaktoro_block import ReaktoroBlock
+
+import reaktoro as rkt
 import idaes.core.util.scaling as iscale
 from pyomo.environ import (
     Var,
@@ -22,12 +23,10 @@ from pyomo.environ import (
 __author__ = "Alexander Dudchenko"
 
 
-"""
-This examples compares reaktoro_pse implementation to phreeqcinwt calculation of precipitation when adding lime.
+# This examples compares reaktoro_pse implementation to phreeqcinwt calculation of precipitation when adding lime.
 
-Key assumptions:
-Lime is added as pure CaO (100wt%)
-"""
+# Key assumptions:
+# Lime is added as pure CaO (100wt%)
 
 
 def main(save_fig=False, show_fig=True):
@@ -58,9 +57,9 @@ def main(save_fig=False, show_fig=True):
 
 
 def add_mineral_properties(m):
-    """getting vapor pressure, we
-    the system presure is unkown,(as we don't know vapor pressure),
-    and we are nod modifying state"""
+    # getting vapor pressure, we
+    # the system presure is unkown,(as we don't know vapor pressure),
+    # and we are nod modifying state"""
     m.modified_properties = Var(
         [
             ("speciesAmount", "Calcite"),

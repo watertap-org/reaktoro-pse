@@ -1,7 +1,4 @@
 from pyomo.common.config import ConfigValue, IsInstance, ConfigDict
-from reaktoro_pse.core.reaktoro_jacobian import ReaktoroJacobianSpec, JacType
-
-from reaktoro_pse.core.reaktoro_gray_box import HessTypes
 
 
 class ReaktoroSolverOptions:

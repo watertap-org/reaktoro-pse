@@ -16,7 +16,6 @@ from reaktoro_pse.reaktoro_block import ReaktoroBlock
 from pyomo.environ import (
     ConcreteModel,
     Var,
-    Constraint,
     units as pyunits,
 )
 import idaes.core.util.scaling as iscale
@@ -26,16 +25,14 @@ from pyomo.util.calc_var_value import calculate_variable_from_constraint
 __author__ = "Alexander Dudchenko"
 
 
-"""
-This examples compares reaktoro_pse implementation to phreeqcinwt calculation mixing two 
-solutions together based on mixing ratio - this is a common phenomena for recycling process.
-Unlike other examples, we will manually do speciation tracking for each feed, and pass exact speciation into
-reaktoro- the ReaktoroBlock does not automatically support mixing so lower level interaction is required. 
+# This examples compares reaktoro_pse implementation to phreeqcinwt calculation mixing two
+# solutions together based on mixing ratio - this is a common phenomena for recycling process.
+# Unlike other examples, we will manually do speciation tracking for each feed, and pass exact speciation into
+# reaktoro- the ReaktoroBlock does not automatically support mixing so lower level interaction is required.
 
-Key assumptions:
-Removing water impacts pH (note in simple_desalination example its assumed removing water does not alter pH)
-No solids form
-"""
+# Key assumptions:
+# Removing water impacts pH (note in simple_desalination example its assumed removing water does not alter pH)
+# No solids form
 
 
 def main(save_fig=False, show_fig=True):
@@ -126,12 +123,12 @@ def add_standard_properties(m):
         ],
         initialize=1,
     )
-    """
-    building reaktoro blocks to specitiate the two 
-    differnt feeds, we can use {"speciesAmount", True} to get all possible
-    exact species as an output from reaktoro with out knowing what they 
-    are apriori. 
-    """
+
+    # building reaktoro blocks to speciate the two
+    # different feeds, we can use {"speciesAmount", True} to get all possible
+    # exact species as an output from reaktoro with out knowing what they
+    # are apriori.
+
     m.eq_feed_properties = ReaktoroBlock(
         aqueous_phase={
             "composition": m.feed_composition,
@@ -172,11 +169,10 @@ def add_standard_properties(m):
             == m.mixed_speciation[(key, prop)]
         )
 
-    """
-    building mixing props block, here we will take 
-    the mixed speciation which is exact, and pass it directly into
-    reaktoro to get new properties
-    """
+    # building mixing props block, here we will take
+    # the mixed speciation which is exact, and pass it directly into
+    # reaktoro to get new properties
+
     m.eq_mixed_properties = ReaktoroBlock(
         aqueous_phase={
             "composition": m.mixed_speciation,

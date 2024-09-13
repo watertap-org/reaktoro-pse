@@ -9,7 +9,6 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-from pyomo.environ import Var, value, units as pyunits
 from pyomo.contrib.pynumero.interfaces.external_grey_box import (
     ExternalGreyBoxBlock,
 )
@@ -34,7 +33,7 @@ import math
 __author__ = "Alexander Dudchenko"
 
 
-"""class to build reaktoro block and constraints on provided block"""
+# class to build reaktoro block and constraints on provided block
 _log = idaeslog.getLogger(__name__)
 
 
@@ -109,10 +108,10 @@ class ReaktoroBlockBuilder:
                 )
 
         else:
-            """only build these if we are summing species to elements in pyomo"""
+            # only build these if we are summing species to elements in pyomo
             constraint_dict = self.solver.input_specs.constraint_dict
             self._input_constraint_scaling = {}
-            """ connect rektor model vars to our inputs"""
+            #  connect rektor model vars to our inputs
             for element in constraint_dict:
                 self.solver.input_specs.rkt_inputs[element].set_pyomo_var(
                     self.block.reaktoro_model.inputs[element]
@@ -258,13 +257,13 @@ class ReaktoroBlockBuilder:
                 if iscale.get_scaling_factor(rkt_var) is None:
                     iscale.set_scaling_factor(rkt_var, self.get_sf(obj.get_pyomo_var()))
 
-            """ scale user provided vars if they are not scaled"""
+            # scale user provided vars if they are not scaled
             if iscale.get_scaling_factor(obj.get_pyomo_var()) is None:
                 iscale.set_scaling_factor(
                     obj.get_pyomo_var(), self.get_sf(obj.get_pyomo_var())
                 )
 
-        """ update jacobian scaling """
+        # update jacobian scaling
         self.get_jacobian_scaling()
 
     def get_jacobian_scaling(self):

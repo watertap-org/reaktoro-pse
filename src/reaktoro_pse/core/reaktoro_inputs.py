@@ -24,7 +24,7 @@ __author__ = "Alexander Dudchenko"
 
 class ReaktoroInputSpec:
     def __init__(self, reaktor_state):
-        """initialize parameters needed to build reaktor solver"""
+        # initialize parameters needed to build reaktor solver
         self.state = reaktor_state
         if isinstance(self.state, ReaktoroState) == False:
             raise TypeError("Reator inputs require rektoroState class")
@@ -35,11 +35,11 @@ class ReaktoroInputSpec:
         self.ignore_elements_for_constraints = []
         self.fixed_solvent_specie = {}
         self.fixed_solvent_speciation = {}
-        """ execute default configuration options, user can update settings """
+        # execute default configuration options, user can update settings
         self.register_charge_neutrality()
         self.default_speciation()
         self.register_open_species()
-        """ register default for aqueous phase"""
+        # register default for aqueous phase
         if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
             self.register_fixed_solvent_specie(RktInputTypes.aqueous_phase, "H2O")
 
@@ -126,7 +126,7 @@ class ReaktoroInputSpec:
             dissolve_species_in_rkt,
         )
 
-        """ get input name order!"""
+        # get input name order!
         for idx, spec in enumerate(self.equilibrium_specs.namesInputs()):
             if spec == "T":
                 spec_var_name = RktInputTypes.temperature
@@ -138,7 +138,7 @@ class ReaktoroInputSpec:
                 spec_var_name = spec.replace("input", "")
             else:
                 spec_var_name = spec
-            """ only care for indexes that exists and were added to spec"""
+            # only care for indexes that exists and were added to spec
 
             if self.rkt_inputs.get(spec_var_name) is not None:
                 self.rkt_inputs[spec_var_name].set_jacobian_index(idx)
@@ -199,11 +199,11 @@ class ReaktoroInputSpec:
                 self.ignore_elements_for_constraints.append(self.neutrality_ion)
 
                 if self.neutrality_ion not in specs_object.namesInputs():
-                    """needs to be a species!"""
+                    # needs to be a species!
                     specs_object.openTo(self.neutrality_ion)
 
         self._find_element_sums()
-        """ add/check if vars in rkt Inputs"""
+        # add/check if vars in rkt Inputs
         if dissolveSpeciesInRkt:
             self.write_active_species(specs_object)
         else:
@@ -213,7 +213,7 @@ class ReaktoroInputSpec:
                     self.rkt_inputs[element].set_rkt_input_name(f"input{element}")
                     self.rkt_inputs[element].set_lower_bound(0)
 
-        """ write reaktoro constraints to spec"""
+        # write reaktoro constraints to spec
         for element in self.constraint_dict:
             if dissolveSpeciesInRkt:
                 self.write_element_sum_constraint(specs_object, element)

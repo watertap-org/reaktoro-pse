@@ -14,7 +14,6 @@ from reaktoro_pse.reaktoro_block import ReaktoroBlock
 from pyomo.environ import (
     ConcreteModel,
     Var,
-    Objective,
     Constraint,
     units as pyunits,
 )
@@ -22,24 +21,16 @@ from watertap.core.solvers import get_solver
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
-from pyomo.common.modeling import unique_component_name
-
-import pyomo.environ as pyo
 import reaktoro as rkt
 
-from reaktoro_pse.reaktoro_block_config import jacobian_options
 
-"""
-This examples demonstrates how Reaktoro graybox can be used to estimates combustion perofrming an optimization 
-on following reaktoro example: https://reaktoro.org/applications/biomass-gasification/biomass-gasification.html
+# This examples demonstrates how Reaktoro graybox can be used to estimates combustion perofrming an optimization
+# on following reaktoro example: https://reaktoro.org/applications/biomass-gasification/biomass-gasification.html
 
-This example demonstrates how to:
-(1) Setup up basic ReaktoroBlock
-(2) Calculate exhaust temperature from combustion
-(3) Find air to fuel ratio needed to get to 2000 K
-
- 
-"""
+# This example demonstrates how to:
+# (1) Setup up basic ReaktoroBlock
+# (2) Calculate exhaust temperature from combustion
+# (3) Find air to fuel ratio needed to get to 2000 K
 
 
 def main():
@@ -160,7 +151,7 @@ def build_biogas(open_species=False):
         expr=m.combusted_ratio_g_to_c
         == m.mass_gas / (m.fuel["Fuel"] + m.air["O2"] + m.air["N2"])
     )
-    """ input constraint for summing  to elements """
+    # input constraint for summing  to elements
     for key, d in m.eq_combustion.rkt_inputs.constraint_dict.items():
         print(key, d)
     scale_model(m)

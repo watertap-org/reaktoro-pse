@@ -15,16 +15,13 @@ import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.standard_model a
 __author__ = "Alexander Dudchenko"
 
 
-"""
-This examples compares reaktoro_pse implementation to phreeqcinwt calculation of solution
-state adding acid or base. 
+# This examples compares reaktoro_pse implementation to phreeqcinwt calculation of solution
+# state adding acid or base.
 
-Key assumptions:
+# Key assumptions:
 
-Uses 100wt% HCl and 100wt% NaOH
-No solids form
-
-"""
+# Uses 100wt% HCl and 100wt% NaOH
+# No solids form
 
 
 def main(save_fig=False, show_fig=True):

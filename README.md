@@ -31,27 +31,31 @@ Currently, repo includes several tutorials and examples.
 
 *Tutorials:*
 
-1. [Demonstration of working with Reaktoro block that shows](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/ReaktoroBlock_tutorial.ipynb)
+1. [Demonstration of working with Reaktoro block that shows](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/basic_reaktoro_block_interaction.ipynb)
     * How to balance feed charge with ReaktoroBlock
+    * Provide exact speciation 
+    * Build reaktoro block with speciation_block option 
+
+2. [Demonstration add ReaktoroBlock to 1D Reverse Osmosis model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_ro.ipynb)
     * How to add indexed ReaktoroBlocks [WaterTAP RO1D model](https://watertap.readthedocs.io/en/stable/technical_reference/unit_models/reverse_osmosis_1D.html) for calculation of Osmotic pressure
  
 *Examples:*
 
-1. [Example of adding ReaktoroBlock to basic desalination problem](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/simple_desalination.py) that demonstrates how to:
+1. [Example of adding ReaktoroBlock to basic desalination problem](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/simple_desalination.py) that demonstrates how to:
     * Setup up basic ReaktoroBlock
     * Calculate basic properties for Scaling Tendency, pH, and Osmotic pressure 
     * Optimize system pH for operation at target Scaling Tendency
-2. [Example of thermal precipitation](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/thermal_precipitation.py) that demonstrates how to:
+2. [Example of thermal precipitation](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/thermal_precipitation.py) that demonstrates how to:
     * Configure different database from default
     * Get enthalpy and vapor pressure from Reaktoro
     * Setup precipitation calculation 
     * Setup simulation for removal of Calcite over different temperatures and estimate required energy input
-3. [Example of ion exchange calculations](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/simple_ion_exchange.py) that demonstrates how to:
+3. [Example of ion exchange calculations](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/simple_ion_exchange.py) that demonstrates how to:
     * Set up ReaktoroBlock for charge neutralizing the feed composition 
     * Use outputs from speciation block as inputs into a second property block
     * Add Ion Exchange phase and species into ReaktoroBlock
     * Optimize addition of acid and bases for maximizing Calcium removal selectivity over Magnesium
-4. [Example of biogas combustion](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/biogas_combustion.py) that demonstrates how to:
+4. [Example of biogas combustion](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/biogas_combustion.py) that demonstrates how to:
     * Set up ReaktoroBlock for customized database
     * Use Condensed phase
 
@@ -59,10 +63,10 @@ Currently, repo includes several tutorials and examples.
 
 These comparisons further demonstrate how to setup Reaktoro-pse for each type of calculation.
 
-1. [Water removal from solution (e.g evaporative processes)](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/water_removal_comparison.py)
-2. [Vapor pressure calculation at different temperatures](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/vapor_pressure_comparison.py)
-3. [Precipitation of mineral phases](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/precipitation_comparison.py)
-4.  [Mixing of two solution](https://github.com/avdudchenko/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/solution_mixing_comparison.py)
+1. [Water removal from solution (e.g evaporative processes)](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/water_removal_comparison.py)
+2. [Vapor pressure calculation at different temperatures](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/vapor_pressure_comparison.py)
+3. [Precipitation of mineral phases](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/precipitation_comparison.py)
+4.  [Mixing of two solution](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/solution_mixing_comparison.py)
 
 ## 5. Solvers 
 To-date, this has only been tested with [cyipopt](https://cyipopt.readthedocs.io/en/stable/) - other solvers have not been tested. 
@@ -86,7 +90,7 @@ B. Use exact derivatives instead of numeric
 
 The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your Reaktoro block are exact or numeric by using **your_reaktor_block.display_jacobian_outputs()**. 
 
-If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacoibanRows class](https://github.com/avdudchenko/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_jacobian.py#L51). These properties can be used to write Pyomo constraints that calculate the desired property. Some properties are already supported and examples are shown of how to build them in [PyomoProperties](https://github.com/avdudchenko/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_outputs.py#L118) class. 
+If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacoibanRows class](https://github.com/watertap-org/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_jacobian.py#L51). These properties can be used to write Pyomo constraints that calculate the desired property. Some properties are already supported and examples are shown of how to build them in [PyomoProperties](https://github.com/watertap-org/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_outputs.py#L118) class. 
 
 Supported PyomoProperties with exact derivatives:
 
