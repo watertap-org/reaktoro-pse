@@ -119,6 +119,9 @@ You can check the jacobian scaling by calling:
 
     your_reaktoro_block.display_jacobian_scaling()
 
+An alternative is to increase the divergence tolerance: 
+
+    solver.options["diverging_iterates_tol"] = 1e30
 
 ## 7. Requesting new features or issues
 Please include a minimal example using Reaktoro for your specific feature or issue request if possible. Please also include full traceback for errors the occur. 
