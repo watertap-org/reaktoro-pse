@@ -77,7 +77,7 @@ To-date, this has only been tested with [cyipopt](https://cyipopt.readthedocs.io
 ### Closing dual infeasibility 
 In some cases Ipopt might struggle to close unscaled dual infeasibility even when primal is reduced to <1e-8. This will be typically seen in the solver trace, that shows **inf_pr** being reduced to <1e-8 and **inf_du** stops being reduced and solver does not terminate or terminates with **Solved to Acceptable level**. [This is a result of using approximated hessian in the GrayBox model causing issues in calculations of dual infeasibility error.](https://list.coin-or.org/pipermail/ipopt/2007-February/000700.html)
 
-### Solutions
+#### Solutions
 A. Set Ipopt solver option "recalc_y" to "yes"
 
 This option will force Ipopt to use least squares method to calculate dual infeasibility, potentially improving accuracy of its estimates and reduce it to below tolerance level. Details on the [recalc_y](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_recalc_y) and [recalc_y_feas_tol](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_recalc_y_feas_tol). 
@@ -101,6 +101,27 @@ Supported PyomoProperties with exact derivatives:
 
 These properties are accessed as any other property in ReaktoroBlock. Simply pass ('scalingTendencyDirect',phase) to outputs.  
 
+### Failing due to iterates diverging
+In some cases you might experience a failed solve with error
+
+    EXIT: Iterates diverging; problem might be unbounded.
+    
+This, in general, is a result of bad scaling. If your model solves with out a ReaktoroBlock, then the likely culprit is autoscaling for Jacobian (and possibly variables as well). In this case its recommend to provide manual scaling for the jacobian via user scaling option when building Reaktoro, for example as follows (check thermal_precipitation.py example): 
+
+    jacobian_options={
+        "user_scaling": {
+            ("molarEnthalpy", None): 1,
+            ("specificHeatCapacityConstP", None): 1,
+        },
+    }
+
+You can check the jacobian scaling by calling: 
+
+    your_reaktoro_block.display_jacobian_scaling()
+
+An alternative is to increase the divergence tolerance: 
+
+    solver.options["diverging_iterates_tol"] = 1e30
 
 ## 7. Requesting new features or issues
 Please include a minimal example using Reaktoro for your specific feature or issue request if possible. Please also include full traceback for errors the occur. 
