@@ -84,6 +84,7 @@ This option will force Ipopt to use least squares method to calculate dual infea
 
     cy_solver = get_solver(solver="cyipopt-watertap")
     cy_solver.options['recalc_y']='yes'
+    cy_solver.options["recalc_y_feas_tol"] = 1e-2
 
 
 B. Use exact derivatives instead of numeric
