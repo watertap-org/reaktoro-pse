@@ -23,6 +23,7 @@ from pyomo.util.calc_var_value import calculate_variable_from_constraint
 import idaes.core.util.scaling as iscale
 import reaktoro as rkt
 
+__author__ = "Alexander V. Dudchenko"
 
 # This examples demonstrates how Reaktoro graybox can be used to estimates combustion perofrming an optimization
 # on following reaktoro example: https://reaktoro.org/applications/biomass-gasification/biomass-gasification.html

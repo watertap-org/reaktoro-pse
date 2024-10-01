@@ -24,6 +24,7 @@ from pyomo.util.calc_var_value import calculate_variable_from_constraint
 import reaktoro
 import idaes.core.util.scaling as iscale
 
+__author__ = "Alexander V. Dudchenko"
 
 # This examples demonstrates how reaktoro graybox can be used to enthalpy and water vapor pressure.
 

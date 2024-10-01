@@ -25,8 +25,7 @@ import idaes.core.util.scaling as iscale
 import pyomo.environ as pyo
 import reaktoro as rkt
 
-from reaktoro_pse.reaktoro_block_config import jacobian_options
-
+__author__ = "Alexander V. Dudchenko"
 
 # This examples demonstrates how Reaktoro graybox can be used to estimates removal of specific ion through use of ion exchange material.
 
