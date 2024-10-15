@@ -176,11 +176,14 @@ class ReaktoroSolver:
         # here we solve reaktor model and return the jacobian matrix and solution, as
         # Cell as update relevant reaktoroSpecs
         self.update_specs(params)
-
-        result = self.try_solve(presolve)
-        self.outputs = self.get_outputs()
-        self.jacobian_matrix = self.get_jacobian()
-        if result.succeeded() == False or display:
+        solve_failed = False
+        try:
+            result = self.try_solve(presolve)
+            self.outputs = self.get_outputs()
+            self.jacobian_matrix = self.get_jacobian()
+        except RuntimeError:
+            solve_failed = True
+        if solve_failed or result.succeeded() == False or display:
             _log.warning(
                 f"warning, solve was not successful for {self.blockName}, fail# {self._sequential_fails}"
             )

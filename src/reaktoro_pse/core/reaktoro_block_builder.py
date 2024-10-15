@@ -196,10 +196,10 @@ class ReaktoroBlockBuilder:
                     == self.block.reaktoro_model.outputs[(prop, prop_index)]
                 )
 
-    def initialize(self, presolveDuringInitialization=False):
+    def initialize(self, presolve_during_initialization=False):
         self.initialize_input_variables_and_constraints()
         self.solver.state.equilibrate_state()
-        self.solver.solve_reaktoro_block(presolve=presolveDuringInitialization)
+        self.solver.solve_reaktoro_block(presolve=presolve_during_initialization)
         self.initialize_output_variables_and_constraints()
         _log.info(f"Initialized rkt block")
 
@@ -218,10 +218,13 @@ class ReaktoroBlockBuilder:
                 return iscale.get_scaling_factor(pyo_var)
 
             sf = calc_scale(abs(pyo_var.value))
-            if sf > 1e16:
-                _log.warning(f"Var {pyo_var} scale >1e16")
-            if sf < 1e-16:
-                _log.warning(f"Var {pyo_var} scale <1e-16")
+            if sf > 1e10:
+                _log.warning(f"Var {pyo_var} scale {sf}>1e16")
+                sf = 1e10
+            if sf < 1e-10:
+                _log.warning(f"Var {pyo_var} scale {sf}<1e-16")
+                # sf = 1e-20
+                sf = 1e-10
             return sf
 
     def initialize_output_variables_and_constraints(self):
@@ -267,6 +270,7 @@ class ReaktoroBlockBuilder:
 
         # update jacobian scaling
         self.get_jacobian_scaling()
+        self.set_user_jacobian_scaling()
 
     def get_jacobian_scaling(self):
         if self.jacobian_scaling_type == JacScalingTypes.no_scaling:
@@ -284,12 +288,11 @@ class ReaktoroBlockBuilder:
             self.solver.jacobian_scaling_values = (
                 np.sum(np.abs(self.solver.jacobian_matrix) ** 2, axis=1) ** 0.5
             )
-        self.set_user_jacobian_scaling()
 
     def set_user_jacobian_scaling(self, user_scaling=None):
+
         if user_scaling is None:
             user_scaling = self.user_scaling
-
         for i, (key, obj) in enumerate(self.solver.output_specs.rkt_outputs.items()):
             if user_scaling.get(key) != None:
                 scale = user_scaling[key]

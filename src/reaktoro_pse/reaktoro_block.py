@@ -367,8 +367,17 @@ class ReaktoroBlockData(ProcessBlockData):
         liquid_input_composition = self.config.liquid_phase.composition
         condensed_input_composition = self.config.condensed_phase.composition
         if building_prop_block_after_speciation():
+            # we need to ensure when we provide intial input compo into
+            # specitaiton block we don't have exteremely high ion concetration
+            # these value swill be overwritten during intilization anyway
+            for ion, obj in self.speciation_block.outputs.items():
+                if self.config.aqueous_phase.fixed_solvent_specie in ion:
+                    obj.value = obj.value * 10
+                else:
+                    obj.value = obj.value * 0.001
             if aqueous_input_composition is not {}:
                 aqueous_input_composition = self.speciation_block.outputs
+
                 liquid_input_composition = {}
                 condensed_input_composition = {}
             elif liquid_input_composition is not {}:
@@ -682,17 +691,20 @@ class ReaktoroBlockData(ProcessBlockData):
         _log.info("-----Displaying information for property block ------")
         _log.info(self.rkt_state.state)
 
-    def set_jacobian_scaling(self, user_scaling_dict, set_on_speciation_block=True):
-        """Sets jacobian scaling
+    def update_jacobian_scaling(
+        self, user_scaling_dict=None, set_on_speciation_block=True
+    ):
+        """This will recalculate jacobian scaling and update with user provided values
         Keywords:
         user_scaling_dict -- Dictionary that contains jacobian keys and scaling block
         set_on_speciation_block -- if scaling should be also set on speciation block if built.
         """
         if self.config.build_speciation_block and set_on_speciation_block:
+            self.speciation_block.rkt_block_builder.get_jacobian_scaling()
             self.speciation_block.rkt_block_builder.set_user_jacobian_scaling(
                 user_scaling_dict
             )
-
+        self.rkt_block_builder.get_jacobian_scaling()
         self.rkt_block_builder.set_user_jacobian_scaling(user_scaling_dict)
 
     # TODO: Update to use new initialization method https://idaes-pse.readthedocs.io/en/stable/reference_guides/initialization/developing_initializers.html?highlight=Initializer

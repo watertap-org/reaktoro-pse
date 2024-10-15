@@ -237,7 +237,7 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
             pytest.approx(scaling_result["speciation_block"][key], 1e-3)
             == expected_scaling["speciation_block"][key]
         )
-    m.property_block.set_jacobian_scaling(new_scaling)
+    m.property_block.update_jacobian_scaling(new_scaling)
     new_scaling = {}
     for key in scaling_result["property_block"]:
         new_scaling[key] = 1
@@ -245,7 +245,7 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
             pytest.approx(scaling_result["property_block"][key], 1e-3)
             == expected_scaling["property_block"][key]
         )
-    m.property_block.set_jacobian_scaling(new_scaling)
+    m.property_block.update_jacobian_scaling(new_scaling)
     scaling_result = m.property_block.display_jacobian_scaling()
     assert "speciation_block" in scaling_result
     assert "property_block" in scaling_result

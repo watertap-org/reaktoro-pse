@@ -16,6 +16,9 @@ from reaktoro_pse.core.reaktoro_state import ReaktoroState
 import reaktoro_pse.core.pyomo_property_writer.property_functions as propFuncs
 from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 
+import idaes.logger as idaeslog
+
+_log = idaeslog.getLogger(__name__)
 # disabling warnings
 
 __author__ = "Alexander V. Dudchenko"
@@ -90,6 +93,9 @@ class RktOutput:
 
     def set_jacobian_value(self, value):
         self.jacobian_value = value
+
+    def get_lb(self):
+        return self.lb
 
 
 class PyomoBuildOptions:
@@ -313,35 +319,35 @@ class ReaktoroOutputSpec:
         get_function=None,
         pyomo_var=None,
     ):
-        # if property_index is None:
-        #     index = property_name
-        # else:
         index = (property_name, property_index)
-        if property_type != PropTypes.pyomo_built_prop:
-            self.user_outputs[index] = RktOutput(
-                property_type=property_type,
-                property_name=property_name,
-                property_index=property_index,
-                get_function=get_function,
-                pyomo_var=pyomo_var,
-            )
-            if index not in self.rkt_outputs:
-                self.rkt_outputs[index] = self.user_outputs[index]
-        else:
-            self.user_outputs[index] = RktOutput(
-                property_type=property_type,
-                property_name=property_name,
-                property_index=property_index,
-                get_function=get_function,
-                pyomo_var=pyomo_var,
-            )
-            for index, prop in get_function.properties.items():
-                # chcek if prop already exists if it does ont add it outputs
-                # otherwise overwrite it
+        if index not in self.user_outputs:
+            if property_type != PropTypes.pyomo_built_prop:
+                self.user_outputs[index] = RktOutput(
+                    property_type=property_type,
+                    property_name=property_name,
+                    property_index=property_index,
+                    get_function=get_function,
+                    pyomo_var=pyomo_var,
+                )
                 if index not in self.rkt_outputs:
-                    self.rkt_outputs[index] = prop
-                else:
-                    get_function.properties[index] = self.rkt_outputs[index]
+                    self.rkt_outputs[index] = self.user_outputs[index]
+            else:
+                self.user_outputs[index] = RktOutput(
+                    property_type=property_type,
+                    property_name=property_name,
+                    property_index=property_index,
+                    get_function=get_function,
+                    pyomo_var=pyomo_var,
+                )
+                for index, prop in get_function.properties.items():
+                    # chcek if prop already exists if it does ont add it outputs
+                    # otherwise overwrite it
+                    if index not in self.rkt_outputs:
+                        self.rkt_outputs[index] = prop
+                    else:
+                        get_function.properties[index] = self.rkt_outputs[index]
+        else:
+            _log.warning("Output {index}, already added!")
 
     def get_all_indexes(
         self,

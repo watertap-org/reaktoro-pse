@@ -275,12 +275,9 @@ def specie_to_rkt_species(species):
     # TODO: needs to be better automated
     name_dict = {
         "-2": ["SO4", "CO3"],
-        "-": [
-            "Cl",
-            "HCO3",
-        ],
+        "-": ["Cl", "HCO3", "F"],
         "+": ["Na", "K"],
-        "+2": ["Mg", "Ca", "Sr", "Ba"],
+        "+2": ["Mg", "Mn", "Ca", "Sr", "Ba"],
         "": ["H2O", "CO2"],
         "H4SiO4": ["Si", "SiO2"],
     }
