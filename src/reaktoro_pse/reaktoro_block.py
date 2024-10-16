@@ -80,6 +80,17 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
+        "speciation_block_species_ignore",
+        ConfigValue(
+            default=None,
+            domain=list,
+            description="List of species to not include in output of speciation block and input into property block",
+            doc="""If enabled, will construct a speciation block to calculate initial equilibrium state 
+             at specified pH. Any chemicals will be added to the property block, enable this when exact composition is unknown and the 
+             property state is modified through addition of chemicals or formation of phases that modify final state""",
+        ),
+    )
+    CONFIG.declare(
         "exact_speciation",
         ConfigValue(
             default=False,
@@ -563,7 +574,14 @@ class ReaktoroBlockData(ProcessBlockData):
             raise ValueError("Outputs must be provided!")
         if speciation_block:
             # when speciating we only want species amounts as output
-            block.rkt_outputs.register_output("speciesAmount", get_all_indexes=True)
+            if self.config.speciation_block_species_ignore is not None:
+                block.rkt_outputs.register_output(
+                    "speciesAmount",
+                    get_all_indexes=True,
+                    ignore_indexes=self.config.speciation_block_species_ignore,
+                )
+            else:
+                block.rkt_outputs.register_output("speciesAmount", get_all_indexes=True)
         else:
             # build user requested outputs
             for output_key, output_var in self.config.outputs.items():
@@ -577,7 +595,13 @@ class ReaktoroBlockData(ProcessBlockData):
                         output_prop = None
                     if isinstance(output_var, bool):
                         block.rkt_outputs.register_output(
-                            output_key, get_all_indexes=output_var
+                            output_key, get_all_indexes=True
+                        )
+                    elif isinstance(output_var, list):
+                        block.rkt_outputs.register_output(
+                            output_key,
+                            get_all_indexes=True,
+                            ignore_indexes=output_var,
                         )
                     else:
                         block.rkt_outputs.register_output(

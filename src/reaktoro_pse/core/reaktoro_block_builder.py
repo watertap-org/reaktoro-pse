@@ -218,13 +218,10 @@ class ReaktoroBlockBuilder:
                 return iscale.get_scaling_factor(pyo_var)
 
             sf = calc_scale(abs(pyo_var.value))
-            if sf > 1e10:
+            if sf > 1e16:
                 _log.warning(f"Var {pyo_var} scale {sf}>1e16")
-                sf = 1e10
-            if sf < 1e-10:
+            if sf < 1e-16:
                 _log.warning(f"Var {pyo_var} scale {sf}<1e-16")
-                # sf = 1e-20
-                sf = 1e-10
             return sf
 
     def initialize_output_variables_and_constraints(self):

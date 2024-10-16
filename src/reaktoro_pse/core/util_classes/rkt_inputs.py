@@ -168,7 +168,7 @@ class RktInput:
         return self.rkt_index
 
     def set_pyomo_var_value(self, value):
-        self.pyomo_var.value = value
+        self.pyomo_var.set_value(value)
 
     def get_pyomo_var_value(self):
         return self.pyomo_var.value

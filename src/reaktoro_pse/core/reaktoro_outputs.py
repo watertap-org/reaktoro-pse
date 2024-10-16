@@ -86,7 +86,7 @@ class RktOutput:
         return self.pyomo_var
 
     def set_pyomo_var_value(self, value):
-        self.pyomo_var.value = value
+        self.pyomo_var.set_value(value)
 
     def get_pyomo_var_value(self, value):
         return self.pyomo_var.value
@@ -288,6 +288,7 @@ class ReaktoroOutputSpec:
         property_index=None,
         get_all_indexes=False,
         pyomo_var=None,
+        ignore_indexes=None,
     ):
         """register a reaktoro output, couple it to property type.
 
@@ -298,7 +299,7 @@ class ReaktoroOutputSpec:
         pyomo_var -- pyomo var that should be used for the output of this property (optional: will be auto built) (default: None)
         """
         if get_all_indexes:
-            self.get_all_indexes(property_name)
+            self.get_all_indexes(property_name, ignore_indexes)
         else:
             property_type, get_function = self.get_prop_type(
                 property_name, property_index
@@ -352,25 +353,32 @@ class ReaktoroOutputSpec:
     def get_all_indexes(
         self,
         property_name,
+        ignore_indexes,
     ):
         if "species" in property_name:
             for specie in self.species:
-                property_type, get_function = self.get_prop_type(property_name, specie)
-                self.process_output(
-                    property_type=property_type,
-                    property_name=property_name,
-                    property_index=specie,
-                    get_function=get_function,
-                )
+                if ignore_indexes is None or specie not in str(ignore_indexes):
+                    property_type, get_function = self.get_prop_type(
+                        property_name, specie
+                    )
+                    self.process_output(
+                        property_type=property_type,
+                        property_name=property_name,
+                        property_index=specie,
+                        get_function=get_function,
+                    )
         elif "elements" in property_name:
             for element in self.elements:
-                property_type, get_function = self.get_prop_type(property_name, element)
-                self.process_output(
-                    property_type=property_type,
-                    property_name=property_name,
-                    property_index=element,
-                    get_function=get_function,
-                )
+                if ignore_indexes is None or element not in str(ignore_indexes):
+                    property_type, get_function = self.get_prop_type(
+                        property_name, element
+                    )
+                    self.process_output(
+                        property_type=property_type,
+                        property_name=property_name,
+                        property_index=element,
+                        get_function=get_function,
+                    )
         else:
             raise NotImplementedError(
                 f"{property_name} is not supported for automatic indexing"
