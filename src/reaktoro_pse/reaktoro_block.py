@@ -85,9 +85,10 @@ class ReaktoroBlockData(ProcessBlockData):
             default=None,
             domain=list,
             description="List of species to not include in output of speciation block and input into property block",
-            doc="""If enabled, will construct a speciation block to calculate initial equilibrium state 
-             at specified pH. Any chemicals will be added to the property block, enable this when exact composition is unknown and the 
-             property state is modified through addition of chemicals or formation of phases that modify final state""",
+            doc="""If provided then selected species will not be passed from speciation block and into property block. 
+            This is useful for removing species that do not go above 0 and cause issues during solve. No warning or checks
+            are performed by Reaktoro-PSE for scenario where the given species is above 0 at any time during solve. The user
+            should manually verify that the specie did not go above 0 or expected value. """,
         ),
     )
     CONFIG.declare(
