@@ -106,6 +106,7 @@ class ReaktoroSolver:
         self.solver.setOptions(self.solver_options)
         self.hessian_type = hessian_type
         if self.input_specs.assert_charge_neutrality:
+            print("asserting cahrge neturality")
             self.conditions.charge(0)
 
     def set_system_bounds(

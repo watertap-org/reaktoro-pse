@@ -80,6 +80,17 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
+        "exclude_species_list",
+        ConfigValue(
+            default=None,
+            domain=list,
+            description="List of species to exclude from speciation in reaktoro",
+            doc="""The species that should not be included when speciating aqueous, liquid, or condensed phases, this 
+            will completely exclude the species from thermodynamic speciation. This is not the same as
+            rkt.exclude. """,
+        ),
+    )
+    CONFIG.declare(
         "speciation_block_species_ignore",
         ConfigValue(
             default=None,
@@ -406,6 +417,7 @@ class ReaktoroBlockData(ProcessBlockData):
                 )
         else:
             aqueous_input_composition = self.config.aqueous_phase.composition
+        block.rkt_state.register_species_to_exclude(self.config.exclude_species_list)
 
         block.rkt_state.register_aqueous_inputs(
             composition=aqueous_input_composition,
@@ -549,7 +561,7 @@ class ReaktoroBlockData(ProcessBlockData):
             # if we have built a speciation block, the feed should be charge neutral and
             # exact speciation is provided
             block.rkt_inputs.register_charge_neutrality(
-                assert_neutrality=False, ion=self.config.charge_neutrality_ion
+                assert_neutrality=True, ion="H+"  # self.config.charge_neutrality_ion
             )
 
             block.rkt_inputs.configure_specs(

@@ -9,6 +9,7 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
+import sys
 import reaktoro as rkt
 from pyomo.environ import units as pyunits
 
@@ -38,6 +39,7 @@ class ReaktoroState:
         self.gas_phase = None
         self.ion_exchange_phase = None
         self.registered_phases = {}
+        self.exclude_species_list = []
 
     def register_system_inputs(
         self,
@@ -136,6 +138,17 @@ class ReaktoroState:
                 self.inputs[specie] = pyo_obj
                 self.inputs[specie].set_input_type(phase)
         self._inputs_not_processed = True  # flag that inputs ver modified
+
+    def register_species_to_exclude(self, species):
+        """updates list of species to exclude from when creating phases"""
+        if species != None:
+            if isinstance(species, str):
+                self.exclude_species_list.append(species)
+            elif isinstance(species, list):
+                for spc in species:
+                    self.exclude_species_list.append(spc)
+            else:
+                raise TypeError(f"{species} is not supported, must be str or list")
 
     def register_gas_inputs(
         self,
@@ -306,7 +319,7 @@ class ReaktoroState:
 
     def track_registered_phases(self, phase, inputs):
         """this is used to add up all phases provided as inputs or registed phases by user,
-        for example, user might porbice CO2(g) as a gas input wants to track also N2(g) via register_gas_phase,
+        for example, user might provide CO2(g) as a gas input wants to track also N2(g) via register_gas_phase,
         this ensure we updates all the phases with all requested values"""
         if inputs is None:
             return inputs
@@ -323,40 +336,54 @@ class ReaktoroState:
                 self.registered_phases[phase] = inputs
         return self.registered_phases[phase]
 
+    def process_phase_species(self, phase_type, phases_list):
+        phases = phase_type(rkt.speciate(phases_list))
+        system = rkt.ChemicalSystem(self.database, phases)
+        spc_list = []
+        for specie in system.species():
+            if specie.name() not in str(self.exclude_species_list):
+                spc_list.append(specie.name())
+        return phase_type(" ".join(spc_list)), spc_list
+
     def register_aqueous_phase(self, aqueous_phases=None):
         """register possible mineral phases"""
         if aqueous_phases != [] and aqueous_phases is not None:
+            if isinstance(aqueous_phases, (list, str)):
+                self.aqueous_phase, aqueous_phases = self.process_phase_species(
+                    rkt.AqueousPhase, aqueous_phases
+                )
+            else:
+                self.aqueous_phase = aqueous_phases
             aqueous_phases = self.track_registered_phases(
                 RktInputTypes.aqueous_phase, aqueous_phases
             )
-            if isinstance(aqueous_phases, (list, str)):
-                self.aqueous_phase = rkt.AqueousPhase(rkt.speciate(aqueous_phases))
-            else:
-                self.aqueous_phase = aqueous_phases
 
     def register_condensed_phase(self, condensed_phase=None):
         """register possible condensed phases"""
         if condensed_phase != [] and condensed_phase is not None:
-            condensed_phase = self.track_registered_phases(
-                RktInputTypes.condensed_phase, condensed_phase
-            )
             if isinstance(condensed_phase, (list, str)):
-                self.condensed_phase = rkt.CondensedPhases(
-                    rkt.speciate(condensed_phase)
+                self.condensed_phase, condensed_phase = self.process_phase_species(
+                    rkt.CondensedPhases, condensed_phase
                 )
             else:
                 self.condensed_phase = condensed_phase
+            condensed_phase = self.track_registered_phases(
+                RktInputTypes.condensed_phase, condensed_phase
+            )
 
     def register_liquid_phase(self, liquid_phases=None):
         """register possible mineral phases"""
         if liquid_phases != [] and liquid_phases is not None:
+
+            if isinstance(liquid_phases, (list, str)):
+                self.liquid_phase, liquid_phase = self.process_phase_species(
+                    rkt.LiquidPhase, liquid_phase
+                )
+            else:
+                self.liquid_phase = liquid_phases
             liquid_phases = self.track_registered_phases(
                 RktInputTypes.liquid_phases, liquid_phases
             )
-            if isinstance(liquid_phases, (list, str)):
-                self.liquid_phase = rkt.LiquidPhase(rkt.speciate(liquid_phases))
-            else:
-                self.liquid_phase = liquid_phases
 
     def register_mineral_phases(self, mineral_phases=None):
         """register possible mineral phases"""
