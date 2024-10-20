@@ -419,7 +419,9 @@ class ReaktoroOutputSpec:
                     pass
 
         raise NotImplementedError(
-            f"The {property_name}, {property_index} is not supported at the moment"
+            f"""The {property_name}, {property_index} was not found,
+                its either not supported, or requested index is not in present.
+            """
         )
 
     def get_possible_indexes(self):

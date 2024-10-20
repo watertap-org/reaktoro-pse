@@ -561,7 +561,7 @@ class ReaktoroBlockData(ProcessBlockData):
             # if we have built a speciation block, the feed should be charge neutral and
             # exact speciation is provided
             block.rkt_inputs.register_charge_neutrality(
-                assert_neutrality=True, ion="H+"  # self.config.charge_neutrality_ion
+                assert_neutrality=False, ion=self.config.charge_neutrality_ion
             )
 
             block.rkt_inputs.configure_specs(
