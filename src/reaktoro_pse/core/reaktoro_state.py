@@ -337,13 +337,17 @@ class ReaktoroState:
         return self.registered_phases[phase]
 
     def process_phase_species(self, phase_type, phases_list):
-        phases = phase_type(rkt.speciate(phases_list))
-        system = rkt.ChemicalSystem(self.database, phases)
-        spc_list = []
-        for specie in system.species():
-            if specie.name() not in str(self.exclude_species_list):
-                spc_list.append(specie.name())
-        return phase_type(" ".join(spc_list)), spc_list
+        if len(phases_list) > 1:
+            phases = phase_type(rkt.speciate(phases_list))
+
+            system = rkt.ChemicalSystem(self.database, phases)
+            spc_list = []
+            for specie in system.species():
+                if specie.name() not in str(self.exclude_species_list):
+                    spc_list.append(specie.name())
+            return phase_type(" ".join(spc_list)), spc_list
+        else:
+            return phase_type(" ".join(phases_list)), phases_list
 
     def register_aqueous_phase(self, aqueous_phases=None):
         """register possible mineral phases"""

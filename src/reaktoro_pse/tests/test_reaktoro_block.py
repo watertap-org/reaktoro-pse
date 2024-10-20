@@ -238,6 +238,11 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
             == expected_scaling["speciation_block"][key]
         )
     m.property_block.update_jacobian_scaling(new_scaling)
+    scaling_result = m.property_block.display_jacobian_scaling()
+
+    assert "speciation_block" in scaling_result
+    for key in scaling_result["speciation_block"]:
+        assert scaling_result["speciation_block"][key] == 1
     new_scaling = {}
     for key in scaling_result["property_block"]:
         new_scaling[key] = 1
@@ -247,10 +252,8 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
         )
     m.property_block.update_jacobian_scaling(new_scaling)
     scaling_result = m.property_block.display_jacobian_scaling()
-    assert "speciation_block" in scaling_result
+
     assert "property_block" in scaling_result
-    for key in scaling_result["speciation_block"]:
-        assert scaling_result["speciation_block"][key] == 1
     for key in scaling_result["property_block"]:
         assert scaling_result["property_block"][key] == 1
 
