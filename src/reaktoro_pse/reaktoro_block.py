@@ -91,7 +91,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "speciation_block_species_ignore",
+        "speciation_block_exclude_species",
         ConfigValue(
             default=None,
             domain=list,
@@ -587,11 +587,11 @@ class ReaktoroBlockData(ProcessBlockData):
             raise ValueError("Outputs must be provided!")
         if speciation_block:
             # when speciating we only want species amounts as output
-            if self.config.speciation_block_species_ignore is not None:
+            if self.config.speciation_block_exclude_species is not None:
                 block.rkt_outputs.register_output(
                     "speciesAmount",
                     get_all_indexes=True,
-                    ignore_indexes=self.config.speciation_block_species_ignore,
+                    ignore_indexes=self.config.speciation_block_exclude_species,
                 )
             else:
                 block.rkt_outputs.register_output("speciesAmount", get_all_indexes=True)
