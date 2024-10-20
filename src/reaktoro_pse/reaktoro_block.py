@@ -61,7 +61,10 @@ class ReaktoroBlockData(ProcessBlockData):
             include_pH=True, aqueous_phase=False, include_solvent_species=True
         ),
     )
-    CONFIG.declare(RktInputTypes.gas_phase, PhaseInput().get_dict())
+    CONFIG.declare(
+        RktInputTypes.gas_phase,
+        PhaseInput().get_dict(include_speciate_phase_component=True),
+    )
     CONFIG.declare(RktInputTypes.condensed_phase, PhaseInput().get_dict())
     CONFIG.declare(RktInputTypes.mineral_phase, PhaseInput().get_dict())
     CONFIG.declare(RktInputTypes.solid_phase, PhaseInput().get_dict())
@@ -349,7 +352,9 @@ class ReaktoroBlockData(ProcessBlockData):
                 building_prop_block_after_speciation()
                 and getattr(self.config, phase_type).phase_components is None
             ):
-                return getattr(self.speciation_block.rkt_state, phase_type)
+                return self.speciation_block.rkt_state.phase_manager.registered_phases[
+                    phase_type
+                ].phase_list
             else:
                 return getattr(self.config, phase_type).phase_components
 
@@ -461,8 +466,12 @@ class ReaktoroBlockData(ProcessBlockData):
             block.rkt_state.register_aqueous_phase(get_phases("aqueous_phase"))
             block.rkt_state.register_liquid_phase(get_phases("liquid_phase"))
             block.rkt_state.register_solid_phases(get_phases("solid_phase"))
-            block.rkt_state.register_condensed_phase(get_phases("condensed_phase"))
-            block.rkt_state.register_gas_phase(get_phases("gas_phase"))
+            block.rkt_state.register_condensed_phase(
+                get_phases("condensed_phase"),
+            )
+            block.rkt_state.register_gas_phase(
+                get_phases("gas_phase"), self.config.gas_phase.speciate_phase_component
+            )
             block.rkt_state.register_mineral_phases(get_phases("mineral_phase"))
             block.rkt_state.register_ion_exchange_phase(
                 get_phases("ion_exchange_phase")

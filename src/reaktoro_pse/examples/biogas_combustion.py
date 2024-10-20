@@ -129,9 +129,8 @@ def build_biogas(open_species=False):
         gas_phase={
             "composition": m.air,
             "convert_to_rkt_species": False,
-            "phase_components": rkt.GaseousPhase(
-                rkt.speciate("C H O N")
-            ),  # Expects all possible gasses
+            "phase_components": "C H O N",  # Expects all possible gasses
+            "speciate_phase_component": True,
         },
         system_state={
             "pressure": m.feed_pressure,

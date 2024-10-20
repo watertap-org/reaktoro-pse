@@ -34,6 +34,7 @@ __author__ = "Alexander V. Dudchenko (SLAC)"
 def build_standard_state(build_rkt_state_with_species):
     m, rkt_state = build_rkt_state_with_species
     rkt_state.register_mineral_phases("Calcite")
+    rkt_state.set_mineral_phase_activity_model()
     rkt_state.build_state()
     rkt_state.equilibrate_state()
     rkt_inputs = ReaktoroInputSpec(rkt_state)
