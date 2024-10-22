@@ -50,6 +50,7 @@ def build_with_dissolve_in_rkt(build_rkt_state_with_species):
     rkt_inputs.register_chemistry_modifier("CaO", m.lime)
 
     rkt_inputs.configure_specs(dissolve_species_in_rkt=True)
+    rkt_inputs.build_input_specs()
     rkt_outputs = ReaktoroOutputSpec(rkt_state)
     rkt_outputs.register_output("saturationIndex", "Calcite")
     rkt_outputs.register_output("scalingTendency", "Calcite")
@@ -74,6 +75,7 @@ def build_with_dissolve_in_pyomo(build_rkt_state_with_species):
     m.lime.fix()
     rkt_inputs.register_chemistry_modifier("CaO", m.lime)
     rkt_inputs.configure_specs(dissolve_species_in_rkt=False)
+    rkt_inputs.build_input_specs()
     rkt_outputs = ReaktoroOutputSpec(rkt_state)
 
     rkt_outputs.register_output("speciesAmount", get_all_indexes=True)
@@ -97,6 +99,7 @@ def build_with_dissolve_in_rkt_mass_basis(build_rkt_state_with_species_mass_basi
     rkt_inputs.register_chemistry_modifier("CaO", m.lime)
 
     rkt_inputs.configure_specs(dissolve_species_in_rkt=True)
+    rkt_inputs.build_input_specs()
     rkt_outputs = ReaktoroOutputSpec(rkt_state)
     rkt_outputs.register_output("saturationIndex", "Calcite")
     rkt_outputs.register_output("scalingTendency", "Calcite")
@@ -121,6 +124,7 @@ def build_with_dissolve_in_pyomo_mass_basis(build_rkt_state_with_species_mass_ba
     m.lime.fix()
     rkt_inputs.register_chemistry_modifier("CaO", m.lime)
     rkt_inputs.configure_specs(dissolve_species_in_rkt=False)
+    rkt_inputs.build_input_specs()
     rkt_outputs = ReaktoroOutputSpec(rkt_state)
 
     rkt_outputs.register_output("speciesAmount", get_all_indexes=True)

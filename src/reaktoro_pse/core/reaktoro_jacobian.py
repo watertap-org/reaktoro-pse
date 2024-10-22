@@ -175,6 +175,13 @@ class JacboianRows:
         return available_dict
 
 
+class ReaktoroJacobianExport:
+    def __init__(self):
+        self.der_step_size = None
+        self.jacobian_type = None
+        self.numerical_order = None
+
+
 class ReaktoroJacobianSpec:
     def __init__(self, reaktor_state, reaktor_outputs):
         self.state = reaktor_state
@@ -188,6 +195,20 @@ class ReaktoroJacobianSpec:
         self.configure_numerical_jacobian()
         self.check_existing_jacobian_props()
 
+    def export_config(self):
+        export_object = ReaktoroJacobianExport()
+        export_object.der_step_size = self.der_step_size
+        export_object.jacobian_type = self.jacobian_type
+        export_object.numerical_order = self.numerical_order
+        return export_object
+
+    def load_from_export_object(self, export_object):
+        self.configure_numerical_jacobian(
+            jacobian_type=export_object.jacobian_type,
+            order=export_object.numerical_order,
+            step_size=export_object.der_step_size,
+        )
+
     def configure_numerical_jacobian(
         self, jacobian_type="average", order=4, step_size=1e-8
     ):
@@ -200,6 +221,7 @@ class ReaktoroJacobianSpec:
         """
         self.der_step_size = step_size
         self.jacobian_type = JacType.average
+        self.numerical_order = order
         if jacobian_type == JacType.average:
             self.jacobian_type = JacType.average
             assert order % 2 == 0

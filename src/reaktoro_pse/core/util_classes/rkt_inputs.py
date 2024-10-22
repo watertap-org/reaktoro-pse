@@ -60,6 +60,7 @@ class RktInput:
         self.main_unit = None
         self.conversion_unit = None
         self.conversion_value = None
+        self.converted_value = None
         self.required_unit = None
         self.rkt_name = var_name
         self.lower_bound = None
@@ -75,6 +76,11 @@ class RktInput:
         else:
             self.pyomo_var = None
 
+    def delete_pyomo_var(self):
+        self.update_values(True)
+        del self.pyomo_var
+        self.pyomo_var = None
+
     def get_input_type(self):
         return self.input_type
 
@@ -84,8 +90,10 @@ class RktInput:
     def update_values(self, update_temp=False):
         if self.pyomo_var is not None:
             self.value = self.pyomo_var.value
-        else:
-            self.value = None
+            if self.conversion_value is not None:
+                self.converted_value = value(self.get_pyomo_with_required_units())
+            else:
+                self.converted_value = self.value
         if update_temp:
             self.set_temp_value(self.value)
 
@@ -104,7 +112,7 @@ class RktInput:
     def get_value(self, update_temp=False, apply_conversion=False):
         self.update_values(update_temp)
         if apply_conversion:
-            return value(self.get_pyomo_with_required_units())
+            return self.converted_value
         else:
             return self.value
 
@@ -112,12 +120,6 @@ class RktInput:
         if self.conversion_value == None:
             return self.pyomo_var
         else:
-            # print(
-            #     pyunits.convert(
-            #         self.pyomo_var / (self.conversion_value * self.conversion_unit),
-            #         to_units=self.required_unit,
-            #     )
-            # )
             return pyunits.convert(
                 self.pyomo_var / (self.conversion_value * self.conversion_unit),
                 to_units=self.required_unit,
@@ -255,11 +257,16 @@ class RktInputs(dict):
             if var_name not in self.species_list[phase]:
                 if self.convert_to_rkt_species[phase]:
                     var_name = self.convert_rkt_species_fun(var_name, phase)
-                    super().__setitem__(var_name, var)
-                self.species_list[phase].append(var_name)
+                    if (
+                        var_name not in super().keys()
+                    ):  # make sure its not already thre - can occur if state is reloaded
+                        super().__setitem__(var_name, var)
+                if (
+                    var_name not in self.species_list[phase]
+                ):  # make sure its not already thre - can occur if state is reloaded
+                    self.species_list[phase].append(var_name)
             if var_name not in self.all_species:
                 self.all_species.append(var_name)
-
             if phase not in self.registered_phases:
                 self.registered_phases.append(phase)
 

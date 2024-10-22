@@ -18,7 +18,7 @@ from reaktoro_pse.core.reaktoro_outputs import (
 from reaktoro_pse.core.tests.test_reaktoro_state import (
     build_rkt_state_with_species,
 )
-
+import pickle
 
 __author__ = "Alexander V. Dudchenko (SLAC)"
 
@@ -83,6 +83,50 @@ def test_output_setup(build_standard_state):
 
     rkt_outputs.register_output("pH")
     assert ("pH", None) in rkt_outputs.rkt_outputs
+
+
+def test_output_pickle(build_standard_state, build_rkt_state_with_species):
+    """testing setting out outputs"""
+    rkt_outputs = build_standard_state
+    export_object = rkt_outputs.export_config()
+    pickled_object = pickle.dumps(export_object)
+    unpickled_object = pickle.loads(pickled_object)
+    m, rkt_state = build_rkt_state_with_species
+    new_rkt_outputs = ReaktoroOutputSpec(rkt_state)
+    new_rkt_outputs.load_from_export_object(unpickled_object)
+    """ make sure we have all expected props"""
+    expected_properties = ["chemProp", "aqueousProp", "pyomoBuiltProperties"]
+    for ep in expected_properties:
+        assert ep in rkt_outputs.supported_properties
+    assert len(expected_properties) == len(new_rkt_outputs.supported_properties)
+
+    """test registering chem props"""
+    new_rkt_outputs.register_output("speciesAmount", "Na+")
+    assert ("speciesAmount", "Na+") in new_rkt_outputs.rkt_outputs
+    assert ("speciesAmount", "Na+") in new_rkt_outputs.user_outputs
+    new_rkt_outputs.register_output("speciesAmount", get_all_indexes=True)
+    for specie in new_rkt_outputs.species:
+        assert (
+            new_rkt_outputs.rkt_outputs[("speciesAmount", specie)].property_type
+            == PropTypes.chem_prop
+        )
+    assert len(new_rkt_outputs.rkt_outputs.keys()) == len(new_rkt_outputs.species)
+    new_rkt_outputs.register_output("saturationIndex", "Calcite")
+    assert ("saturationIndex", "Calcite") in new_rkt_outputs.rkt_outputs
+    assert (
+        new_rkt_outputs.rkt_outputs["saturationIndex", "Calcite"].property_type
+        == PropTypes.aqueous_prop
+    )
+    with pytest.raises(NotImplementedError) as a:
+        new_rkt_outputs.register_output("NotRealProp")
+
+    value = new_rkt_outputs.evaluate_property(
+        new_rkt_outputs.rkt_outputs[("speciesAmount", "Na+")]
+    )
+    assert pytest.approx(value, 1e-3) == 0.5
+
+    new_rkt_outputs.register_output("pH")
+    assert ("pH", None) in new_rkt_outputs.rkt_outputs
 
 
 def test_pyomo_constraints(build_standard_state):

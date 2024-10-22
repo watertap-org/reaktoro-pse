@@ -18,6 +18,7 @@ import reaktoro_pse.core.util_classes.rkt_inputs as RktInputs
 from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from pyomo.core.base.var import IndexedVar
 import idaes.logger as idaeslog
+import copy
 
 _log = idaeslog.getLogger(__name__)
 
@@ -181,7 +182,6 @@ class PhaseManager:
         phase_list_mode,
     ):
         """Function to remove species from speciation command"""
-        print("rkt phase", phase_function, phases_list, non_speciate_phase_list)
         if phase_list_mode:
             rkt_phase_list = []
             for phase in phases_list:
@@ -229,10 +229,8 @@ class PhaseManager:
         """this will process give activity model if user provides a sting it will
         find it on reaktoro and initialize it either by it self or passing in state of matter argument
         if user provides initialized reaktoro activity model we use it directly."""
-        print(activity_model, state_of_matter)
 
         def get_func(activity_model, state_of_matter):
-            print(activity_model, state_of_matter)
             if isinstance(activity_model, str):
                 if state_of_matter is None:
                     try:
@@ -265,16 +263,34 @@ class PhaseManager:
         return activity_model
 
 
+class ReaktoroStateExport:
+    def __init__(self):
+        # defines required exports
+        self.exclude_species_list = None
+        # we can direcly pass original phase manager
+        self.phase_manager = None
+        # this will not have any of the pyomo vars
+        self.inputs = RktInputs.RktInputs()
+        self.exclude_species_list = None
+        self.database_type = None
+        self.database_file = None
+
+    def copy_rkt_inputs(self, inputs):
+        self.inputs = copy.deepcopy(inputs)
+        for key, obj in self.inputs.items():
+            # self.inputs[key] = copy.deepcopy(obj)
+            self.inputs[key].delete_pyomo_var()
+
+
 # base class for configuring reaktoro states and solver
 class ReaktoroState:
     def __init__(self):
         """initialize all parameters need to build reaktor solver"""
         self.inputs = RktInputs.RktInputs()
-
-        self.mineral_phase = []
-        self.solid_phase = []
         self.phase_manager = PhaseManager()
         self.exclude_species_list = []
+        self.export_state = ReaktoroStateExport()
+        self._inputs_not_processed = True
 
     def register_system_inputs(
         self,
@@ -579,10 +595,14 @@ class ReaktoroState:
         """set data base of reaktoro"""
         """ assume that if database is string we need to find and init in reaktoro
         other wise assume we received activated reaktoro db"""
-        if isinstance(dbtype, str):
-            self.database = getattr(rkt, dbtype)(database)
+        self.database_type = dbtype
+        self.database_file = database
+
+    def load_database(self):
+        if isinstance(self.database_type, str):
+            self.database = getattr(rkt, self.database_type)(self.database_file)
         else:
-            self.database = dbtype
+            self.database = self.database_type
         self.database_species = [specie.name() for specie in self.database.species()]
         self.database_elements = [
             element.symbol() for element in self.database.elements()
@@ -705,9 +725,9 @@ class ReaktoroState:
 
     def build_state(self):
         # this will build reaktor states
+        self.load_database()
         self.process_registered_inputs()
         phases = self.phase_manager.get_registered_phases(self.database)
-        print(phases)
         self.system = rkt.ChemicalSystem(
             self.database,
             *phases,
@@ -757,3 +777,18 @@ class ReaktoroState:
         self.set_rkt_state()
         rkt.equilibrate(self.state)
         _log.info("Equilibrated successfully")
+
+    def export_config(self):
+        export_object = ReaktoroStateExport()
+        export_object.copy_rkt_inputs(self.inputs)
+        export_object.exclude_species_list = self.exclude_species_list
+        export_object.phase_manager = self.phase_manager
+        export_object.database_file = self.database_file
+        export_object.database_type = self.database_type
+        return export_object
+
+    def load_from_export_object(self, export_object):
+        self.inputs = export_object.inputs
+        self.phase_manager = export_object.phase_manager
+        self.database_file = export_object.database_file
+        self.database_type = export_object.database_type

@@ -577,6 +577,7 @@ class ReaktoroBlockData(ProcessBlockData):
                 dissolve_species_in_rkt=self.config.dissolve_species_in_reaktoro,
                 exact_speciation=True,
             )
+        block.rkt_inputs.build_input_specs()
 
     def build_rkt_outputs(self, block, speciation_block=False):
         """this will build rkt outputs specified block.

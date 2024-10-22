@@ -14,6 +14,7 @@ import reaktoro as rkt
 import reaktoro_pse.core.reaktoro_state as rktState
 
 from pyomo.environ import ConcreteModel, Var, units as pyunits
+import pickle
 
 __author__ = "Alexander V. Dudchenko (SLAC)"
 
@@ -286,3 +287,21 @@ def test_state_with_elements(build_rkt_state_with_elements):
     assert pytest.approx(float(rkt_state.state.props().elementAmount("Na")), 1e-3) == 0
     assert pytest.approx(float(rkt_state.state.props().elementAmount("Cl")), 1e-3) == 0
     assert pytest.approx(float(rkt_state.state.props().elementAmount("C")), 1e-3) == 0
+
+
+def test_state_with_pickle_copy(build_rkt_state_with_species):
+    m, rkt_state = build_rkt_state_with_species
+    rkt_state.register_mineral_phases("Calcite")
+    rkt_state.set_mineral_phase_activity_model()
+    export_state = rkt_state.export_config()
+    pickeld_state = pickle.dumps(export_state)
+
+    import_state = pickle.loads(pickeld_state)
+    new_rkt_state = rktState.ReaktoroState()
+    new_rkt_state.load_from_export_object(import_state)
+    new_rkt_state.build_state()
+    new_rkt_state.equilibrate_state()
+    assert (
+        pytest.approx(float(new_rkt_state.state.props().speciesAmount("Calcite")), 1e-5)
+        == 0.008835542753970915
+    )
