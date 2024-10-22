@@ -33,6 +33,19 @@ _log = idaeslog.getLogger(__name__)
 # class to setup reaktor solver for reaktoro
 
 
+class ReaktoroSolverExport:
+    def __init__(self):
+        self.epsilon = None
+        self.tolerance = None
+        self.presolve = None
+        self.presolve_tolerance = None
+        self.presolve_epsilon = None
+        self.max_iters = None
+        self.presolve_max_iters = None
+        self.hessian_type = None
+        self.block_name = None
+
+
 class ReaktoroSolver:
     def __init__(
         self,
@@ -42,7 +55,7 @@ class ReaktoroSolver:
         reaktoro_jacobian_specs,
         block_name=None,
     ):
-        self.blockName = block_name
+        self.block_name = block_name
         self.state = reaktoro_state
         if isinstance(self.state, ReaktoroState) == False:
             raise TypeError("Reator jacobian require rektoroState class")
@@ -52,8 +65,8 @@ class ReaktoroSolver:
         self.output_specs = reaktoro_output_specs
         if isinstance(self.output_specs, ReaktoroOutputSpec) == False:
             raise TypeError("Reator outputs require ReaktoroOutputSpec class")
-        self.jacbian_specs = reaktoro_jacobian_specs
-        if isinstance(self.jacbian_specs, ReaktoroJacobianSpec) == False:
+        self.jacobian_specs = reaktoro_jacobian_specs
+        if isinstance(self.jacobian_specs, ReaktoroJacobianSpec) == False:
             raise TypeError("Reator outputs require ReaktoroOutputSpec class")
         self.solver_options = rkt.EquilibriumOptions()
         self.presolve_options = rkt.EquilibriumOptions()
@@ -74,6 +87,34 @@ class ReaktoroSolver:
         self._sequential_fails = 0
         self._max_fails = 30
         self._input_params = {}
+
+    def export_config(self):
+        export_object = ReaktoroSolverExport()
+        export_object.epsilon = self.solver_options.epsilon
+        export_object.tolerance = self.solver_options.optima.convergence.tolerance
+        export_object.presolve = self.presolve
+        export_object.presolve_tolerance = (
+            self.presolve_options.optima.convergence.tolerance
+        )
+        export_object.presolve_epsilon = self.presolve_options.epsilon
+        export_object.max_iters = self.solver_options.optima.maxiters
+        export_object.presolve_max_iters = self.presolve_options.optima.maxiters
+        export_object.hessian_type = self.hessian_type
+        export_object.block_name = self.block_name
+        return export_object
+
+    def load_from_export_object(self, export_object):
+        self.block_name = export_object.block_name
+        self.set_solver_options(
+            export_object.epsilon,
+            export_object.tolerance,
+            export_object.presolve,
+            export_object.presolve_tolerance,
+            export_object.presolve_epsilon,
+            export_object.max_iters,
+            export_object.presolve_max_iters,
+            export_object.hessian_type,
+        )
 
     def set_solver_options(
         self,
@@ -130,6 +171,7 @@ class ReaktoroSolver:
             input_obj = self.input_specs.rkt_inputs[input_key]
             if params is None:
                 value = input_obj.get_value(update_temp=True, apply_conversion=True)
+
             else:
                 value = params.get(input_key)
                 input_obj.set_temp_value(value)
@@ -156,11 +198,11 @@ class ReaktoroSolver:
 
     def get_jacobian(self):
         self.tempJacobianMatrix = self.sensitivity.dudw()
-        self.jacbian_specs.update_jacobian_absolute_values()
+        self.jacobian_specs.update_jacobian_absolute_values()
         jac_matrix = []
         for input_key in self.input_specs.rkt_inputs.rkt_input_list:
             input_obj = self.input_specs.rkt_inputs[input_key]
-            jac_row = self.jacbian_specs.get_jacobian(
+            jac_row = self.jacobian_specs.get_jacobian(
                 self.tempJacobianMatrix, input_obj
             )
             jac_matrix.append(jac_row)
@@ -176,13 +218,16 @@ class ReaktoroSolver:
         # here we solve reaktor model and return the jacobian matrix and solution, as
         # Cell as update relevant reaktoroSpecs
         self.update_specs(params)
-
-        result = self.try_solve(presolve)
-        self.outputs = self.get_outputs()
-        self.jacobian_matrix = self.get_jacobian()
-        if result.succeeded() == False or display:
+        solve_failed = False
+        try:
+            result = self.try_solve(presolve)
+            self.outputs = self.get_outputs()
+            self.jacobian_matrix = self.get_jacobian()
+        except RuntimeError:
+            solve_failed = True
+        if solve_failed or result.succeeded() == False or display:
             _log.warning(
-                f"warning, solve was not successful for {self.blockName}, fail# {self._sequential_fails}"
+                f"warning, solve was not successful for {self.block_name}, fail# {self._sequential_fails}"
             )
             _log.warning("----inputs were -----")
             for key, value in self._input_params.items():

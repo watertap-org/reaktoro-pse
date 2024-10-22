@@ -24,6 +24,7 @@ from pyomo.util.calc_var_value import calculate_variable_from_constraint
 import reaktoro
 import idaes.core.util.scaling as iscale
 
+__author__ = "Alexander V. Dudchenko"
 
 # This examples demonstrates how reaktoro graybox can be used to enthalpy and water vapor pressure.
 
@@ -64,7 +65,7 @@ def build_simple_precipitation():
     m.feed_composition["H2O"].fix(55)
     m.feed_composition["Mg"].fix(0.01)
     m.feed_composition["Na"].fix(0.025)
-    m.feed_composition["Cl"].fix(0.025)
+    m.feed_composition["Cl"].fix(0.03)
     m.feed_composition["Ca"].fix(0.002)
     m.feed_composition["HCO3"].fix(0.01)
     m.feed_composition["SO4"].fix(0.02)

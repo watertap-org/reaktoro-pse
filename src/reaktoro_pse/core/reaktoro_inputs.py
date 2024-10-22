@@ -14,12 +14,31 @@ from reaktoro_pse.core.util_classes.rkt_inputs import RktInputs, RktInput, RktIn
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
 
 import idaes.logger as idaeslog
+import copy
 
 _log = idaeslog.getLogger(__name__)
 
 __author__ = "Alexander V. Dudchenko"
 
 """ class to setup input constraints, and specs for reaktoro solver class"""
+
+
+class ReaktoroInputExport:
+    def __init__(self):
+        self.ignore_elements_for_constraints = []
+        self.fixed_solvent_specie = {}
+        self.fixed_solvent_speciation = {}
+        self.rkt_chemical_inputs = None
+        self.assert_charge_neutrality = None
+        self.neutrality_ion = None
+        self.dissolve_species_in_rkt = None
+        self.exact_speciation = None
+
+    def copy_chem_inputs(self, chem_inputs):
+        self.rkt_chemical_inputs = copy.deepcopy(chem_inputs)
+        for key, obj in self.rkt_chemical_inputs.items():
+            # self.inputs[key] = copy.deepcopy(obj)
+            self.rkt_chemical_inputs[key].delete_pyomo_var()
 
 
 class ReaktoroInputSpec:
@@ -91,7 +110,6 @@ class ReaktoroInputSpec:
         system speciation, so if we want to specify pH, we need to allow system to find eq. H/O and fix
         H2O"""
         self.fixed_solvent_specie[phase] = specie
-
         self.fixed_solvent_speciation[phase] = {}
 
     def register_free_elements(self, elements):
@@ -118,12 +136,15 @@ class ReaktoroInputSpec:
         """
         self.dissolve_species_in_rkt = dissolve_species_in_rkt
         self.exact_speciation = exact_speciation
+
+    def build_input_specs(self):
+        """function to build all the input specs"""
         self.breakdown_species_to_elements()
         self.equilibrium_specs = rkt.EquilibriumSpecs(self.state.state.system())
         self.add_specs(
             self.equilibrium_specs,
             self.assert_charge_neutrality,
-            dissolve_species_in_rkt,
+            self.dissolve_species_in_rkt,
         )
 
         # get input name order!
@@ -427,3 +448,29 @@ class ReaktoroInputSpec:
         for specie in self.empty_constraints:
             spec_object.openTo(specie)
             self.write_empty_con(spec_object, specie)
+
+    def export_config(self):
+        export_object = ReaktoroInputExport()
+        export_object.copy_chem_inputs(self.rkt_chemical_inputs)
+        export_object.ignore_elements_for_constraints = (
+            self.ignore_elements_for_constraints
+        )
+        export_object.fixed_solvent_specie = self.fixed_solvent_specie
+        export_object.fixed_solvent_speciation = self.fixed_solvent_speciation
+        export_object.assert_charge_neutrality = self.assert_charge_neutrality
+        export_object.neutrality_ion = self.neutrality_ion
+        export_object.dissolve_species_in_rkt = self.dissolve_species_in_rkt
+        export_object.exact_speciation = self.exact_speciation
+        return export_object
+
+    def load_from_export_object(self, export_object):
+        self.ignore_elements_for_constraints = (
+            export_object.ignore_elements_for_constraints
+        )
+        self.fixed_solvent_specie = export_object.fixed_solvent_specie
+        self.fixed_solvent_speciation = export_object.fixed_solvent_speciation
+        self.rkt_chemical_inputs = export_object.rkt_chemical_inputs
+        self.assert_charge_neutrality = export_object.assert_charge_neutrality
+        self.neutrality_ion = export_object.neutrality_ion
+        self.dissolve_species_in_rkt = export_object.dissolve_species_in_rkt
+        self.exact_speciation = export_object.exact_speciation

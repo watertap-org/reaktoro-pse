@@ -20,6 +20,7 @@ from reaktoro_pse.examples import (
 
 def test_desal():
     m, m_open = simple_desalination.main()
+
     assert (
         pytest.approx(m.desal_properties[("scalingTendency", "Gypsum")].value, 1e-3)
         == 0.604051223942643

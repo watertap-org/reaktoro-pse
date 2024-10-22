@@ -27,6 +27,7 @@ import idaes.core.util.scaling as iscale
 
 import reaktoro as rkt
 
+__author__ = "Alexander V. Dudchenko"
 
 # This examples demonstrates how Reaktoro graybox can be used to estimates
 # properties in desalination process.

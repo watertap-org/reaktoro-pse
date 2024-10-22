@@ -9,13 +9,17 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
+from matplotlib.pylab import f
 import reaktoro as rkt
 
 import json
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
 import reaktoro_pse.core.pyomo_property_writer.property_functions as propFuncs
 from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
+import copy
+import idaes.logger as idaeslog
 
+_log = idaeslog.getLogger(__name__)
 # disabling warnings
 
 __author__ = "Alexander V. Dudchenko"
@@ -42,13 +46,8 @@ class RktOutput:
         self.property_type = property_type
         self.property_name = property_name  # properties from which to extract data
         self.property_index = property_index  # index if any
-        if property_type != PropTypes.pyomo_built_prop:
-            # function for getting reaktoro value
-            self.set_get_function(get_function)
-        else:
-            self.set_poyomo_build_option(
-                get_function
-            )  # class that contains information for building pyomo constraints if any
+        self.get_function = None
+        self.set_option_function(property_type, get_function)
         # pyomo var to reference if any - will be built if not user provided
         self.pyomo_var = pyomo_var
         self.value = value  # manually specified value
@@ -67,6 +66,26 @@ class RktOutput:
             self.value = value
         return value
 
+    def delete_pyomo_var(self):
+        # self.update_values()
+        del self.pyomo_var
+        self.pyomo_var = None
+
+    def remove_unpicklable_data(self):
+        self.delete_pyomo_var()
+        if self.property_type == PropTypes.pyomo_built_prop:
+            del self.pyomo_build_options
+            # self.get_function = None
+
+    def set_option_function(self, property_type, get_function):
+        if property_type != PropTypes.pyomo_built_prop:
+            # function for getting reaktoro value
+            self.set_get_function(get_function)
+        else:
+            self.set_poyomo_build_option(
+                get_function
+            )  # class that contains information for building pyomo constraints if any
+
     def set_poyomo_build_option(self, func):
         self.pyomo_build_options = func
 
@@ -83,13 +102,18 @@ class RktOutput:
         return self.pyomo_var
 
     def set_pyomo_var_value(self, value):
-        self.pyomo_var.value = value
+        self.value = value
+        if self.pyomo_var is not None:
+            self.pyomo_var.set_value(value)
 
-    def get_pyomo_var_value(self, value):
+    def get_pyomo_var_value(self):
         return self.pyomo_var.value
 
     def set_jacobian_value(self, value):
         self.jacobian_value = value
+
+    def get_lb(self):
+        return self.lb
 
 
 class PyomoBuildOptions:
@@ -223,13 +247,47 @@ class PropTypes:
     pyomo_built_prop = "pyomoBuiltProperties"
 
 
+class ReaktoroOutputExport:
+    def __init__(self):
+        self.rkt_outputs = None
+        self.user_outputs = None
+
+    def copy_rkt_outputs(self, outputs):
+        self.rkt_outputs = {}
+        for key, obj in outputs.items():
+            self.rkt_outputs[key] = RktOutput(
+                obj.property_type,
+                obj.property_name,
+                obj.property_index,
+                # get_function=obj.get_function,
+                value=obj.value,
+                jacobian_type=obj.jacobian_type,
+            )
+            self.rkt_outputs[key].remove_unpicklable_data()
+
+    def copy_user_outputs(self, outputs):
+        self.user_outputs = {}  # copy.deepcopy(outputs)
+        for key, obj in outputs.items():
+            self.user_outputs[key] = RktOutput(
+                obj.property_type,
+                obj.property_name,
+                obj.property_index,
+                # get_function=obj.get_function,
+                value=obj.value,
+                jacobian_type=obj.jacobian_type,
+            )
+            self.user_outputs[key].remove_unpicklable_data()
+
+
 class ReaktoroOutputSpec:
     def __init__(self, reaktor_state):
         self.state = reaktor_state
         if isinstance(self.state, ReaktoroState) == False:
             raise TypeError("Reator outputs require rektoroState class")
+
         self.supported_properties = {}
         self.supported_properties[PropTypes.chem_prop] = self.state.state.props()
+
         if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
             self.supported_properties[PropTypes.aqueous_prop] = rkt.AqueousProps(
                 self.state.state.props()
@@ -282,6 +340,7 @@ class ReaktoroOutputSpec:
         property_index=None,
         get_all_indexes=False,
         pyomo_var=None,
+        ignore_indexes=None,
     ):
         """register a reaktoro output, couple it to property type.
 
@@ -292,7 +351,7 @@ class ReaktoroOutputSpec:
         pyomo_var -- pyomo var that should be used for the output of this property (optional: will be auto built) (default: None)
         """
         if get_all_indexes:
-            self.get_all_indexes(property_name)
+            self.get_all_indexes(property_name, ignore_indexes)
         else:
             property_type, get_function = self.get_prop_type(
                 property_name, property_index
@@ -313,58 +372,65 @@ class ReaktoroOutputSpec:
         get_function=None,
         pyomo_var=None,
     ):
-        # if property_index is None:
-        #     index = property_name
-        # else:
         index = (property_name, property_index)
-        if property_type != PropTypes.pyomo_built_prop:
-            self.user_outputs[index] = RktOutput(
-                property_type=property_type,
-                property_name=property_name,
-                property_index=property_index,
-                get_function=get_function,
-                pyomo_var=pyomo_var,
-            )
-            if index not in self.rkt_outputs:
-                self.rkt_outputs[index] = self.user_outputs[index]
-        else:
-            self.user_outputs[index] = RktOutput(
-                property_type=property_type,
-                property_name=property_name,
-                property_index=property_index,
-                get_function=get_function,
-                pyomo_var=pyomo_var,
-            )
-            for index, prop in get_function.properties.items():
-                # chcek if prop already exists if it does ont add it outputs
-                # otherwise overwrite it
+        if index not in self.user_outputs:
+            if property_type != PropTypes.pyomo_built_prop:
+                self.user_outputs[index] = RktOutput(
+                    property_type=property_type,
+                    property_name=property_name,
+                    property_index=property_index,
+                    get_function=get_function,
+                    pyomo_var=pyomo_var,
+                )
                 if index not in self.rkt_outputs:
-                    self.rkt_outputs[index] = prop
-                else:
-                    get_function.properties[index] = self.rkt_outputs[index]
+                    self.rkt_outputs[index] = self.user_outputs[index]
+            else:
+                self.user_outputs[index] = RktOutput(
+                    property_type=property_type,
+                    property_name=property_name,
+                    property_index=property_index,
+                    get_function=get_function,
+                    pyomo_var=pyomo_var,
+                )
+                for index, prop in get_function.properties.items():
+                    # chcek if prop already exists if it does nor add it outputs
+                    # otherwise overwrite it
+                    if index not in self.rkt_outputs:
+                        self.rkt_outputs[index] = prop
+                    else:
+                        get_function.properties[index] = self.rkt_outputs[index]
+        else:
+            _log.warning("Output {index}, already added!")
 
     def get_all_indexes(
         self,
         property_name,
+        ignore_indexes,
     ):
         if "species" in property_name:
             for specie in self.species:
-                property_type, get_function = self.get_prop_type(property_name, specie)
-                self.process_output(
-                    property_type=property_type,
-                    property_name=property_name,
-                    property_index=specie,
-                    get_function=get_function,
-                )
+                if ignore_indexes is None or specie not in str(ignore_indexes):
+                    property_type, get_function = self.get_prop_type(
+                        property_name, specie
+                    )
+                    self.process_output(
+                        property_type=property_type,
+                        property_name=property_name,
+                        property_index=specie,
+                        get_function=get_function,
+                    )
         elif "elements" in property_name:
             for element in self.elements:
-                property_type, get_function = self.get_prop_type(property_name, element)
-                self.process_output(
-                    property_type=property_type,
-                    property_name=property_name,
-                    property_index=element,
-                    get_function=get_function,
-                )
+                if ignore_indexes is None or element not in str(ignore_indexes):
+                    property_type, get_function = self.get_prop_type(
+                        property_name, element
+                    )
+                    self.process_output(
+                        property_type=property_type,
+                        property_name=property_name,
+                        property_index=element,
+                        get_function=get_function,
+                    )
         else:
             raise NotImplementedError(
                 f"{property_name} is not supported for automatic indexing"
@@ -405,7 +471,9 @@ class ReaktoroOutputSpec:
                     pass
 
         raise NotImplementedError(
-            f"The {property_name}, {property_index} is not supported at the moment"
+            f"""The {property_name}, {property_index} was not found,
+                its either not supported, or requested index is not in present.
+            """
         )
 
     def get_possible_indexes(self):
@@ -421,6 +489,30 @@ class ReaktoroOutputSpec:
         #         PropTypes.aqueous_prop
         #     ].saturationSpecies()
         # ]
+
+    def export_config(self):
+        export_object = ReaktoroOutputExport()
+        export_object.copy_rkt_outputs(self.rkt_outputs)
+        export_object.copy_user_outputs(self.user_outputs)
+        return export_object
+
+    def load_from_export_object(self, export_object):
+        self.rkt_outputs = export_object.rkt_outputs
+        self.user_outputs = export_object.user_outputs
+        for key, obj in self.rkt_outputs.items():
+            property_type, get_function = self.get_prop_type(
+                obj.property_name,
+                obj.property_index,
+            )
+            assert property_type == obj.property_type
+            obj.set_option_function(property_type, get_function)
+        for key, obj in self.user_outputs.items():
+            property_type, get_function = self.get_prop_type(
+                obj.property_name,
+                obj.property_index,
+            )
+            assert property_type == obj.property_type
+            obj.set_option_function(property_type, get_function)
 
     #### start of possible call function to extract values from reactoro properties #####
 

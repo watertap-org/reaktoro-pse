@@ -96,7 +96,6 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
                 self.reaktoro_solver.solve_reaktoro_block(params=new_params)
             )
             self.step += 1
-
         self.old_params = copy.deepcopy(new_params)
 
     def evaluate_jacobian_outputs(self):

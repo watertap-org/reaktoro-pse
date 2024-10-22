@@ -30,7 +30,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_order",
             ConfigValue(
-                default=8,
+                default=10,
                 domain=int,
                 description="Defines order of numerical jacobian (should be an even number)",
                 doc="""
@@ -43,7 +43,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_step",
             ConfigValue(
-                default=1e-5,
+                default=5e-3,
                 domain=float,
                 description="Defines the step to use for numerical descritiazaiton",
                 doc="""This will define how small of a step to use for numerical derivative propagation which takes
@@ -89,7 +89,7 @@ class JacobianOptions:
                 domain=IsInstance((str, HessTypes)),
                 description="Hessian type to use for reaktor gray box",
                 doc="""Hessian type to use, some might provide better stability
-                options (Jt.J, BFGS, BFGS-mod,BFGS-damp, BFGS-ipopt""",
+                options (Jt.J, BFGS, BFGS-mod, BFGS-damp, BFGS-ipopt""",
             ),
         )
         return CONFIG

@@ -7,7 +7,11 @@ class PhaseInput:
         pass
 
     def get_dict(
-        self, include_pH=False, aqueous_phase=False, include_solvent_species=False
+        self,
+        include_pH=False,
+        aqueous_phase=False,
+        include_solvent_species=False,
+        include_speciate_phase_component=False,
     ):
         phase_input = ConfigDict()
         phase_input.declare(
@@ -44,6 +48,20 @@ class PhaseInput:
             """,
             ),
         )
+        if include_speciate_phase_component:
+            phase_input.declare(
+                "speciate_phase_component",
+                ConfigValue(
+                    default=False,
+                    description="To speciate specified phases",
+                    doc="""
+                        Use this to speciate give specie or elements to all possible
+                        phases or elements
+                        
+                        Works only on 
+                        Gas phase""",
+                ),
+            )
         phase_input.declare(
             "convert_to_rkt_species",
             ConfigValue(
