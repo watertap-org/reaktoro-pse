@@ -29,6 +29,7 @@ class HessTypes:
     BFGS_mod = "BFGS-mod"
     BFGS_damp = "BFGS-damp"
     BFGS_ipopt = "BFGS-ipopt"
+    diag_inv = "diag-inv"
 
 
 class ReaktoroGrayBox(ExternalGreyBoxModel):
@@ -290,6 +291,13 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
         self.hessian = h_sum
         return self.hessian
 
+    def hessian_diag_inv_value(self):
+        hessian = np.zeros((len(self.inputs), len(self.inputs)))
+        for idx, v in enumerate(self._input_values):
+            hessian[idx, idx] = 1.0 / v
+        self.hessian = hessian
+        return self.hessian
+
     def evaluate_hessian_outputs(self):
         if self.hess_type == HessTypes.JtJ:
             self._hess = self.hessian_gauss_newton_version(sparse_jac=False)
@@ -301,6 +309,8 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
             self._hess = self.hessian_damped_bfgs()
         if self.hess_type == HessTypes.BFGS_ipopt:
             self._hess = self.hessian_ipopt_bfgs_modification()
+        if self.hess_type == HessTypes.diag_inv:
+            self._hess = self.hessian_diag_inv_value()
         jm = np.array(self._hess)
         cm = tril(jm)
         return cm
