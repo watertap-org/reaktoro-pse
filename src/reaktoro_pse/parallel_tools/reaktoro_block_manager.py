@@ -27,6 +27,10 @@ import numpy as np
 from idaes.core.base.process_base import declare_process_block_class, ProcessBlockData
 from pyomo.common.config import ConfigValue, IsInstance, ConfigDict
 
+import idaes.logger as idaeslog
+
+_log = idaeslog.getLogger(__name__)
+
 
 class ReaktoroBlockData:
     def __init__(self):
@@ -246,6 +250,7 @@ class ReaktoroBlockManagerData(ProcessBlockData):
     def build(self):
         super().build()
         self.registered_blocks = []
+        self.blocks_built = False
         self.aggregate_solver_state = AggregateSolverState(
             parallel_mode=self.config.use_parallel_mode,
             maximum_number_of_parallel_solves=self.config.maximum_number_of_parallel_solves,
@@ -295,40 +300,46 @@ class ReaktoroBlockManagerData(ProcessBlockData):
             self.parallel_manager.start_workers()
 
     def build_reaktoro_blocks(self):
-        self.aggregate_inputs_and_outputs()
-        external_model = ReaktoroGrayBox()
-        external_model.configure(
-            self.aggregate_solver_state,
-            inputs=self.aggregate_solver_state.inputs,
-            input_dict=self.aggregate_solver_state.input_dict,
-            outputs=self.aggregate_solver_state.outputs,
-            hessian_type=self.config.hessian_type,
-        )
-        self.reaktoro_model = ExternalGreyBoxBlock(external_model=external_model)
-        for block_idx, block in enumerate(self.registered_blocks):
-            pseudo_gray_box_model = PseudoGrayBox()
-            pseudo_gray_box_model.register_input(
-                self.reaktoro_model.inputs,
-                block.inputs.rkt_inputs.keys(),
-                block_idx,
+        if self.blocks_built:
+            _log.warning(
+                "Reaktoro blocks already built, please ensure all blocks were registered before building."
             )
-            pseudo_gray_box_model.register_output(
-                self.reaktoro_model.outputs,
-                block.outputs.rkt_outputs.keys(),
-                block_idx,
+        else:
+            self.blocks_built = True
+            self.aggregate_inputs_and_outputs()
+            external_model = ReaktoroGrayBox()
+            external_model.configure(
+                self.aggregate_solver_state,
+                inputs=self.aggregate_solver_state.inputs,
+                input_dict=self.aggregate_solver_state.input_dict,
+                outputs=self.aggregate_solver_state.outputs,
+                hessian_type=self.config.hessian_type,
             )
-            if self.config.use_parallel_mode:
-                init_func = self.parallel_manager.get_initialize_function(block_idx)
-                disp_func = self.parallel_manager.get_display_function(block_idx)
-            else:
-                init_func = self.aggregate_solver_state.solver_functions[block_idx]
-                disp_func = None
-            block.builder.build_reaktoro_block(
-                gray_box_model=pseudo_gray_box_model,
-                reaktoro_initialize_function=init_func,
-                display_reaktoro_state_function=disp_func,
-            )
-            block.pseudo_gray_box = pseudo_gray_box_model
+            self.reaktoro_model = ExternalGreyBoxBlock(external_model=external_model)
+            for block_idx, block in enumerate(self.registered_blocks):
+                pseudo_gray_box_model = PseudoGrayBox()
+                pseudo_gray_box_model.register_input(
+                    self.reaktoro_model.inputs,
+                    block.inputs.rkt_inputs.keys(),
+                    block_idx,
+                )
+                pseudo_gray_box_model.register_output(
+                    self.reaktoro_model.outputs,
+                    block.outputs.rkt_outputs.keys(),
+                    block_idx,
+                )
+                if self.config.use_parallel_mode:
+                    init_func = self.parallel_manager.get_initialize_function(block_idx)
+                    disp_func = self.parallel_manager.get_display_function(block_idx)
+                else:
+                    init_func = self.aggregate_solver_state.solver_functions[block_idx]
+                    disp_func = None
+                block.builder.build_reaktoro_block(
+                    gray_box_model=pseudo_gray_box_model,
+                    reaktoro_initialize_function=init_func,
+                    display_reaktoro_state_function=disp_func,
+                )
+                block.pseudo_gray_box = pseudo_gray_box_model
 
     def terminate_workers(self):
         if self.config.use_parallel_mode:
