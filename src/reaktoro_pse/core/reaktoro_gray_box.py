@@ -295,7 +295,10 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
         hessian = np.zeros((len(self.inputs), len(self.inputs)))
         for idx, v in enumerate(self._input_values):
             hessian[idx, idx] = 1.0 / v
-        self.hessian = hessian
+        h_sum = np.zeros((len(self.inputs), len(self.inputs)))
+        for i in range(self.jacobian_matrix.shape[0]):
+            h_sum += self._outputs_dual_multipliers[i] * hessian[i]
+        self.hessian = h_sum
         return self.hessian
 
     def evaluate_hessian_outputs(self):
