@@ -42,7 +42,6 @@ class ReaktoroSolverExport:
         self.presolve_epsilon = None
         self.max_iters = None
         self.presolve_max_iters = None
-        self.hessian_type = None
         self.block_name = None
 
 
@@ -101,7 +100,6 @@ class ReaktoroSolver:
         export_object.presolve_epsilon = self.presolve_options.epsilon
         export_object.max_iters = self.solver_options.optima.maxiters
         export_object.presolve_max_iters = self.presolve_options.optima.maxiters
-        export_object.hessian_type = self.hessian_type
         export_object.block_name = self.block_name
         return export_object
 
@@ -115,7 +113,6 @@ class ReaktoroSolver:
             export_object.presolve_epsilon,
             export_object.max_iters,
             export_object.presolve_max_iters,
-            export_object.hessian_type,
         )
 
     def set_solver_options(
@@ -127,7 +124,6 @@ class ReaktoroSolver:
         presolve_epsilon=1e-12,
         max_iters=500,
         presolve_max_iters=500,
-        hessian_type="J.tJ",
     ):
         """configuration for reaktro solver
 
@@ -147,7 +143,6 @@ class ReaktoroSolver:
         self.presolve_options.optima.convergence.tolerance = presolve_tolerance
         self.presolve = presolve
         self.solver.setOptions(self.solver_options)
-        self.hessian_type = hessian_type
         if self.input_specs.assert_charge_neutrality:
             self.conditions.charge(0)
 

@@ -82,14 +82,4 @@ class JacobianOptions:
                 """,
             ),
         )
-        CONFIG.declare(
-            "hessian_type",
-            ConfigValue(
-                default="BFGS",
-                domain=IsInstance((str, HessTypes)),
-                description="Hessian type to use for reaktor gray box",
-                doc="""Hessian type to use, some might provide better stability
-                options (Jt.J, BFGS, BFGS-mod, BFGS-damp, BFGS-ipopt""",
-            ),
-        )
         return CONFIG

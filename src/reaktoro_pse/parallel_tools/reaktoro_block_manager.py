@@ -53,7 +53,6 @@ class ReaktoroBlockData:
 
 class AggregateSolverState:
     def __init__(self, parallel_mode=True, maximum_number_of_parallel_solves=None):
-        self.hessian_type = None
         self.inputs = []
         self.input_dict = {}
         self.input_blk_indexes = []
@@ -204,16 +203,6 @@ class PseudoGrayBox:
 class ReaktoroBlockManagerData(ProcessBlockData):
     CONFIG = ProcessBlockData.CONFIG()
     CONFIG.declare(
-        "hessian_type",
-        ConfigValue(
-            default="BFGS",
-            domain=IsInstance((str, HessTypes)),
-            description="Hessian type to use for reaktor gray box",
-            doc="""Hessian type to use, some might provide better stability
-                options (Jt.J, BFGS, BFGS-mod, BFGS-damp, BFGS-ipopt""",
-        ),
-    )
-    CONFIG.declare(
         "use_parallel_mode",
         ConfigValue(
             default=True,
@@ -302,7 +291,6 @@ class ReaktoroBlockManagerData(ProcessBlockData):
             inputs=self.aggregate_solver_state.inputs,
             input_dict=self.aggregate_solver_state.input_dict,
             outputs=self.aggregate_solver_state.outputs,
-            hessian_type=self.config.hessian_type,
         )
         self.reaktoro_model = ExternalGreyBoxBlock(external_model=external_model)
         for block_idx, block in enumerate(self.registered_blocks):

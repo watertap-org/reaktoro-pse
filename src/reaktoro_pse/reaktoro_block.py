@@ -716,7 +716,6 @@ class ReaktoroBlockData(ProcessBlockData):
             presolve_epsilon=self.config.reaktoro_presolve_options.epsilon,
             max_iters=self.config.reaktoro_solve_options.max_iterations,
             presolve_max_iters=self.config.reaktoro_presolve_options.max_iterations,
-            hessian_type=self.config.jacobian_options.hessian_type,
         )
 
     def build_gray_box(self, block):
