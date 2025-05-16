@@ -329,7 +329,6 @@ def ReaktoroActor(
                 option = msg[1]
             else:
                 command = msg
-
             if command == WorkerMessages.update_values:
                 reaktoro_worker.update_inputs()
                 result = WorkerMessages.success

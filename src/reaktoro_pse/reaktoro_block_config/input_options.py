@@ -154,7 +154,7 @@ class SystemInput:
     def __init__(self):
         pass
 
-    def get_dict(self):
+    def get_dict(self, enable_pH=True):
         system_input = ConfigDict()
         system_input.declare(
             "temperature",
@@ -216,26 +216,27 @@ class SystemInput:
                     - If false, all indexed blocks will get same input""",
             ),
         )
-        system_input.declare(
-            "pH",
-            ConfigValue(
-                default=None,
-                domain=IsInstance((VarData, Var, dict, IndexedVar)),
-                description="Input pH for reaktoro block",
-                doc="Var or IndexedVar that references system pH",
-            ),
-        )
-        system_input.declare(
-            "pH_indexed",
-            ConfigValue(
-                default=True,
-                domain=bool,
-                description="pH is indexed",
-                doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
-                - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
-                - If false, all indexed blocks will get same input""",
-            ),
-        )
+        if enable_pH:
+            system_input.declare(
+                "pH",
+                ConfigValue(
+                    default=None,
+                    domain=IsInstance((VarData, Var, dict, IndexedVar)),
+                    description="Input pH for reaktoro block",
+                    doc="Var or IndexedVar that references system pH",
+                ),
+            )
+            system_input.declare(
+                "pH_indexed",
+                ConfigValue(
+                    default=True,
+                    domain=bool,
+                    description="pH is indexed",
+                    doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
+                    - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
+                    - If false, all indexed blocks will get same input""",
+                ),
+            )
         system_input.declare(
             "temperature_bounds",
             ConfigValue(

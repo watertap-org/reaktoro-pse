@@ -13,9 +13,10 @@
 from idaes.core.base.process_base import declare_process_block_class, ProcessBlockData
 import idaes.logger as idaeslog
 
+
 from pyomo.common.config import ConfigValue, IsInstance
 from pyomo.core.base.var import IndexedVar
-from pyomo.environ import Block
+from pyomo.environ import Block, Constraint
 
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
 from reaktoro_pse.core.reaktoro_inputs import (
@@ -37,6 +38,9 @@ from reaktoro_pse.reaktoro_block_config.jacobian_options import JacobianOptions
 from reaktoro_pse.reaktoro_block_config.reaktoro_solver_options import (
     ReaktoroSolverOptions,
 )
+from pyomo.contrib.pynumero.interfaces.external_grey_box import (
+    ExternalGreyBoxModel,
+)
 from reaktoro_pse.reaktoro_block_config.input_options import (
     PhaseInput,
     SystemInput,
@@ -55,23 +59,62 @@ class ReaktoroBlockData(ProcessBlockData):
         PhaseInput().get_dict(
             include_pH=True, aqueous_phase=True, include_solvent_species=True
         ),
+        # description="Defines aqueous phase properties",
+        # doc="""Defines aqueous phase properties""",
     )
     CONFIG.declare(
         RktInputTypes.liquid_phase,
         PhaseInput().get_dict(
             include_pH=True, aqueous_phase=False, include_solvent_species=True
         ),
+        # description="Defines aqueous liquid properties",
+        # doc="""Defines aqueous liquid properties""",
     )
     CONFIG.declare(
         RktInputTypes.gas_phase,
         PhaseInput().get_dict(include_speciate_phase_component=True),
+        # description="Defines aqueous gas properties",
+        # doc="""Defines aqueous gas properties""",
     )
-    CONFIG.declare(RktInputTypes.condensed_phase, PhaseInput().get_dict())
-    CONFIG.declare(RktInputTypes.mineral_phase, PhaseInput().get_dict())
-    CONFIG.declare(RktInputTypes.solid_phase, PhaseInput().get_dict())
-    CONFIG.declare(RktInputTypes.ion_exchange_phase, PhaseInput().get_dict())
-    CONFIG.declare(RktInputTypes.system_state, SystemInput().get_dict())
-
+    CONFIG.declare(
+        RktInputTypes.condensed_phase,
+        PhaseInput().get_dict(),
+        # description="Defines aqueous condensed phase properties",
+        # doc="""Defines aqueous condensed phase properties""",
+    )
+    CONFIG.declare(
+        RktInputTypes.mineral_phase,
+        PhaseInput().get_dict(),
+        # description="Defines mineral phase properties",
+        # doc="""Defines aqueous mineral phase properties""",
+    )
+    CONFIG.declare(
+        RktInputTypes.solid_phase,
+        PhaseInput().get_dict(),
+        # description="Defines aqueous liquid properties",
+        # doc="""Defines aqueous liquid properties""",
+    )
+    CONFIG.declare(
+        RktInputTypes.ion_exchange_phase,
+        PhaseInput().get_dict(),
+        # description="Defines ion exchange properties",
+        # doc="""Defines ion exchange properties""",
+    )
+    CONFIG.declare(
+        RktInputTypes.system_state,
+        SystemInput().get_dict(),
+        # description="Defines system state",
+        # doc="""Defines system state""",
+    )
+    CONFIG.declare(
+        RktInputTypes.system_state_modifier,
+        SystemInput().get_dict(enable_pH=False),
+        # description="Defines system state modifier (used if speciation block is built on property block)",
+        # doc="""Defines system state modifier (used if speciation block is built on property block)
+        #         e.g. define changes in system pressure, temperature or enthalpy
+        #         Note: Changes in pH are not supported, please use acid or base addition to modulate pH
+        #        """,
+    )
     CONFIG.declare(
         "build_speciation_block",
         ConfigValue(
@@ -363,6 +406,12 @@ class ReaktoroBlockData(ProcessBlockData):
             else:
                 return input_option
 
+        def get_prop_state(initial_state, modified_state, variable):
+            if getattr(modified_state, variable) is None:
+                return initial_state
+            else:
+                return modified_state
+
         def get_phases(phase_type):
             if (
                 building_prop_block_after_speciation()
@@ -394,17 +443,38 @@ class ReaktoroBlockData(ProcessBlockData):
             )
 
         # setup system inputs
+        if building_prop_block_after_speciation():
+            temperature_state = get_prop_state(
+                self.config.system_state,
+                self.config.system_state_modifier,
+                "temperature",
+            )
+            pressure_state = get_prop_state(
+                self.config.system_state, self.config.system_state_modifier, "pressure"
+            )
+            enthalpy_state = get_prop_state(
+                self.config.system_state, self.config.system_state_modifier, "enthalpy"
+            )
+            pH_state = self.config.system_state
+            # get_prop_state(
+            #     self.config.system_state, self.config.system_state_modifier, "pH"
+            # )
+        else:
+            # use initial state
+            temperature_state = self.config.system_state
+            pressure_state = self.config.system_state
+            enthalpy_state = self.config.system_state
+            pH_state = self.config.system_state
+
         block.rkt_state.register_system_inputs(
-            temperature=self.config.system_state.temperature,
-            pressure=self.config.system_state.pressure,
-            enthalpy=self.config.system_state.enthalpy,
-            enthalpy_index=get_indexing(self.config.system_state.enthalpy_indexed),
-            temperature_index=get_indexing(
-                self.config.system_state.temperature_indexed
-            ),
-            pressure_index=get_indexing(self.config.system_state.pressure_indexed),
-            pH=return_none_option(self.config.system_state.pH),
-            pH_index=get_indexing(self.config.system_state.pH_indexed),
+            temperature=temperature_state.temperature,
+            pressure=pressure_state.pressure,
+            enthalpy=enthalpy_state.enthalpy,
+            enthalpy_index=get_indexing(enthalpy_state.enthalpy_indexed),
+            temperature_index=get_indexing(temperature_state.temperature_indexed),
+            pressure_index=get_indexing(pressure_state.pressure_indexed),
+            pH=return_none_option(pH_state.pH),
+            pH_index=get_indexing(pH_state.pH_indexed),
         )
         # setup aqueous inputs
         aqueous_input_composition = self.config.aqueous_phase.composition
@@ -812,3 +882,19 @@ class ReaktoroBlockData(ProcessBlockData):
             self.speciation_block.rkt_block_builder.initialize(presolve)
         _log.info(f"---initializing property block {str(self)}----")
         self.rkt_block_builder.initialize(presolve)
+
+    def deactivate(self):
+        """Deactivates all constraints and grayboxes"""
+        super().deactivate()
+        for v in self.component_data_objects(Constraint):
+            v.deactivate()
+        for v in self.component_data_objects(ExternalGreyBoxModel):
+            v.deactivate()
+
+    def activate(self):
+        """Activates all constraints and grayboxes"""
+        super().activate()
+        for v in self.component_data_objects(Constraint):
+            v.activate()
+        for v in self.component_data_objects(ExternalGreyBoxModel):
+            v.activate()

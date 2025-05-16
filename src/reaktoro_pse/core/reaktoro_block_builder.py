@@ -364,6 +364,6 @@ class ReaktoroBlockBuilder:
 
     def display_state(self):
         if self.display_reaktoro_state_function is None:
-            print(self.solver.state)
+            print(self.solver.state.state)
         else:
             self.display_reaktoro_state_function()

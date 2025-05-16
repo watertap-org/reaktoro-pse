@@ -29,6 +29,7 @@ class RktInputTypes:
     dimensionless = "dimensionless"
     mass_units = ["kg", "mg"]
     system_state = "system_state"
+    system_state_modifier = "system_state_modifier"
     aqueous_phase = "aqueous_phase"
     gas_phase = "gas_phase"
     mineral_phase = "mineral_phase"
