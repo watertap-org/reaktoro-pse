@@ -304,6 +304,7 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
         cm = _sparse_diagonal(len(self.inputs))
         return cm
 
+
 def _sparse_diagonal(shape):
     rows = []
     cols = []
@@ -313,4 +314,4 @@ def _sparse_diagonal(shape):
         cols.append(i)
         vals.append(1e-16)
 
-    return coo_matrix((vals, (rows, cols)), shape=(shape,shape))
+    return coo_matrix((vals, (rows, cols)), shape=(shape, shape))
