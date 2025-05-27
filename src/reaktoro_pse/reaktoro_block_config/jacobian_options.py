@@ -93,12 +93,12 @@ class JacobianOptions:
                 
                 - ZeroHessian - no hessian
                 - GaussNewton - default
+                - LBFGS - limited memory BFGS
                 - BFGS - Broyden-Fletcher-Goldfarb-Shanno   
-                - BFGS_mod - modified BFGS
+                - CBFGS - conditional BFGS
+                  BFGS_mod - modified BFGS
                 - BFGS_damp - damped BFGS   
                 - BFGS_ipopt - BFGS with ipopt update step
-                - diag_inv - diagonal inverse
-                    
                     """,
             ),
         )

@@ -29,6 +29,8 @@ class ReaktoroInputExport:
         self.fixed_solvent_specie = {}
         self.fixed_solvent_speciation = {}
         self.fixed_solvent_type = {}
+
+        self.fixed_species = {}
         self.rkt_chemical_inputs = None
         self.assert_charge_neutrality = None
         self.neutrality_ion = None
@@ -76,6 +78,8 @@ class ReaktoroInputSpec:
         self.fixed_solvent_specie = {}
         self.fixed_solvent_speciation = {}
         self.fixed_solvent_type = {}
+
+        self.fixed_species = {}
         # execute default configuration options, user can update settings
         self.register_charge_neutrality()
         self.default_speciation()
@@ -135,6 +139,13 @@ class ReaktoroInputSpec:
         self.fixed_solvent_speciation[phase] = {}
         if solvent_name is not None:
             self.fixed_solvent_type[specie] = solvent_name
+
+    def register_fixed_species(self, specie, input_name=None):
+        if specie not in self.fixed_species:
+            if input_name is not None:
+                self.fixed_species[specie] = input_name
+            else:
+                self.fixed_species[specie] = specie
 
     def register_free_elements(self, elements):
         if elements is not None:
@@ -278,6 +289,12 @@ class ReaktoroInputSpec:
                 self.write_element_sum_constraint(specs_object, element)
             else:
                 self.write_elementAmount_constraint(specs_object, element)
+        for specie, input_name in self.fixed_species.items():
+            self.write_speciesAmount_constraint(specs_object, specie, input_name)
+            self.rkt_inputs[input_name] = self.state.inputs[input_name]
+            self.rkt_inputs[input_name].set_rkt_input_name(input_name)
+            self.rkt_inputs[input_name].set_lower_bound(0)
+            self.rkt_inputs.rkt_input_list.append(input_name)
         if self.exact_speciation == False or self.fixed_solvent_type != {}:
             self.add_solvent_constraints(specs_object)
 
@@ -311,7 +328,11 @@ class ReaktoroInputSpec:
         self.write_open_solvent_constraints(specs_object)
 
     def update_constraint_dict(self, element, specie, coeff):
-        if element not in self.ignore_elements_for_constraints:
+        if (
+            element
+            not in self.ignore_elements_for_constraints
+            # and specie not in self.fixed_species
+        ):
             self.constraint_dict[element].append((coeff, specie))
             if specie not in self.active_species:
                 self.active_species.append(specie)
@@ -475,10 +496,13 @@ class ReaktoroInputSpec:
         )
         spec_object.addConstraint(constraint)
 
-    def write_elementAmount_constraint(self, spec_object, element):
+    def write_elementAmount_constraint(self, spec_object, element, input_name=None):
         """writes a elements amount constraint for reaktoro"""
         spec_object.openTo(element)
-        idx = spec_object.addInput(f"input{element}")
+        if input_name is None:
+            idx = spec_object.addInput(f"input{element}")
+        else:
+            idx = spec_object.addInput(f"input{input_name}")
         constraint = rkt.EquationConstraint()
         constraint.id = f"{element}_constraint"
         constraint.fn = (
@@ -555,6 +579,7 @@ class ReaktoroInputSpec:
         export_object.chemical_to_elements = self.chemical_to_elements
         export_object.fixed_solvent_type = self.fixed_solvent_type
         export_object.empty_constraints = self.empty_constraints
+        export_object.fixed_species = self.fixed_species
         return export_object
 
     def load_from_export_object(self, export_object):
@@ -571,3 +596,4 @@ class ReaktoroInputSpec:
         self.exact_speciation = export_object.exact_speciation
         self.chemical_to_elements = export_object.chemical_to_elements
         self.empty_constraints = export_object.empty_constraints
+        self.fixed_species = export_object.fixed_species

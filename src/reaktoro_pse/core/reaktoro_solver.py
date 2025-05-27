@@ -75,8 +75,8 @@ class ReaktoroSolver:
         existing_constraints = self.input_specs.equilibrium_specs.namesConstraints()
 
         existing_variables = self.input_specs.equilibrium_specs.namesControlVariables()
-        _log.debug(f"rktSolver inputs: {existing_variables}")
-        _log.debug(f"rktSolver constraints: {existing_constraints}")
+        _log.info(f"rktSolver inputs: {existing_variables}")
+        _log.info(f"rktSolver constraints: {existing_constraints}")
         self.solver = rkt.EquilibriumSolver(self.input_specs.equilibrium_specs)
         self.conditions = rkt.EquilibriumConditions(self.input_specs.equilibrium_specs)
 

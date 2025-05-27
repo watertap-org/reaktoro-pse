@@ -185,7 +185,7 @@ def initialize(m):
     m.eq_desal_properties.initialize()
 
     solve(m)
-    m.eq_desal_properties.display_reaktoro_state()
+    # m.eq_desal_properties.display_reaktoro_state()
 
 
 def setup_optimization(m):
@@ -208,7 +208,7 @@ def solve(m):
     cy_solver = get_cyipopt_watertap_solver()
     result = cy_solver.solve(m, tee=True)
     display_results(m)
-    m.eq_desal_properties.display_reaktoro_state()
+    # m.eq_desal_properties.display_reaktoro_state()
     return result
 
 
