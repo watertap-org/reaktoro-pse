@@ -532,7 +532,6 @@ class ReaktoroBlockBuilder:
                             apply_conversion=False
                         )
                     )
-
                 iscale.set_scaling_factor(self.block.reaktoro_model.inputs[key], sf)
                 iscale.constraint_scaling_transform(
                     self.block.input_constraints[key], sf

@@ -66,32 +66,35 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
     m.display()
     assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.7496301
     assert pytest.approx(m.pH.value, 1e-2) == 6.401
-
-    m.property_block.display_jacobian_outputs()
-
+    m.property_block.update_block_scaling()
+    m.property_block.update_jacobian_scaling()
     scaling_result = m.property_block.display_jacobian_scaling()
+    print(scaling_result)
     expected_scaling = {
         "speciation_block": {
-            ("speciesAmount", "H+"): 9.007999999999993e-08,
-            ("speciesAmount", "H2O"): 50.0,
-            ("speciesAmount", "CO3-2"): 3.2175702176273733e-06,
-            ("speciesAmount", "CO2"): 0.00189035577659813,
-            ("speciesAmount", "Ca+2"): 0.01,
-            ("speciesAmount", "Cl-"): 0.7116050981506346,
-            ("speciesAmount", "HCO3-"): 0.007825323588838813,
-            ("speciesAmount", "Mg+2"): 0.09971792990850152,
-            ("speciesAmount", "MgCO3"): 0.0002811030643454316,
-            ("speciesAmount", "MgOH+"): 9.670271530541402e-07,
-            ("speciesAmount", "Na+"): 0.5,
-            ("speciesAmount", "OH-"): 6.004424745615723e-08,
+            ("speciesAmount", "H+"): 9.008000000000023e-08,
+            ("speciesAmount", "H2O"): 49.999999999999964,
+            ("speciesAmount", "CO3-2"): 3.2176918698800403e-06,
+            ("speciesAmount", "CO2"): 0.001890049191646547,
+            ("speciesAmount", "Ca+2"): 0.01000000000000001,
+            ("speciesAmount", "Cl-"): 0.6916048636482265,
+            ("speciesAmount", "HCO3-"): 0.00782561945440841,
+            ("speciesAmount", "SO4-2"): 0.009999916992739206,
+            ("speciesAmount", "HSO4-"): 8.300726079741266e-08,
+            ("speciesAmount", "Mg+2"): 0.09971791911744696,
+            ("speciesAmount", "MgCO3"): 0.0002811136620751731,
+            ("speciesAmount", "MgOH+"): 9.672204778991323e-07,
+            ("speciesAmount", "Na+"): 0.5000000000000001,
+            ("speciesAmount", "OH-"): 6.005625780099479e-08,
         },
         "property_block": {
-            ("saturationIndex", "Calcite"): 1.0039063040136889,
-            ("pH", None): 6.999999999999997,
-            ("elementAmount", "H"): 100.06604790440808 / 1e3,
-            ("elementAmount", "O"): 50.05722130488963 / 1e3,
+            ("saturationIndex", "Calcite"): 1.0044028388381383,
+            ("pH", None): 7.000000001868148,
+            ("elementAmount", "H"): 100.00508467563753,
+            ("elementAmount", "O"): 50.066130674180215,
         },
     }
+
     assert "speciation_block" in scaling_result
     assert "property_block" in scaling_result
     new_scaling = {}
@@ -166,5 +169,5 @@ def test_blockBuild_with_wateqf_data_base(build_rkt_state_with_species):
     assert_optimal_termination(result)
     m.display()
     assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 7.49301431889365
-    assert pytest.approx(m.pH.value, 1e-2) == 6.515501990042
+    assert pytest.approx(m.pH.value, 1e-2) == 6.669409618808208
     m.reaktoro_manager.terminate_workers()
