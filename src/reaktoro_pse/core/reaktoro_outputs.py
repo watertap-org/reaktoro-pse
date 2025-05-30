@@ -18,6 +18,7 @@ import reaktoro_pse.core.pyomo_property_writer.property_functions as propFuncs
 from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 import copy
 import idaes.logger as idaeslog
+import math
 
 _log = idaeslog.getLogger(__name__)
 # disabling warnings
@@ -46,6 +47,10 @@ class RktOutput:
         self.property_type = property_type
         self.property_name = property_name  # properties from which to extract data
         self.property_index = property_index  # index if any
+        self.jacobian_index = (
+            property_name,
+            property_index,
+        )  # index for jacobian if any
         self.get_function = None
         self.set_option_function(property_type, get_function)
         # pyomo var to reference if any - will be built if not user provided
@@ -58,13 +63,40 @@ class RktOutput:
             stoichiometric_coeff  # for tracking stichometry if needed
         )
         self.jacobian_type = jacobian_type
+        self.auto_scaled = False
+        self.min_rkt_value = None
+        self.max_rkt_value = None
+        self.io_type = None
+        self.conversion_function = None
+        self.derivative_conversion_function = None
+        self.derivative_conversion_value = 1
+        self.converted_prop_type = None
 
-    def get_value(self, prop_object, update_values=False):
+    def get_value(self, prop_object, update_values=False, apply_der_conversion=True):
         value = self.get_function(prop_object, self.property_name, self.property_index)
-        # print(self.property_name, self.property_index, value)
+        if self.min_rkt_value is not None and value < self.min_rkt_value:
+            value = self.min_rkt_value
+        if self.max_rkt_value is not None and value > self.max_rkt_value:
+            value = self.max_rkt_value
+        value, derivative_conversion_value = self.apply_conversions(value)
+        if apply_der_conversion:
+            self.derivative_conversion_value = derivative_conversion_value
         if update_values:
             self.value = value
+
         return value
+
+    def get_derivative_conversion_factor(self):
+        return self.derivative_conversion_value
+
+    def apply_conversions(self, value):
+        """apply conversion functions if any"""
+        if self.conversion_function is not None:
+            converted_value = self.conversion_function(value)
+            derivative_conversion = self.derivative_conversion_function(value)
+            return converted_value, derivative_conversion
+        else:
+            return value, 1
 
     def delete_pyomo_var(self):
         # self.update_values()
@@ -159,6 +191,22 @@ class PyomoProperties:
         )
         return required_props
 
+    def chargeDirect(self, property_index):
+        """build pyomo constraint for charge calculations directly form chem props"""
+        required_props = PyomoBuildOptions()
+        required_props.register_property(PropTypes.chem_prop, "charge", property_index)
+        species = []
+        for specie in self.state.state.system().species():
+            name, charge = specie.name(), specie.charge()
+            if charge != 0:
+                species.append((name, charge))
+                required_props.register_property(
+                    PropTypes.chem_prop, "speciesAmount", name
+                )
+        required_props.register_option("species", species)
+        required_props.register_build_function(propFuncs.build_direct_charge)
+        return required_props
+
     def scalingTendencyDirect(self, property_index):
         """build pyomo constraint for scaling index calculations directly form chem props
         #TODO: Need to add check for database being used as only PhreeqC is really supported at the
@@ -251,12 +299,46 @@ class PyomoProperties:
         return required_props
 
 
+class ConvertedPropTypes:
+    def __init__(self, reaktor_state, chem_props, aqueous_props):
+        self.state = reaktor_state
+        self.chem_props = chem_props
+        self.aqueous_props = aqueous_props
+
+    def scalingTendency(self, property_index):
+        """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
+        output = RktOutput(
+            property_type=PropTypes.aqueous_prop,
+            property_name="saturationIndex",
+            property_index=property_index,
+        )
+        output.converted_prop_type = "scalingTendency"
+        output.conversion_function = lambda x: 10 ** (x)
+        output.derivative_conversion_function = lambda x: 10**x * math.log(10)
+        return output
+
+    def logSpeciesAmount(self, property_index):
+        """build log species amount"""
+        output = RktOutput(
+            property_type=PropTypes.chem_prop,
+            property_name="speciesAmount",
+            property_index=property_index,
+        )
+        output.converted_prop_type = "logSpeciesAmount"
+        output.conversion_function = lambda x: math.log10(x)
+        output.derivative_conversion_function = lambda x: 1 / (x * math.log(10))
+        return output
+
+
 class PropTypes:
     """define base property types"""
 
     chem_prop = "chemProp"
     aqueous_prop = "aqueousProp"
     pyomo_built_prop = "pyomoBuiltProperties"
+    converted_prop = (
+        "convertedProp"  # used for converted properties, like pH, alkalinity, etc
+    )
 
 
 class ReaktoroOutputExport:
@@ -275,6 +357,9 @@ class ReaktoroOutputExport:
                 value=obj.value,
                 jacobian_type=obj.jacobian_type,
             )
+            self.rkt_outputs[key].min_rkt_value = obj.min_rkt_value
+            self.rkt_outputs[key].max_rkt_value = obj.max_rkt_value
+            self.rkt_outputs[key].converted_prop_type = obj.converted_prop_type
             self.rkt_outputs[key].remove_unpicklable_data()
 
     def copy_user_outputs(self, outputs):
@@ -288,6 +373,9 @@ class ReaktoroOutputExport:
                 value=obj.value,
                 jacobian_type=obj.jacobian_type,
             )
+            self.user_outputs[key].min_rkt_value = obj.min_rkt_value
+            self.user_outputs[key].max_rkt_value = obj.max_rkt_value
+            self.user_outputs[key].converted_prop_type = obj.converted_prop_type
             self.user_outputs[key].remove_unpicklable_data()
 
 
@@ -304,19 +392,20 @@ class ReaktoroOutputSpec:
             self.supported_properties[PropTypes.aqueous_prop] = rkt.AqueousProps(
                 self.state.state.props()
             )
-            self.supported_properties[PropTypes.pyomo_built_prop] = PyomoProperties(
-                self.state,
-                self.supported_properties[PropTypes.chem_prop],
-                self.supported_properties[PropTypes.aqueous_prop],
-            )
+            aq_props = self.supported_properties[PropTypes.aqueous_prop]
         else:
-            self.supported_properties[PropTypes.pyomo_built_prop] = PyomoProperties(
-                self.state,
-                self.supported_properties[PropTypes.chem_prop],
-                None,
-            )
+            aq_props = None
+        self.supported_properties[PropTypes.pyomo_built_prop] = PyomoProperties(
+            self.state, self.supported_properties[PropTypes.chem_prop], aq_props
+        )
+        self.supported_properties[PropTypes.converted_prop] = ConvertedPropTypes(
+            self.state, self.supported_properties[PropTypes.chem_prop], aq_props
+        )
+
         self.rkt_outputs = {}  # outputs that reaktoro needs to generate
         self.user_outputs = {}  # outputs user requests
+        self.output_limits = {}
+        self.register_output_limits("speciesAmount", min_value=1e-16, max_value=None)
         self.get_possible_indexes()
 
     def update_supported_props(self):
@@ -327,7 +416,11 @@ class ReaktoroOutputSpec:
             )
 
     def evaluate_property(
-        self, RktOutputObject, property_type=None, update_values_in_object=False
+        self,
+        RktOutputObject,
+        property_type=None,
+        update_values_in_object=False,
+        apply_der_conversion=True,
     ):
         """evaluating reaktoro output object, doing it here so we can
         provide custom property types -> this will be require for numerical derivatives
@@ -343,7 +436,9 @@ class ReaktoroOutputSpec:
             )
         if property_type is None:
             property_type = self.supported_properties[RktOutputObject.property_type]
-        return RktOutputObject.get_value(property_type, update_values_in_object)
+        return RktOutputObject.get_value(
+            property_type, update_values_in_object, apply_der_conversion
+        )
 
     def register_output(
         self,
@@ -375,6 +470,23 @@ class ReaktoroOutputSpec:
                 pyomo_var=pyomo_var,
             )
 
+    def register_output_limits(self, property_name, min_value=None, max_value=None):
+        """register output limits for the property, this will be used to limit the output values from reaktoro solve before passing them
+        to pyomo variables, this is useful for scaling and limiting outputs to avoid numerical issues
+        """
+
+        self.output_limits[property_name] = {
+            "min_rkt_value": min_value,
+            "max_rkt_value": max_value,
+        }
+
+    def apply_output_limits(self, property_name, rkt_output):
+
+        if property_name in self.output_limits:
+            limits = self.output_limits[property_name]
+            rkt_output.min_rkt_value = limits["min_rkt_value"]
+            rkt_output.max_rkt_value = limits["max_rkt_value"]
+
     def process_output(
         self,
         property_type,
@@ -385,7 +497,12 @@ class ReaktoroOutputSpec:
     ):
         index = (property_name, property_index)
         if index not in self.user_outputs:
-            if property_type != PropTypes.pyomo_built_prop:
+            prop_type = None
+            if "specie" in property_name:
+                prop_type = "specie"
+            elif "element" in property_name:
+                prop_type = "element"
+            if property_type == PropTypes.pyomo_built_prop:
                 self.user_outputs[index] = RktOutput(
                     property_type=property_type,
                     property_name=property_name,
@@ -393,8 +510,33 @@ class ReaktoroOutputSpec:
                     get_function=get_function,
                     pyomo_var=pyomo_var,
                 )
+                self.apply_output_limits(property_name, self.user_outputs[index])
+                self.user_outputs[index].io_type = prop_type
+                for index, prop in get_function.properties.items():
+                    # check if prop already exists if it does nor add it outputs
+                    # otherwise overwrite it
+                    if index not in self.rkt_outputs:
+                        self.rkt_outputs[index] = prop
+                    else:
+                        get_function.properties[index] = self.rkt_outputs[index]
+                    self.apply_output_limits(
+                        prop.property_name, self.rkt_outputs[index]
+                    )
+
+            elif property_type == PropTypes.converted_prop:
+                # if converted prop, we need to get the converted prop type
+                # and then set the get function
+                self.user_outputs[index] = get_function
+                self.user_outputs[index].set_pyomo_var(pyomo_var)
+                self.apply_output_limits(
+                    get_function.property_name, self.user_outputs[index]
+                )
                 if index not in self.rkt_outputs:
                     self.rkt_outputs[index] = self.user_outputs[index]
+                    self.rkt_outputs[index].jacobian_index = (
+                        get_function.property_name,
+                        get_function.property_index,
+                    )
             else:
                 self.user_outputs[index] = RktOutput(
                     property_type=property_type,
@@ -403,13 +545,11 @@ class ReaktoroOutputSpec:
                     get_function=get_function,
                     pyomo_var=pyomo_var,
                 )
-                for index, prop in get_function.properties.items():
-                    # chcek if prop already exists if it does nor add it outputs
-                    # otherwise overwrite it
-                    if index not in self.rkt_outputs:
-                        self.rkt_outputs[index] = prop
-                    else:
-                        get_function.properties[index] = self.rkt_outputs[index]
+
+                self.apply_output_limits(property_name, self.user_outputs[index])
+                self.user_outputs[index].io_type = prop_type
+                if index not in self.rkt_outputs:
+                    self.rkt_outputs[index] = self.user_outputs[index]
         else:
             _log.warning("Output {index}, already added!")
 
@@ -418,19 +558,20 @@ class ReaktoroOutputSpec:
         property_name,
         ignore_indexes,
     ):
-        if "species" in property_name:
+        if "specie" in property_name.lower():
             for specie in self.species:
                 if ignore_indexes is None or specie not in str(ignore_indexes):
                     property_type, get_function = self.get_prop_type(
                         property_name, specie
                     )
+                    print(property_type, get_function)
                     self.process_output(
                         property_type=property_type,
                         property_name=property_name,
                         property_index=specie,
                         get_function=get_function,
                     )
-        elif "elements" in property_name:
+        elif "element" in property_name.lower():
             for element in self.elements:
                 if ignore_indexes is None or element not in str(ignore_indexes):
                     property_type, get_function = self.get_prop_type(
@@ -459,15 +600,7 @@ class ReaktoroOutputSpec:
                 self._get_prop_name_val,
             ]:
                 try:
-                    if supported_props != PropTypes.pyomo_built_prop:
-                        self._func_tester(
-                            func_attempt,
-                            prop,
-                            property_name,
-                            property_index,
-                        )
-                        return supported_props, func_attempt
-                    else:
+                    if supported_props == PropTypes.pyomo_built_prop:
 
                         func_results = getattr(prop, property_name)(
                             property_index=property_index
@@ -481,6 +614,24 @@ class ReaktoroOutputSpec:
                             obj.set_property_type(supported_prop)
 
                         return supported_props, func_results
+                    elif supported_props == PropTypes.converted_prop:
+                        func_results = getattr(prop, property_name)(
+                            property_index=property_index
+                        )
+                        _, func_result = self.get_prop_type(
+                            func_results.property_name,
+                            func_results.property_index,
+                        )
+                        func_results.set_get_function(func_result)
+                        return supported_props, func_results
+                    else:
+                        self._func_tester(
+                            func_attempt,
+                            prop,
+                            property_name,
+                            property_index,
+                        )
+                        return supported_props, func_attempt
                 except (TypeError, KeyError, AttributeError, RuntimeError):
                     pass
         raise NotImplementedError(
@@ -507,23 +658,45 @@ class ReaktoroOutputSpec:
         export_object = ReaktoroOutputExport()
         export_object.copy_rkt_outputs(self.rkt_outputs)
         export_object.copy_user_outputs(self.user_outputs)
+        export_object.output_limits = copy.deepcopy(self.output_limits)
         return export_object
 
     def load_from_export_object(self, export_object):
         self.rkt_outputs = export_object.rkt_outputs
         self.user_outputs = export_object.user_outputs
+        self.output_limits = export_object.output_limits
+
+        def get_converted_function(obj):
+            """get converted function for converted properties"""
+            prop_info = getattr(
+                self.supported_properties[PropTypes.converted_prop],
+                obj.converted_prop_type,
+            )(obj.property_index)
+            obj.conversion_function = prop_info.conversion_function
+            obj.derivative_conversion_function = (
+                prop_info.derivative_conversion_function
+            )
+            print(obj, obj.conversion_function, obj.derivative_conversion_function)
+            return obj.conversion_function
+
         for key, obj in self.rkt_outputs.items():
             property_type, get_function = self.get_prop_type(
                 obj.property_name,
                 obj.property_index,
             )
             assert property_type == obj.property_type
+            print(key, property_type, obj.converted_prop_type)
+            if obj.converted_prop_type is not None:
+                get_converted_function(obj)
             obj.set_option_function(property_type, get_function)
         for key, obj in self.user_outputs.items():
             property_type, get_function = self.get_prop_type(
                 obj.property_name,
                 obj.property_index,
             )
+            if obj.converted_prop_type is not None:
+                get_converted_function(obj)
+
             assert property_type == obj.property_type
             obj.set_option_function(property_type, get_function)
 

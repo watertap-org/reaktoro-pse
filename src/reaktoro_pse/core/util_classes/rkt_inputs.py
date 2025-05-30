@@ -39,6 +39,7 @@ class RktInputTypes:
     solid_phase = "solid_phase"
     condensed_phase = "condensed_phase"
     relaxation = "relaxation"
+
     supported_phases = [
         aqueous_phase,
         gas_phase,
@@ -48,7 +49,7 @@ class RktInputTypes:
         condensed_phase,
         liquid_phase,
     ]
-    non_species_types = [pH, enthalpy, pressure, temperature, relaxation]
+    non_species_types = [pH, enthalpy, pressure, temperature, relaxation, pOH]
 
 
 class RktInput:
@@ -67,7 +68,11 @@ class RktInput:
         self.required_unit = None
         self.rkt_name = var_name
         self.lower_bound = None
+        self.upper_bound = None
         self.input_type = None
+        self.io_type = None  # input or output
+        self.auto_scaled = False
+        self.log10_input = False
         if pyomo_var is not None:
             if isinstance(pyomo_var, (Var, VarData)) == False:
                 raise TypeError(
@@ -90,13 +95,23 @@ class RktInput:
     def set_input_type(self, input_type):
         self.input_type = input_type
 
-    def update_values(self, update_temp=False):
+    def delog10_input(self, value, delog=True):
+        if self.log10_input and delog:
+            return 10**value
+        else:
+            return value
+
+    def update_values(self, update_temp=False, delog_values=False):
+
         if self.pyomo_var is not None:
-            self.value = self.pyomo_var.value
+            self.value = self.delog10_input(self.pyomo_var.value, delog=delog_values)
             if self.conversion_value is not None:
-                self.converted_value = value(self.get_pyomo_with_required_units())
+                self.converted_value = self.delog10_input(
+                    value(self.get_pyomo_with_required_units()), delog=delog_values
+                )
             else:
                 self.converted_value = self.value
+
         if update_temp:
             self.set_temp_value(self.value)
 
@@ -112,8 +127,14 @@ class RktInput:
     def set_lower_bound(self, value):
         self.lower_bound = value
 
-    def get_value(self, update_temp=False, apply_conversion=False):
-        self.update_values(update_temp)
+    def get_upper_bound(self):
+        return self.upper_bound
+
+    def set_upper_bound(self, value):
+        self.upper_bound = value
+
+    def get_value(self, update_temp=False, delog_values=False, apply_conversion=False):
+        self.update_values(update_temp, delog_values=delog_values)
         if apply_conversion:
             return self.converted_value
         else:
@@ -247,6 +268,7 @@ class RktInputs(dict):
     def convert_rkt_species_fun(self, var_name, phase):
         if self.conversion_method[phase] == "default":
             var_name = specie_to_rkt_species(var_name)
+
         elif isinstance(self.conversion_method[phase], dict):
             var_name = self.conversion_method[phase][var_name]
         else:
@@ -287,17 +309,31 @@ def specie_to_rkt_species(species):
 
     # TODO: needs to be better automated
     name_dict = {
-        "-2": ["SO4", "CO3"],
+        "-2": [
+            "SO4",
+            "CO3",
+        ],
         "-": ["Cl", "HCO3", "F", "NO3"],
         "+": ["Na", "K"],
-        "+2": ["Mg", "Mn", "Ca", "Sr", "Ba"],
+        "+2": ["Mg", "Mn", "Ca", "Sr", "Ba", "Fe"],
         "": ["H2O", "CO2"],
         "H4SiO4": ["Si", "SiO2"],
         "SeO4-2": ["Se"],
     }
+
+    def remove_charge_int(specie):
+        split_chars = ["_", "-", "+"]
+        char_present = [char in specie for char in split_chars]
+        if any(char_present):
+            for i, char in enumerate(char_present):
+                if char:
+                    specie = specie.split(split_chars[i])
+                    return specie[0]
+        return specie
+
     for charge, species_list in name_dict.items():
         for spc in species_list:
-            if spc in species:
+            if spc == remove_charge_int(species):
                 if charge == "H4SiO4":
                     return charge
                 if charge == "SeO4-2":

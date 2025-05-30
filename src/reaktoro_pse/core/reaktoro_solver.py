@@ -188,13 +188,23 @@ class ReaktoroSolver:
             else:
                 # TODO figure out how deal with units...
                 self.conditions.set(input_obj.get_rkt_input_name(), value)
+            if ("charge", None) in self.output_specs.rkt_outputs:
+                # if charge is in outputs, we need to update the charge neutrality
+                # condition to match the current input values
+                if input_key == "pH" or input_key == "pOH":
+                    print(self.block_name, input_key, value)
 
     def get_outputs(self):
         output_arr = []
         for key, obj in self.output_specs.rkt_outputs.items():
-            output_arr.append(
-                self.output_specs.evaluate_property(obj, update_values_in_object=True)
-            )
+            val = self.output_specs.evaluate_property(obj, update_values_in_object=True)
+
+            output_arr.append(val)
+            if "charge" in key:
+                print(self.block_name, key, output_arr[-1])
+            if "pE" in key:
+                print(self.block_name, key, output_arr[-1])
+                # print(self.state.state)
         return output_arr
 
     def get_jacobian(self):

@@ -38,6 +38,13 @@ def build_scaling_tendency_constraint(rkt_output_object):
 #     build_properties[("saturationIndex", rkt_output_object.property_index)].pyomo_var,
 #     -5,
 # )
+# def build_pOH_constraint(rkt_output_object):
+#     user_output_var = rkt_output_object.pyomo_var
+#     build_properties = rkt_output_object.pyomo_build_options.properties
+#     return (
+#         -build_properties[("speciesActivityLn", "OH-")].pyomo_var / log(10)
+#         == user_output_var
+#     )
 
 
 def build_ph_constraint(rkt_output_object):
@@ -105,6 +112,20 @@ def build_osmotic_constraint(rkt_output_object):
     )
 
 
+def build_direct_charge(rkt_output_object):
+    # https://reaktoro.org/api/namespaceReaktoro.html#a55b9a29cdf35e98a6b07e67ed2edbc25
+    user_output_var = rkt_output_object.pyomo_var
+    build_properties = rkt_output_object.pyomo_build_options.properties
+    species = rkt_output_object.pyomo_build_options.options["species"]
+    return user_output_var == sum(
+        build_properties[("speciesAmount", key)].pyomo_var * charge
+        for key, charge in species
+    )
+
+
+# * sum(
+#         (build_properties[("speciesAmount", key)].pyomo_var for key, charge in species)
+#     )
 def build_direct_scaling_tendency_constraint(rkt_output_object):
     # https://reaktoro.org/api/namespaceReaktoro.html#a55b9a29cdf35e98a6b07e67ed2edbc25
     user_output_var = rkt_output_object.pyomo_var

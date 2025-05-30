@@ -9,11 +9,9 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-import enum
-from matplotlib.font_manager import json_load
+
 import pytest
 
-from reaktoro_pse.core import reaktoro_jacobian
 from reaktoro_pse.core.reaktoro_state import (
     ReaktoroState,
 )

@@ -49,8 +49,10 @@ class ReaktoroInputExport:
             self.rkt_chemical_inputs[key].required_unit = obj.required_unit
             self.rkt_chemical_inputs[key].lower_bound = obj.lower_bound
             self.rkt_chemical_inputs[key].input_type = obj.input_type
+            self.rkt_chemical_inputs[key].io_type = obj.io_type
             self.rkt_chemical_inputs[key].value = obj.value
             self.rkt_chemical_inputs[key].converted_value = obj.converted_value
+
         self.rkt_chemical_inputs.registered_phases = chem_inputs.registered_phases
         self.rkt_chemical_inputs.all_species = chem_inputs.all_species
         self.rkt_chemical_inputs.species_list = chem_inputs.species_list
@@ -249,7 +251,15 @@ class ReaktoroInputSpec:
             elif input_name == RktInputTypes.pH:
                 specs_object.pH()
                 self.rkt_inputs[RktInputTypes.pH] = self.state.inputs[RktInputTypes.pH]
-                self.rkt_inputs[RktInputTypes.pH].set_lower_bound(0)
+                self.rkt_inputs[RktInputTypes.pH].set_lower_bound(-1)
+                self.rkt_inputs[RktInputTypes.pH].set_upper_bound(14)
+            elif input_name == RktInputTypes.pOH:
+                self.write_pOH_constraint(specs_object)
+                self.rkt_inputs[RktInputTypes.pOH] = self.state.inputs[
+                    RktInputTypes.pOH
+                ]
+                self.rkt_inputs[RktInputTypes.pOH].set_lower_bound(-1)
+                self.rkt_inputs[RktInputTypes.pOH].set_upper_bound(14)
             else:
                 pass
         if pressure_not_set:
@@ -282,6 +292,7 @@ class ReaktoroInputSpec:
                     self.rkt_inputs[element] = RktInput(element)
                     self.rkt_inputs[element].set_rkt_input_name(f"input{element}")
                     self.rkt_inputs[element].set_lower_bound(0)
+                    self.rkt_inputs[element].io_type = "element"
 
         # write reaktoro constraints to spec
         for element in self.constraint_dict:
@@ -293,7 +304,11 @@ class ReaktoroInputSpec:
             self.write_speciesAmount_constraint(specs_object, specie, input_name)
             self.rkt_inputs[input_name] = self.state.inputs[input_name]
             self.rkt_inputs[input_name].set_rkt_input_name(input_name)
-            self.rkt_inputs[input_name].set_lower_bound(0)
+            if self.state.inputs[input_name].log10_input:
+                self.rkt_inputs[input_name].set_lower_bound(None)
+            else:
+                self.rkt_inputs[input_name].set_lower_bound(0)
+            self.rkt_inputs[input_name].io_type = "specie"
             self.rkt_inputs.rkt_input_list.append(input_name)
         if self.exact_speciation == False or self.fixed_solvent_type != {}:
             self.add_solvent_constraints(specs_object)
@@ -325,6 +340,8 @@ class ReaktoroInputSpec:
                     self.rkt_inputs[spc_name].set_rkt_input_name(spc_name)
                     self.rkt_inputs[spc_name].set_lower_bound(0)
                     self.rkt_inputs.rkt_input_list.append(spc_name)
+
+                    self.rkt_inputs[spc_name].io_type = "specie"
         self.write_open_solvent_constraints(specs_object)
 
     def update_constraint_dict(self, element, specie, coeff):
@@ -418,12 +435,22 @@ class ReaktoroInputSpec:
             self.rkt_inputs[specie] = self.state.inputs[specie]
             self.rkt_inputs[specie].set_rkt_index(idx)
             self.rkt_inputs[specie].set_rkt_input_name(input_name)
-            self.rkt_inputs[specie].set_lower_bound(0)
+            if self.rkt_inputs[specie].log10_input:
+                self.rkt_inputs[specie].set_lower_bound(None)
+            else:
+                self.rkt_inputs[specie].set_lower_bound(0)
+
+            self.rkt_inputs[specie].io_type = "specie"
         elif specie in self.rkt_chemical_inputs:
             self.rkt_inputs[specie] = self.rkt_chemical_inputs[specie]
             self.rkt_inputs[specie].set_rkt_index(idx)
             self.rkt_inputs[specie].set_rkt_input_name(input_name)
-            self.rkt_inputs[specie].set_lower_bound(0)
+            if self.rkt_inputs[specie].log10_input:
+                self.rkt_inputs[specie].set_lower_bound(None)
+            else:
+                self.rkt_inputs[specie].set_lower_bound(0)
+
+            self.rkt_inputs[specie].io_type = "specie"
         # elif specie in self.rkt_inputs:
         #     self.rkt_inputs[specie].set_rkt_index(idx)
         #     self.rkt_inputs[specie].set_rkt_input_name(input_name)
@@ -484,16 +511,28 @@ class ReaktoroInputSpec:
         # so we can write the constraints
 
         species_list = [
-            (cv[0], self.rkt_inputs[cv[1]].get_rkt_index())
+            (
+                cv[0],
+                self.rkt_inputs[cv[1]].get_rkt_index(),
+                self.rkt_inputs[cv[1]].log10_input,
+            )
             for cv in self.constraint_dict[element]
         ]
+
+        def _constraint_fn(props, w):
+            """constraint function to sum up all species"""
+            sum_species = []
+            for mol, idx, log10 in species_list:
+                if log10:
+                    sum_species.append(mol * 10 ** w[idx])
+                else:
+                    sum_species.append(mol * w[idx])
+            return props.elementAmount(element) - sum(sum_species)
 
         spec_object.openTo(element)
         constraint = rkt.EquationConstraint()
         constraint.id = f"{element}_constraint"
-        constraint.fn = lambda props, w: props.elementAmount(element) - sum(
-            [mol * w[idx] for (mol, idx) in species_list]
-        )
+        constraint.fn = _constraint_fn
         spec_object.addConstraint(constraint)
 
     def write_elementAmount_constraint(self, spec_object, element, input_name=None):
@@ -532,6 +571,15 @@ class ReaktoroInputSpec:
         constraint = rkt.EquationConstraint()
         constraint.id = f"{species}_constraint"
         constraint.fn = lambda props, w: props.speciesAmount(species) - w[idx]
+        spec_object.addConstraint(constraint)
+
+    def write_pOH_constraint(self, spec_object):
+        """writes a pOH constraint for reaktoro"""
+        spec_object.openTo("OH-")
+        idx = spec_object.addInput("pOH")
+        constraint = rkt.EquationConstraint()
+        constraint.id = f"pOH_constraint"
+        constraint.fn = lambda props, w: w[idx] + props.speciesActivityLg("OH-")
         spec_object.addConstraint(constraint)
 
     def write_empty_con(self, spec_object, spc):

@@ -190,6 +190,7 @@ class ReaktoroJacobianSpec:
         self.output_specs = reaktor_outputs
         if isinstance(self.output_specs, ReaktoroOutputSpec) == False:
             raise TypeError("Reator outputs require ReaktoroOutputSpec class")
+
         self.jac_rows = JacboianRows(self.state.state)
         self.set_jacobian_type()
         self.configure_numerical_jacobian()
@@ -259,7 +260,9 @@ class ReaktoroJacobianSpec:
                     f"{output_object.property_type} not supported by numerical derivative method, please update"
                 )
 
-            val = self.output_specs.evaluate_property(output_object, prop)
+            val = self.output_specs.evaluate_property(
+                output_object, prop, apply_der_conversion=False
+            )
             output_vals.append(val)
         return output_vals
 
@@ -333,11 +336,11 @@ class ReaktoroJacobianSpec:
             jacobian_matrix, input_index, input_value
         )
         self.update_states(jacobian_abs_matrix)
-
         output_jacobian = []
         for output_key, output_obj in self.output_specs.rkt_outputs.items():
+
             if output_obj.jacobian_type == JacType.exact:
-                output_jacobian.append(jacobian_dict[output_key])
+                jac_val = jacobian_dict[output_obj.jacobian_index]
             else:
                 values = self.get_state_values(output_obj)
                 if JacType.average:
@@ -349,7 +352,10 @@ class ReaktoroJacobianSpec:
                     jac_val = np.sum(jac_val) / (
                         self.rkt_aqueous_props_der_step * input_value
                     )
-                output_jacobian.append(jac_val)
+            # returns 1 unless, updated by user provided function
+            conversion_factor = output_obj.get_derivative_conversion_factor()
+            output_jacobian.append(jac_val * conversion_factor)
+        print(output_key, output_jacobian)
         return output_jacobian
 
     def center_diff_order(self, order):

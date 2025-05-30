@@ -93,7 +93,7 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
                 for var in self.inputs:
                     block[var].value = 1  # self.input_dict[var].get_pyomo_var_value()
                     block[var].setlb(self.input_dict[var].get_lower_bound())
-                    block[var].setub(None)
+                    block[var].setub(self.input_dict[var].get_upper_bound())
             elif "outputs" in block.name:
                 for prop in self.outputs:
                     block[prop].setlb(None)

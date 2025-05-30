@@ -17,7 +17,7 @@ from pyomo.environ import Var, Constraint
 import numpy as np
 
 from reaktoro_pse.core.reaktoro_outputs import PropTypes
-
+from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from reaktoro_pse.core.reaktoro_solver import (
     ReaktoroSolver,
 )
@@ -270,23 +270,22 @@ class ReaktoroBlockBuilder:
             )
         if "charge_neutrality" in self.relaxation_constraint_types:
             total_h2o_amount = []
+            if ("chargeDirect", None) in self.solver.output_specs.user_outputs:
+                self.charge_type = "chargeDirect"
+            else:
+                self.charge_type = "charge"
+            charge_var = self.solver.output_specs.user_outputs[
+                (self.charge_type, None)
+            ].get_pyomo_var()
+            self.block.relaxed_charge_neutrality = Constraint(expr=0 == charge_var)
 
-            self.block.relaxed_charge_neutrality = Constraint(
-                expr=0
-                == self.solver.output_specs.user_outputs[
-                    ("charge", None)
-                ].get_pyomo_var()
-            )
-
-    def initialize_relaxation_outputs(self):
+    def initialize_relaxation_outputs(self, use_default_scaling=True):
         """initialize relaxation constraints"""
         if "total_hydrogen_link" in self.relaxation_constraint_types:
             sf = (
-                self.get_sf(
-                    self.solver.output_specs.user_outputs[
-                        ("elementAmount", "H")
-                    ].get_pyomo_var(),
-                    use_default_scaling=False,
+                self.get_rkt_scale(
+                    self.solver.output_specs.user_outputs[("elementAmount", "H")],
+                    use_default_scaling=use_default_scaling,
                 )
                 # ensure we have enough precision to resolve H+
             ) * self.relaxation_constraint_types["total_hydrogen_link"]["H_multiplier"]
@@ -306,42 +305,82 @@ class ReaktoroBlockBuilder:
             iscale.set_scaling_factor(rkt_var, sf)
             iscale.constraint_scaling_transform(self.block.ph_relaxation_constraint, sf)
         if "charge_neutrality" in self.relaxation_constraint_types:
-            charge_var = self.solver.output_specs.user_outputs[
-                ("charge", None)
-            ].get_pyomo_var()
-            rkt_charge_var = self.solver.output_specs.rkt_outputs[
-                ("charge", None)
-            ].get_pyomo_var()
-            iscale.set_scaling_factor(charge_var, 1e8)
-            iscale.set_scaling_factor(rkt_charge_var, 1e8)
-            iscale.constraint_scaling_transform(
-                self.block.output_constraints[("charge", None)], 1e8
-            )
 
-    def initialize_relaxation_inputs(self):
+            charge_var = self.solver.output_specs.user_outputs[
+                (self.charge_type, None)
+            ].get_pyomo_var()
+
+            charge_scale = 1e7
+            iscale.set_scaling_factor(charge_var, charge_scale)
+
+            if self.charge_type == "charge":
+                rkt_charge_var = self.solver.output_specs.rkt_outputs[
+                    ("charge", None)
+                ].get_pyomo_var()
+                iscale.set_scaling_factor(rkt_charge_var, charge_scale)
+                rkt_charge_var.auto_scaled = False
+            iscale.constraint_scaling_transform(
+                self.block.output_constraints[(self.charge_type, None)], charge_scale
+            )
+            iscale.constraint_scaling_transform(
+                self.block.relaxed_charge_neutrality, charge_scale
+            )
+            # assert False
+
+    def initialize_relaxation_inputs(self, use_default_scaling=True):
         if "charge_neutrality" in self.relaxation_constraint_types:
-            iscale.constraint_scaling_transform(self.block.relaxed_charge_neutrality, 1)
-            if "OH-" in self.solver.input_specs.rkt_inputs:
+            relaxant_type = "pOH"
+            relaxed_var = self.solver.input_specs.rkt_inputs[
+                relaxant_type
+            ].get_pyomo_var()
+            self.solver.input_specs.rkt_inputs[relaxant_type].auto_scaled = False
+            # if relaxed_var.value == 7:
+            if (
+                "OH-" in self.solver.input_specs.rkt_inputs
+                and relaxant_type == "relaxation_OH"
+            ):
                 pyo_var = self.solver.input_specs.rkt_inputs["OH-"].get_pyomo_var()
                 init_value = pyo_var.value
-                sf = self.get_sf(pyo_var, use_default_scaling=True)
+                sf = 1 / pyo_var.value
             else:
-                sf = self.relaxation_constraint_types["charge_neutrality"]["OH_scale"]
-                init_value = 1 / sf
-            relaxed_var = self.solver.input_specs.rkt_inputs[
-                "relaxation_OH"
-            ].get_pyomo_var()
+                if (
+                    "OH-" in self.solver.input_specs.rkt_inputs
+                    and relaxed_var.value == -1
+                ):
+                    h_mols = self.solver.input_specs.rkt_inputs["OH-"].get_value(
+                        apply_conversion=True
+                    )
+                    sum_species = []
+                    for key, obj in self.solver.input_specs.rkt_inputs.items():
+                        if (
+                            all(
+                                key not in subkey
+                                for subkey in RktInputTypes.non_species_types
+                            )
+                            and key != "H+"
+                            and key != "OH-"
+                        ):
+                            sum_species.append(obj.get_value(apply_conversion=True))
+                    H_con = h_mols / (1000 / (sum(sum_species) * 18.01))
+                    init_value = -1 * np.log10(H_con)
+                    # init_value = 7
+                    print("init_value", init_value, H_con, np.log10(H_con))
+                else:
+                    init_value = relaxed_var.value
+                    if init_value == -1:
+                        init_value = 7
+                sf = 1
+
+            print("charge relax", init_value, sf)
             relaxed_var.value = init_value
             iscale.set_scaling_factor(relaxed_var, sf)
 
         if "total_hydrogen_link" in self.relaxation_constraint_types:
             user_val = self.solver.input_specs.user_inputs["pH"].get_pyomo_var()
             sf = (
-                self.get_sf(
-                    self.solver.output_specs.user_outputs[
-                        ("elementAmount", "H")
-                    ].get_pyomo_var(),
-                    use_default_scaling=True,
+                self.get_rkt_scale(
+                    self.solver.output_specs.user_outputs[("elementAmount", "H")],
+                    use_default_scaling=use_default_scaling,
                 )
                 * self.relaxation_constraint_types["total_hydrogen_link"][
                     "H_multiplier"
@@ -356,11 +395,9 @@ class ReaktoroBlockBuilder:
                 self.block.h2o_relaxation_constraint,
             )
             sf = (
-                self.get_sf(
-                    self.solver.output_specs.user_outputs[
-                        ("elementAmount", "O")
-                    ].get_pyomo_var(),
-                    use_default_scaling=True,
+                self.get_rkt_scale(
+                    self.solver.output_specs.user_outputs[("elementAmount", "O")],
+                    use_default_scaling=use_default_scaling,
                 )
                 * self.relaxation_constraint_types["total_oxygen_link"]["O_multiplier"]
             )  # ensure we have enough precision to resolve OH-
@@ -396,7 +433,25 @@ class ReaktoroBlockBuilder:
         self.set_user_jacobian_scaling()
         _log.info(f"Initialized rkt block")
 
-    def get_sf(self, pyo_var, use_default_scaling, return_none=1):
+    def get_rkt_scale(self, rkt_input_output, use_default_scaling=True):
+        # if rkt_input_output.auto_scaled == False and use_default_scaling == False:
+        #     use_default_scaling = True
+        sf, auto_scaled = self._get_sf(
+            rkt_input_output.get_pyomo_var(), use_default_scaling
+        )
+        # if rkt_input_output.io_type == "element":
+        #     sf = sf / 1e2
+        #     print(rkt_input_output.get_pyomo_var(), rkt_input_output.io_type)
+        # print(rkt_input_output.get_pyomo_var(), sf, auto_scaled)
+        # if auto_scaled and use_default_scaling:
+        #     rkt_input_output.auto_scaled = True
+        return sf
+
+    def get_sf(self, pyo_var, use_default_scaling=True, return_none=1):
+        sf, auto_scaled = self._get_sf(pyo_var, use_default_scaling, return_none)
+        return sf
+
+    def _get_sf(self, pyo_var, use_default_scaling, return_none=1):
 
         def calc_scale(value):
             if value == 0:
@@ -406,7 +461,7 @@ class ReaktoroBlockBuilder:
 
         dsf = iscale.get_scaling_factor(pyo_var)
         if dsf is not None and use_default_scaling:
-            return dsf
+            return dsf, False
         else:
             if pyo_var.value == 0:
                 if return_none is not None:
@@ -415,16 +470,24 @@ class ReaktoroBlockBuilder:
                 return 1
 
             sf = calc_scale(abs(pyo_var.value))
-            if sf > 1e16:
-                _log.warning(f"Var {pyo_var} scale {sf}>1e16")
-            if sf < 1e-16:
-                _log.warning(f"Var {pyo_var} scale {sf}<1e-16")
-            return sf
+            max_scale = 1e12
+            min_scale = 1e-8
+            if sf > max_scale:
+                _log.warning(
+                    f"Var {pyo_var} scale {sf:e}>{max_scale:e}, applied max scale of {max_scale:e}"
+                )
+                sf = max_scale
+            if sf < min_scale:
+                _log.warning(
+                    f"Var {pyo_var} scale {sf:e}<{min_scale:e}, applied min scale of {min_scale:e}"
+                )
+                sf = min_scale
+            return sf, True
 
     def set_output_vars_and_scale(self, use_default_scaling=True):
         for key, obj in self.solver.output_specs.user_outputs.items():
             """update vars scaling in pyomo build constraints
-            these are updated to actual value when we call solve_rektoro_block"""
+            these are updated to actual value when we call solve_reaktoro_block"""
             if PropTypes.pyomo_built_prop == obj.property_type:
                 for (
                     pyoPropKey,
@@ -434,13 +497,13 @@ class ReaktoroBlockBuilder:
                     pyoPropObj.set_pyomo_var_value(val)
                     iscale.set_scaling_factor(
                         pyoPropObj.get_pyomo_var(),
-                        self.get_sf(pyoPropObj.get_pyomo_var(), use_default_scaling),
+                        self.get_rkt_scale(pyoPropObj, use_default_scaling),
                     )
                 output_constraint = self.block.output_constraints[key]
                 calculate_variable_from_constraint(
                     obj.get_pyomo_var(), output_constraint
                 )
-                sf = self.get_sf(obj.get_pyomo_var(), use_default_scaling)
+                sf = self.get_rkt_scale(obj, use_default_scaling)
                 iscale.constraint_scaling_transform(
                     output_constraint,
                     sf,
@@ -450,7 +513,7 @@ class ReaktoroBlockBuilder:
                 rkt_var = self.block.reaktoro_model.outputs[key]
                 output_constraint = self.block.output_constraints[key]
                 calculate_variable_from_constraint(rkt_var, output_constraint)
-                sf = self.get_sf(obj.get_pyomo_var(), use_default_scaling)
+                sf = self.get_rkt_scale(obj, use_default_scaling)
                 iscale.constraint_scaling_transform(
                     output_constraint,
                     sf,
@@ -514,24 +577,25 @@ class ReaktoroBlockBuilder:
         """initialize input variables and constraints"""
         self.solver.input_scaling_values = []
         for key in self.solver.input_specs.rkt_inputs.rkt_input_list:
+
             if key in self.block.input_constraints:
-                pyo_var = self.solver.input_specs.rkt_inputs[key].get_pyomo_var()
                 calculate_variable_from_constraint(
                     self.block.reaktoro_model.inputs[key],
                     self.block.input_constraints[key],
                 )
 
-                sf = self.get_sf(
-                    pyo_var,
+                sf = self.get_rkt_scale(
+                    self.solver.input_specs.rkt_inputs[key],
                     use_default_scaling,
-                    return_none=None,
                 )
+
                 if self.block.reaktoro_model.inputs[key].value == 0:
                     self.block.reaktoro_model.inputs[key].value = (
                         self.solver.input_specs.rkt_inputs[key].get_value(
                             apply_conversion=False
                         )
                     )
+
                 iscale.set_scaling_factor(self.block.reaktoro_model.inputs[key], sf)
                 iscale.constraint_scaling_transform(
                     self.block.input_constraints[key], sf

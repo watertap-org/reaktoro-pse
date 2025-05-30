@@ -290,6 +290,7 @@ class ReaktoroStateExport:
             self.inputs[key].input_type = obj.input_type
             self.inputs[key].value = obj.value
             self.inputs[key].converted_value = obj.converted_value
+            self.inputs[key].log10_input = obj.log10_input
         self.inputs.registered_phases = inputs.registered_phases
         self.inputs.all_species = inputs.all_species
         self.inputs.species_list = inputs.species_list
@@ -374,9 +375,7 @@ class ReaktoroState:
         self.inputs.set_composition_is_elements(phase_type, composition_is_elements)
 
     def register_aqueous_inputs(
-        self,
-        composition,
-        composition_index=None,
+        self, composition, composition_index=None, log10_basis=False
     ):
         """registers inputs
 
@@ -389,7 +388,7 @@ class ReaktoroState:
         pH_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[pH_index])
         """
         self.register_inputs(
-            composition, composition_index, RktInputTypes.aqueous_phase
+            composition, composition_index, RktInputTypes.aqueous_phase, log10_basis
         )
 
     def register_relaxation_var(self, name, var):
@@ -397,7 +396,7 @@ class ReaktoroState:
         self.inputs[name] = var
         self.inputs[name].set_input_type("relaxation")
 
-    def register_inputs(self, composition, composition_index, phase):
+    def register_inputs(self, composition, composition_index, phase, log10_basis):
         """generic input registration method,
         unpacks composition (assumes its a dict or indexed var)
         if user provides index then extract values only for that index and
@@ -410,6 +409,7 @@ class ReaktoroState:
                     specie = props[-1]
                 self.inputs[specie] = pyo_obj
                 self.inputs[specie].set_input_type(phase)
+                self.inputs[specie].log10_input = log10_basis
         self._inputs_not_processed = True  # flag that inputs ver modified
 
     def register_species_to_exclude(self, species):
@@ -424,23 +424,7 @@ class ReaktoroState:
                 raise TypeError(f"{species} is not supported, must be str or list")
 
     def register_gas_inputs(
-        self,
-        composition,
-        composition_index=None,
-    ):
-        """registers inputs
-
-        Keyword arguments:
-        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
-        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
-        """
-        # unfold input for composition
-        self.register_inputs(composition, composition_index, RktInputTypes.gas_phase)
-
-    def register_mineral_inputs(
-        self,
-        composition,
-        composition_index=None,
+        self, composition, composition_index=None, log10_basis=False
     ):
         """registers inputs
 
@@ -450,27 +434,25 @@ class ReaktoroState:
         """
         # unfold input for composition
         self.register_inputs(
-            composition, composition_index, RktInputTypes.mineral_phase
+            composition, composition_index, RktInputTypes.gas_phase, log10_basis
+        )
+
+    def register_mineral_inputs(
+        self, composition, composition_index=None, log10_basis=False
+    ):
+        """registers inputs
+
+        Keyword arguments:
+        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
+        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
+        """
+        # unfold input for composition
+        self.register_inputs(
+            composition, composition_index, RktInputTypes.mineral_phase, log10_basis
         )
 
     def register_liquid_inputs(
-        self,
-        composition,
-        composition_index=None,
-    ):
-        """registers inputs
-
-        Keyword arguments:
-        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
-        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
-        """
-        # unfold input for composition
-        self.register_inputs(composition, composition_index, RktInputTypes.liquid_phase)
-
-    def register_condensed_inputs(
-        self,
-        composition,
-        composition_index=None,
+        self, composition, composition_index=None, log10_basis=False
     ):
         """registers inputs
 
@@ -480,27 +462,25 @@ class ReaktoroState:
         """
         # unfold input for composition
         self.register_inputs(
-            composition, composition_index, RktInputTypes.condensed_phase
+            composition, composition_index, RktInputTypes.liquid_phase, log10_basis
+        )
+
+    def register_condensed_inputs(
+        self, composition, composition_index=None, log10_basis=False
+    ):
+        """registers inputs
+
+        Keyword arguments:
+        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
+        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
+        """
+        # unfold input for composition
+        self.register_inputs(
+            composition, composition_index, RktInputTypes.condensed_phase, log10_basis
         )
 
     def register_solid_inputs(
-        self,
-        composition,
-        composition_index=None,
-    ):
-        """registers inputs
-
-        Keyword arguments:
-        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
-        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
-        """
-        # unfold input for composition
-        self.register_inputs(composition, composition_index, RktInputTypes.solid_phase)
-
-    def register_ion_exchange_inputs(
-        self,
-        composition,
-        composition_index=None,
+        self, composition, composition_index=None, log10_basis=False
     ):
         """registers inputs
 
@@ -510,7 +490,24 @@ class ReaktoroState:
         """
         # unfold input for composition
         self.register_inputs(
-            composition, composition_index, RktInputTypes.ion_exchange_phase
+            composition, composition_index, RktInputTypes.solid_phase, log10_basis
+        )
+
+    def register_ion_exchange_inputs(
+        self, composition, composition_index=None, log10_basis=False
+    ):
+        """registers inputs
+
+        Keyword arguments:
+        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
+        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
+        """
+        # unfold input for composition
+        self.register_inputs(
+            composition,
+            composition_index,
+            RktInputTypes.ion_exchange_phase,
+            log10_basis,
         )
 
     def verify_specie_units(self):
@@ -770,8 +767,10 @@ class ReaktoroState:
                 self.inputs["pressure"].main_unit,
             )
         # set apparent species if used
+        self.comp_set = False
         for phase in self.inputs.registered_phases:
             if self.inputs.composition_is_elements[phase] == False:
+                self.comp_set = True
                 for species in self.inputs.species_list[phase]:
                     if species in self.inputs:  # user might not provide all
                         if self.inputs[species].get_value() != 0:
@@ -779,10 +778,20 @@ class ReaktoroState:
 
                             if unit == "dimensionless":
                                 # assume correct units are provided
+                                # ensure we provide absolute values into state!
+                                # log inputs are only used during creation of constraints
+                                # in reaktor_inputs
+                                print(
+                                    "Setting state for species:",
+                                    species,
+                                    self.inputs[species].get_value(
+                                        apply_conversion=True, delog_values=True
+                                    ),
+                                )
                                 self.state.set(
                                     species,
                                     self.inputs[species].get_value(
-                                        apply_conversion=True
+                                        apply_conversion=True, delog_values=True
                                     ),
                                     "mol",
                                 )
@@ -790,15 +799,24 @@ class ReaktoroState:
                                 self.state.set(
                                     species,
                                     self.inputs[species].get_value(
-                                        apply_conversion=False
+                                        apply_conversion=False, delog_values=True
                                     ),
                                     self.inputs[species].main_unit,
                                 )
+            elif self.inputs.composition_is_elements[phase]:
+                if phase == RktInputTypes.aqueous_phase:
+                    h2o_total = self.inputs["O"].get_value(apply_conversion=False)
+                    self.state.set(
+                        "H2O",
+                        h2o_total,
+                        "mol",
+                    )
 
     def equilibrate_state(self):
         self.set_rkt_state()
-        rkt.equilibrate(self.state)
-        _log.info("Equilibrated successfully")
+        if self.comp_set:
+            rkt.equilibrate(self.state)
+            _log.info("Equilibrated successfully")
 
     def export_config(self):
         export_object = ReaktoroStateExport()
