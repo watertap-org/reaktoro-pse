@@ -781,17 +781,11 @@ class ReaktoroState:
                                 # ensure we provide absolute values into state!
                                 # log inputs are only used during creation of constraints
                                 # in reaktor_inputs
-                                print(
-                                    "Setting state for species:",
-                                    species,
-                                    self.inputs[species].get_value(
-                                        apply_conversion=True, delog_values=True
-                                    ),
-                                )
+
                                 self.state.set(
                                     species,
                                     self.inputs[species].get_value(
-                                        apply_conversion=True, delog_values=True
+                                        apply_conversion=True, delog=True
                                     ),
                                     "mol",
                                 )
@@ -799,7 +793,7 @@ class ReaktoroState:
                                 self.state.set(
                                     species,
                                     self.inputs[species].get_value(
-                                        apply_conversion=False, delog_values=True
+                                        apply_conversion=False, delog=True
                                     ),
                                     self.inputs[species].main_unit,
                                 )

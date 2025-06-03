@@ -11,13 +11,15 @@ def get_cyipopt_watertap_solver(
     cy_solver.options["print_user_options"] = "yes"
     # helps handle property packages that have very small values requiring large steps
     cy_solver.options["diverging_iterates_tol"] = 1e30
+    # cy_solver.options["recalc_y"] = "yes"
+    # cy_solver.options["recalc_y_feas_tol"] = 1e-2
     if ma27:
         cy_solver.options["linear_solver"] = "ma27"
     if limited_memory:
         cy_solver.options["hessian_approximation"] = "limited-memory"
         cy_solver.options["hessian_approximation_space"] = "all-variables"
-        cy_solver.options["limited_memory_max_history"] = 5
-        cy_solver.options["limited_memory_aug_solver"] = "extended"
+        cy_solver.options["limited_memory_max_history"] = 10
+        # cy_solver.options["limited_memory_aug_solver"] = "extended"
         cy_solver.options["limited_memory_initialization"] = "scalar1"
     if solver_args is not None:
         for arg, value in solver_args.items():

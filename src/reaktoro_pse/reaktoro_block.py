@@ -209,7 +209,7 @@ class ReaktoroBlockData(ProcessBlockData):
     CONFIG.declare(
         "speciation_output_type",
         ConfigValue(
-            default="species",
+            default="log10_species",
             domain=str,
             description="Defines if element or species are passed from speciation block to property block",
             doc="""
@@ -239,7 +239,7 @@ class ReaktoroBlockData(ProcessBlockData):
     CONFIG.declare(
         "H_scale_multiplier",
         ConfigValue(
-            default=1e4,
+            default=1,
             domain=float,
             description="Multiplier used to increase H element scale to ensure that pH is correctly solved",
             doc="""
@@ -829,11 +829,11 @@ class ReaktoroBlockData(ProcessBlockData):
 
             self.convert_outputs_to_dict()
             if self.index() is not None:
-                self.config.outputs[(self.index(), "chargeDirect", None)] = (
+                self.config.outputs[(self.index(), "charge", None)] = (
                     block.relaxation_charge
                 )
             else:
-                self.config.outputs[("chargeDirect", None)] = block.relaxation_charge
+                self.config.outputs[("charge", None)] = block.relaxation_charge
 
     def build_rkt_inputs(
         self,
@@ -1011,6 +1011,7 @@ class ReaktoroBlockData(ProcessBlockData):
                 raise ValueError(
                     "speciation_output_type must be either 'elements' or 'species'"
                 )
+
         else:
 
             # build user requested outputs
@@ -1024,8 +1025,19 @@ class ReaktoroBlockData(ProcessBlockData):
                     else:
                         output_prop = None
                     if isinstance(output_var, bool):
+                        if (
+                            self.config.exact_speciation == False
+                            and output_key == "speciesAmount"
+                        ):
+                            ignore_species = (
+                                self.config.speciation_block_exclude_species
+                            )
+                        else:
+                            ignore_species = None
                         block.rkt_outputs.register_output(
-                            output_key, get_all_indexes=True
+                            output_key,
+                            get_all_indexes=True,
+                            ignore_indexes=ignore_species,
                         )
                     elif isinstance(output_var, list):
                         block.rkt_outputs.register_output(
@@ -1164,6 +1176,54 @@ class ReaktoroBlockData(ProcessBlockData):
             self.speciation_block.rkt_jacobian.display_jacobian_output_types()
         _log.info("-----Displaying information for property block ------")
         self.rkt_jacobian.display_jacobian_output_types()
+
+    def check_for_zero_outputs_and_deactivate(
+        self, threshold=1e-11, report_deactivation=True, report_reactivation=True
+    ):
+        if self.config.build_speciation_block is False:
+            block = self
+        else:
+            block = self.speciation_block
+        if not hasattr(self, "zero_point_outputs"):
+            self.zero_point_outputs = {}
+        reactivated_vars = 0
+        deactivated_vars = 0
+        for key, variable in block.reaktoro_model.outputs.items():
+            if (
+                "specie" in str(key).lower()
+                and variable.value < threshold
+                and key not in self.zero_point_outputs
+            ):
+                if report_deactivation:
+                    _log.info(
+                        'Deactivating output "{}" with value {}'.format(
+                            key, variable.value
+                        )
+                    )
+                self.zero_point_outputs[key] = {"vars": [], "constraints": []}
+                block.outputs[key].fix(threshold)
+                self.zero_point_outputs[key]["vars"].append(block.outputs[key])
+                block.output_constraints[key].deactivate()
+                self.zero_point_outputs[key]["constraints"].append(
+                    block.output_constraints[key]
+                )
+            elif key in self.zero_point_outputs and variable.value >= threshold:
+                if report_reactivation:
+                    _log.info(
+                        'Reactivating output "{}" with value {}'.format(
+                            key, variable.value
+                        )
+                    )
+                for var in self.zero_point_outputs[key]["vars"]:
+                    var.unfix()
+                for constraint in self.zero_point_outputs[key]["constraints"]:
+                    constraint.activate()
+                del self.zero_point_outputs[key]
+                reactivated_vars += 1
+        _log.info(
+            f"Deactivated {len(self.zero_point_outputs)} outputs with value below {threshold}."
+        )
+        return reactivated_vars, len(self.zero_point_outputs)
 
     # TODO:# Update to provide output location (e.g. StringIO)
     def display_jacobian_scaling(self):

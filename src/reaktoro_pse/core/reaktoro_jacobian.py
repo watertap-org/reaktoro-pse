@@ -18,7 +18,7 @@ from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from reaktoro_pse.core.reaktoro_outputs import (
     ReaktoroOutputSpec,
 )
-
+import time
 import idaes.logger as idaeslog
 
 _log = idaeslog.getLogger(__name__)
@@ -34,6 +34,7 @@ class JacType:
     center_difference = "center_difference"
     exact = "exact"
     numeric = "numeric"
+    calculated = "calculated"
 
 
 class JacboianRows:
@@ -158,6 +159,7 @@ class JacboianRows:
                 prop, self.property[idx], self.property_index[idx]
             )
         self.absolute_values[idx] = val
+        return val
 
     def get_value(self, key):
         """eval jacobian using specified function other wise return 0"""
@@ -192,6 +194,10 @@ class ReaktoroJacobianSpec:
             raise TypeError("Reator outputs require ReaktoroOutputSpec class")
 
         self.jac_rows = JacboianRows(self.state.state)
+        self.jac_values = np.zeros((len(self.jac_rows.standard_keys), 1))
+        self.jac_idx_ref = {
+            key: idx for idx, key in enumerate(self.jac_rows.standard_keys)
+        }
         self.set_jacobian_type()
         self.configure_numerical_jacobian()
         self.check_existing_jacobian_props()
@@ -227,6 +233,11 @@ class ReaktoroJacobianSpec:
             self.jacobian_type = JacType.average
             assert order % 2 == 0
             self.numerical_steps = np.arange(-order / 2, order / 2 + 1) * step_size
+            self.jac_numerical_steps = np.repeat(
+                self.numerical_steps[np.newaxis, :],
+                len(self.jac_rows.standard_keys),
+                axis=0,
+            )
         if jacobian_type == JacType.center_difference:
             self.jacobian_type = JacType.center_difference
             self.center_diff_order(order)
@@ -260,16 +271,14 @@ class ReaktoroJacobianSpec:
                     f"{output_object.property_type} not supported by numerical derivative method, please update"
                 )
 
-            val = self.output_specs.evaluate_property(
-                output_object, prop, apply_der_conversion=False
-            )
+            val = self.output_specs.evaluate_property(output_object, prop)
             output_vals.append(val)
         return output_vals
 
     def set_jacobian_type(self):
         """function to check all inputs and identify if exact or numeric jacobian should be used"""
-        _jac_types = []
-        for key, obj in self.output_specs.rkt_outputs.items():
+
+        def check_jac(prop, obj):
             jac_available = self.jac_rows.check_key(
                 obj.property_name, obj.property_index
             )
@@ -277,7 +286,15 @@ class ReaktoroJacobianSpec:
                 obj.jacobian_type = JacType.exact
             else:
                 obj.jacobian_type = JacType.numeric
-            _jac_types.append(f"{key}: {obj.jacobian_type}")
+
+        # check all inputs and set jacobian type
+        for key, obj in self.output_specs.rkt_outputs.items():
+            if obj.calculation_options is not None:
+                obj.jacobian_type = JacType.calculated
+                for idx, calc_obj in obj.calculation_options.properties.items():
+                    check_jac(calc_obj.property_name, calc_obj)
+            else:
+                check_jac(obj.property_name, obj)
 
     def display_jacobian_output_types(self):
         """used for displaying jac output types"""
@@ -310,37 +327,39 @@ class ReaktoroJacobianSpec:
         """' used to update absolute values of jacobian - needed for numeric derivatives"""
         prop = self.output_specs.supported_properties[PropTypes.chem_prop]
         for jacIdx, key in enumerate(self.jac_rows.standard_keys):
-            self.jac_rows.compute_value(prop, key)
+            value = self.jac_rows.compute_value(prop, key)
+            self.jac_values[jacIdx] = value
 
     def process_jacobian_matrix(self, jacobian_matrix, input_index, input_value):
         """this function is used to pull out a specific column from the jacobian and also
         generate matrix for manually propagating derivatives
         Here we need to retain row order, as its same as input into chem properties"""
-        jacobian_abs_matrix = []
-        jacobian_dict = {}
-        for jacIdx, key in enumerate(self.jac_rows.standard_keys):
-            jacobian_abs_matrix.append([])
-            jac_abs_value = self.jac_rows.get_value(key)
-            jac_value = jacobian_matrix[jacIdx][input_index]
-            jacobian_dict[key] = jac_value
-
-            for step in self.numerical_steps:
-                der_step = jac_value * input_value * step
-                jacobian_abs_matrix[-1].append(jac_abs_value + der_step)
-        return jacobian_dict, np.array(jacobian_abs_matrix)
+        ts = time.time()
+        self.partial_jac_vals = jacobian_matrix[:, input_index]
+        jacobian_abs_matrix_fast = self.jac_values + (
+            self.partial_jac_vals.reshape(-1, 1)
+            * input_value
+            * self.jac_numerical_steps
+        )
+        return jacobian_abs_matrix_fast
 
     def get_jacobian(self, jacobian_matrix, input_object):
+        ts = time.time()
         input_index = input_object.get_jacobian_index()
         input_value = input_object.get_temp_value()
-        jacobian_dict, jacobian_abs_matrix = self.process_jacobian_matrix(
+        # print("getvalk too took", time.time() - ts)
+        input_log_conversion = 1  # input_object.get_log_conversion_factor()
+        jacobian_abs_matrix = self.process_jacobian_matrix(
             jacobian_matrix, input_index, input_value
         )
         self.update_states(jacobian_abs_matrix)
         output_jacobian = []
-        for output_key, output_obj in self.output_specs.rkt_outputs.items():
 
+        def get_jacobian(output_obj):
             if output_obj.jacobian_type == JacType.exact:
-                jac_val = jacobian_dict[output_obj.jacobian_index]
+                jac_val = self.partial_jac_vals[
+                    self.jac_idx_ref[output_obj.jacobian_index]
+                ]
             else:
                 values = self.get_state_values(output_obj)
                 if JacType.average:
@@ -352,10 +371,18 @@ class ReaktoroJacobianSpec:
                     jac_val = np.sum(jac_val) / (
                         self.rkt_aqueous_props_der_step * input_value
                     )
-            # returns 1 unless, updated by user provided function
-            conversion_factor = output_obj.get_derivative_conversion_factor()
-            output_jacobian.append(jac_val * conversion_factor)
-        print(output_key, output_jacobian)
+            return jac_val
+
+        for output_key, output_obj in self.output_specs.rkt_outputs.items():
+            if output_obj.jacobian_type == JacType.calculated:
+                for idx, calc_obj in output_obj.calculation_options.properties.items():
+                    calc_obj.set_derivative(get_jacobian(calc_obj))
+                jac_val = output_obj.get_calculated_jacobian_value()
+            else:
+                jac_val = get_jacobian(output_obj)
+
+            output_jacobian.append(jac_val)
+
         return output_jacobian
 
     def center_diff_order(self, order):

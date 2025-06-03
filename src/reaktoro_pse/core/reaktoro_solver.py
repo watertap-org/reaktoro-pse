@@ -172,9 +172,13 @@ class ReaktoroSolver:
         for input_key in self.input_specs.rkt_inputs.rkt_input_list:
             input_obj = self.input_specs.rkt_inputs[input_key]
             if params is None:
-                value = input_obj.get_value(update_temp=True, apply_conversion=True)
+                value = input_obj.get_value(
+                    update_temp=True,
+                    apply_conversion=True,  # delog=False
+                )
             else:
                 value = params.get(input_key)
+                # value = input_obj.delog10_input(value)
                 input_obj.set_temp_value(value)
             unit = input_obj.main_unit
             self._input_params[input_key] = value
@@ -231,9 +235,11 @@ class ReaktoroSolver:
         self.update_specs(params)
         solve_failed = False
         try:
+
             result = self.try_solve(presolve)
             self.outputs = self.get_outputs()
             self.jacobian_matrix = self.get_jacobian()
+
         except RuntimeError:
             solve_failed = True
         if solve_failed or result.succeeded() == False or display:

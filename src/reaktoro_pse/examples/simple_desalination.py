@@ -151,7 +151,6 @@ def build_simple_desal(parallel_mode=False):
         },
         outputs=m.desal_properties,
         chemistry_modifier={"HCl": m.acid_addition},
-        dissolve_species_in_reaktoro=True,
         # we can use default converter as its defined for default database (Phreeqc and pitzer)
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,

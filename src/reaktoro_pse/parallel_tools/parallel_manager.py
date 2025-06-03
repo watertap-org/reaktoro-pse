@@ -223,12 +223,13 @@ class LocalWorker:
                 self.worker_data.inputs.rkt_inputs[key].get_value()
             )
             self.input_matrix[1][i] = np.float64(
-                self.worker_data.inputs.rkt_inputs[key].get_value(apply_conversion=True)
+                self.worker_data.inputs.rkt_inputs[key].get_value(
+                    apply_conversion=True,
+                )
             )
         self.local_pipe.send((WorkerMessages.initialize, presolve))
 
         result = self.local_pipe.recv()
-        # we want to block here.
 
         if result == WorkerMessages.success:
             self.update_outputs()

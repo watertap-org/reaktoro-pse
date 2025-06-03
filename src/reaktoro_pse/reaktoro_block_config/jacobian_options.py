@@ -62,6 +62,7 @@ class JacobianOptions:
                 Defines methods for jacobian scaling:
                 - if option is no_scaling, jacobian scale will == 1 for all outputs
                 - if option is 'variable_scaling' will use output variable scaling factors
+                - if option is 'variable_io_scaling' will sums squared of input scales and output scales
                 - if option is jacobian_matrix will use actual jac matrix to calculate scaling factors
                 - if user_scaling is not None then uses user provided scaling
                 """,
@@ -85,7 +86,7 @@ class JacobianOptions:
         CONFIG.declare(
             "hessian_type",
             ConfigValue(
-                default=HessTypes.ZeroHessian,
+                default=HessTypes.BFGS,
                 domain=IsInstance((str, HessTypes)),
                 description="Hessian type to use for reaktor gray box",
                 doc="""Hessian type to use, some might provide better stability
@@ -96,7 +97,7 @@ class JacobianOptions:
                 - LBFGS - limited memory BFGS
                 - BFGS - Broyden-Fletcher-Goldfarb-Shanno   
                 - CBFGS - conditional BFGS
-                  BFGS_mod - modified BFGS
+                - BFGS_mod - modified BFGS
                 - BFGS_damp - damped BFGS   
                 - BFGS_ipopt - BFGS with ipopt update step
                     """,

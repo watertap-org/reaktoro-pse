@@ -212,12 +212,20 @@ class ReaktoroInputSpec:
 
         # TODO: probably want to make a class to track this
         self.specie_to_elements = {}
+        self.element_to_species = {}
         for specie in self.state.state.system().species():
             self.specie_to_elements[specie.name()] = {}
             for i, el in enumerate(specie.elements().symbols()):
+                if el not in self.element_to_species:
+                    self.element_to_species[el] = []
+                self.element_to_species[el].append(
+                    (specie.elements().coefficients()[i], specie.name())
+                )
                 self.specie_to_elements[specie.name()][
                     el
                 ] = specie.elements().coefficients()[i]
+        self.state.specie_to_elements = self.specie_to_elements
+        self.state.element_to_species = self.element_to_species
         self.chemical_to_elements.update(self.specie_to_elements)
 
     def add_specs(
@@ -422,6 +430,7 @@ class ReaktoroInputSpec:
                 del self.constraint_dict[element]
             if len(self.all_inclusive_constraint_dict[element]) == 0:
                 del self.all_inclusive_constraint_dict[element]
+        self.state.all_inclusive_constraint_dict = self.all_inclusive_constraint_dict
 
     def write_active_species(self, spec_object):
         # build inputs into rkt model, and track their indexes for writing rkt constraints
@@ -514,7 +523,7 @@ class ReaktoroInputSpec:
             (
                 cv[0],
                 self.rkt_inputs[cv[1]].get_rkt_index(),
-                self.rkt_inputs[cv[1]].log10_input,
+                self.rkt_inputs[cv[1]].log10_input,  # trying manual conversions
             )
             for cv in self.constraint_dict[element]
         ]

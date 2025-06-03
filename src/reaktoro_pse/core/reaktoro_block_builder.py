@@ -45,6 +45,7 @@ class JacScalingTypes:
     variable_scaling = "variable_scaling"
     jacobian_matrix = "jacobian_matrix"
     manual_scaling = "manual_scaling"
+    variable_io_scaling = "variable_io_scaling"
 
 
 class ReaktoroBlockBuilder:
@@ -183,12 +184,12 @@ class ReaktoroBlockBuilder:
         if specie in self.solver.input_specs.user_inputs:
             pyo_obj = self.solver.input_specs.user_inputs[
                 specie
-            ].get_pyomo_with_required_units()
+            ].get_pyomo_with_required_units(delog=True)
 
         elif specie in self.solver.input_specs.rkt_chemical_inputs:
             pyo_obj = self.solver.input_specs.rkt_chemical_inputs[
                 specie
-            ].get_pyomo_with_required_units()
+            ].get_pyomo_with_required_units(delog=True)
 
         else:
             raise KeyError(f"specie {specie} not found in input dicts")
@@ -295,14 +296,14 @@ class ReaktoroBlockBuilder:
                 ].get_pyomo_var(),
                 sf,
             )
+            if ("elementAmount", "H") in self.block.reaktoro_model.outputs:
+                rkt_var = self.block.reaktoro_model.outputs[("elementAmount", "H")]
+                iscale.constraint_scaling_transform(
+                    self.block.output_constraints[("elementAmount", "H")], sf
+                )
 
-            rkt_var = self.block.reaktoro_model.outputs[("elementAmount", "H")]
-            iscale.constraint_scaling_transform(
-                self.block.output_constraints[("elementAmount", "H")], sf
-            )
-
+                iscale.set_scaling_factor(rkt_var, sf)
             iscale.set_scaling_factor(self.block.element_amounts_H, sf)
-            iscale.set_scaling_factor(rkt_var, sf)
             iscale.constraint_scaling_transform(self.block.ph_relaxation_constraint, sf)
         if "charge_neutrality" in self.relaxation_constraint_types:
 
@@ -310,7 +311,7 @@ class ReaktoroBlockBuilder:
                 (self.charge_type, None)
             ].get_pyomo_var()
 
-            charge_scale = 1e7
+            charge_scale = 1  # 1e8
             iscale.set_scaling_factor(charge_var, charge_scale)
 
             if self.charge_type == "charge":
@@ -348,7 +349,7 @@ class ReaktoroBlockBuilder:
                     and relaxed_var.value == -1
                 ):
                     h_mols = self.solver.input_specs.rkt_inputs["OH-"].get_value(
-                        apply_conversion=True
+                        apply_conversion=True, delog=True
                     )
                     sum_species = []
                     for key, obj in self.solver.input_specs.rkt_inputs.items():
@@ -360,7 +361,9 @@ class ReaktoroBlockBuilder:
                             and key != "H+"
                             and key != "OH-"
                         ):
-                            sum_species.append(obj.get_value(apply_conversion=True))
+                            sum_species.append(
+                                obj.get_value(apply_conversion=True, delog=True)
+                            )
                     H_con = h_mols / (1000 / (sum(sum_species) * 18.01))
                     init_value = -1 * np.log10(H_con)
                     # init_value = 7
@@ -434,17 +437,12 @@ class ReaktoroBlockBuilder:
         _log.info(f"Initialized rkt block")
 
     def get_rkt_scale(self, rkt_input_output, use_default_scaling=True):
-        # if rkt_input_output.auto_scaled == False and use_default_scaling == False:
-        #     use_default_scaling = True
+
         sf, auto_scaled = self._get_sf(
             rkt_input_output.get_pyomo_var(), use_default_scaling
         )
         # if rkt_input_output.io_type == "element":
-        #     sf = sf / 1e2
-        #     print(rkt_input_output.get_pyomo_var(), rkt_input_output.io_type)
-        # print(rkt_input_output.get_pyomo_var(), sf, auto_scaled)
-        # if auto_scaled and use_default_scaling:
-        #     rkt_input_output.auto_scaled = True
+        #     sf = sf * 10
         return sf
 
     def get_sf(self, pyo_var, use_default_scaling=True, return_none=1):
@@ -470,7 +468,7 @@ class ReaktoroBlockBuilder:
                 return 1
 
             sf = calc_scale(abs(pyo_var.value))
-            max_scale = 1e12
+            max_scale = 1e32
             min_scale = 1e-8
             if sf > max_scale:
                 _log.warning(
@@ -543,6 +541,20 @@ class ReaktoroBlockBuilder:
                 out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
                 sf = 1 / out_sf
                 self.solver.jacobian_scaling_values[i] = sf
+        elif self.jacobian_scaling_type == JacScalingTypes.variable_io_scaling:
+            for i, (key, obj) in enumerate(
+                self.solver.output_specs.rkt_outputs.items()
+            ):
+                input_scales = []
+                out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
+                for input_key, input_obj in self.solver.input_specs.rkt_inputs.items():
+                    sf = iscale.get_scaling_factor(input_obj.get_pyomo_var(), default=1)
+                    input_scales.append(sf / out_sf)
+
+                sf = np.sum(np.array(input_scales) ** 2) ** 0.5
+                print(f"input key {key}, jacobian scale {sf}")
+                self.solver.jacobian_scaling_values[i] = sf
+
         elif self.jacobian_scaling_type == JacScalingTypes.jacobian_matrix:
             self.solver.jacobian_scaling_values = (
                 np.sum(np.abs(self.solver.jacobian_matrix) ** 2, axis=1) ** 0.5

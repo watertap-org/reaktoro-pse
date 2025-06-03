@@ -11,7 +11,7 @@
 #################################################################################
 from pyomo.environ import Var, value, units as pyunits
 from pyomo.core.base.var import VarData
-
+import math
 
 __author__ = "Alexander V. Dudchenko"
 
@@ -56,7 +56,9 @@ class RktInput:
     def __init__(self, var_name, pyomo_var=None):
         # TODO: Add more flexible check that user providd a pyomo variable or param
         self.var_name = var_name
-        self.temp_value = 0  # used during reaktoro solver or temporarty holding a value
+        self.temp_value = (
+            None  # used during reaktoro solver or temporarty holding a value
+        )
 
         self.rkt_index = None  # tracking rkt input index
         self.jacobian_index = None  # tracking rkt jacobian row index
@@ -83,8 +85,10 @@ class RktInput:
             self.check_unit()
         else:
             self.pyomo_var = None
+            self.value = None
 
     def delete_pyomo_var(self):
+
         self.update_values(True)
         del self.pyomo_var
         self.pyomo_var = None
@@ -101,14 +105,13 @@ class RktInput:
         else:
             return value
 
-    def update_values(self, update_temp=False, delog_values=False):
+    def update_values(self, update_temp=False):
 
         if self.pyomo_var is not None:
-            self.value = self.delog10_input(self.pyomo_var.value, delog=delog_values)
+            self.value = self.pyomo_var.value
             if self.conversion_value is not None:
-                self.converted_value = self.delog10_input(
-                    value(self.get_pyomo_with_required_units()), delog=delog_values
-                )
+                self.converted_value = value(self.get_pyomo_with_required_units())
+
             else:
                 self.converted_value = self.value
 
@@ -133,20 +136,33 @@ class RktInput:
     def set_upper_bound(self, value):
         self.upper_bound = value
 
-    def get_value(self, update_temp=False, delog_values=False, apply_conversion=False):
-        self.update_values(update_temp, delog_values=delog_values)
-        if apply_conversion:
-            return self.converted_value
+    def get_log_conversion_factor(self):
+        """returns conversion factor for log10 conversion"""
+        if self.log10_input:
+            return 1 / (self.value * math.log(10))
         else:
-            return self.value
+            return 1
 
-    def get_pyomo_with_required_units(self):
+    def get_value(self, update_temp=False, delog=False, apply_conversion=False):
+        self.update_values(update_temp)
+        if apply_conversion and self.conversion_value is not None:
+            _value = self.conversion_value
+        else:
+            _value = self.value
+        return self.delog10_input(_value, delog=delog)
+
+    def get_pyomo_with_required_units(self, delog=False):
+        if delog:
+            return self.delog10_input(self.pyomo_var, delog=delog)
         if self.conversion_value == None:
             return self.pyomo_var
         else:
-            return pyunits.convert(
-                self.pyomo_var / (self.conversion_value * self.conversion_unit),
-                to_units=self.required_unit,
+            return self.delog10_input(
+                pyunits.convert(
+                    self.pyomo_var / (self.conversion_value * self.conversion_unit),
+                    to_units=self.required_unit,
+                ),
+                delog=delog,
             )
 
     def set_unit_conversion(self, value, unit):

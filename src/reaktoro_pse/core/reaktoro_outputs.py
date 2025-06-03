@@ -66,21 +66,51 @@ class RktOutput:
         self.auto_scaled = False
         self.min_rkt_value = None
         self.max_rkt_value = None
+        self.value_clipped = False
         self.io_type = None
         self.conversion_function = None
         self.derivative_conversion_function = None
         self.derivative_conversion_value = 1
-        self.converted_prop_type = None
 
-    def get_value(self, prop_object, update_values=False, apply_der_conversion=True):
-        value = self.get_function(prop_object, self.property_name, self.property_index)
+        self.calculation_options = None
+        self.derivative = None
+
+    def set_derivative(self, value):
+
+        self.derivative = value
+
+    def get_calculated_jacobian_value(self):
+        return self.calculation_options.calculate_derivative_conversion(
+            self.calculation_options.properties
+        )
+
+    def compute_values(self, prop_object, supported_props):
+        if self.calculation_options is None:
+            return self.get_function(
+                prop_object, self.property_name, self.property_index
+            )
+        else:
+            for idx, prop in self.calculation_options.properties.items():
+                prop.get_value(supported_props[prop.property_type], update_values=True)
+            value = self.calculation_options.calculate_value(
+                self.calculation_options.properties
+            )
+            return value
+
+    def get_value(
+        self,
+        prop_object,
+        update_values=False,
+        supported_props=None,
+    ):
+        value = self.compute_values(prop_object, supported_props)
+        self.value_clipped = False
         if self.min_rkt_value is not None and value < self.min_rkt_value:
             value = self.min_rkt_value
+            self.value_clipped = True
         if self.max_rkt_value is not None and value > self.max_rkt_value:
             value = self.max_rkt_value
-        value, derivative_conversion_value = self.apply_conversions(value)
-        if apply_der_conversion:
-            self.derivative_conversion_value = derivative_conversion_value
+        # value, derivative_conversion_value = self.apply_conversions(value)
         if update_values:
             self.value = value
 
@@ -94,6 +124,7 @@ class RktOutput:
         if self.conversion_function is not None:
             converted_value = self.conversion_function(value)
             derivative_conversion = self.derivative_conversion_function(value)
+            self._der_used_var = value
             return converted_value, derivative_conversion
         else:
             return value, 1
@@ -107,6 +138,9 @@ class RktOutput:
         self.delete_pyomo_var()
         if self.property_type == PropTypes.pyomo_built_prop:
             del self.pyomo_build_options
+        if self.property_type == PropTypes.converted_prop:
+            del self.calculation_options
+            self.calculation_options = None
             # self.get_function = None
 
     def set_option_function(self, property_type, get_function):
@@ -151,7 +185,7 @@ class RktOutput:
         return self.lb
 
 
-class PyomoBuildOptions:
+class PropOptions:
     def __init__(self):
         self.properties = {}  # creats dict of rkt Properties to get desired values
         self.options = (
@@ -182,7 +216,7 @@ class PyomoProperties:
 
     def scalingTendency(self, property_index):
         """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
-        required_props = PyomoBuildOptions()
+        required_props = PropOptions()
         required_props.register_property(
             PropTypes.aqueous_prop, "saturationIndex", property_index
         )
@@ -193,7 +227,7 @@ class PyomoProperties:
 
     def chargeDirect(self, property_index):
         """build pyomo constraint for charge calculations directly form chem props"""
-        required_props = PyomoBuildOptions()
+        required_props = PropOptions()
         required_props.register_property(PropTypes.chem_prop, "charge", property_index)
         species = []
         for specie in self.state.state.system().species():
@@ -211,7 +245,7 @@ class PyomoProperties:
         """build pyomo constraint for scaling index calculations directly form chem props
         #TODO: Need to add check for database being used as only PhreeqC is really supported at the
         moment"""
-        required_props = PyomoBuildOptions()
+        required_props = PropOptions()
         ref_temp = 25  # degC
         ref_pressure = 1  # atm
         spec = self.aqueous_props.saturationSpecies().get(property_index)
@@ -259,7 +293,7 @@ class PyomoProperties:
     def osmoticPressure(self, property_index):
         """build osmoric pressure constraint, as its not available from reaktoro"""
         # reference  https://help.syscad.net/PHREEQC_Reverse_Osmosis
-        required_props = PyomoBuildOptions()
+        required_props = PropOptions()
         required_props.register_property(
             PropTypes.chem_prop, "speciesStandardVolume", property_index
         )
@@ -271,16 +305,16 @@ class PyomoProperties:
         required_props.register_option("gas_constant", rkt.universalGasConstant)
         return required_props
 
-    def pHDirect(self, property_index=None):
-        """build direct pH caclautions from chem props"""
-        required_props = PyomoBuildOptions()
-        required_props.register_property(PropTypes.chem_prop, "speciesActivityLn", "H+")
-        required_props.register_build_function(propFuncs.build_ph_constraint)
-        return required_props
+    # def pH(self, property_index=None):
+    #     """build direct pH caclautions from chem props"""
+    #     required_props = PropOptions()
+    #     required_props.register_property(PropTypes.chem_prop, "speciesActivityLn", "H+")
+    #     required_props.register_build_function(propFuncs.build_ph_constraint)
+    #     return required_props
 
     def vaporPressure(self, property_index=None):
         """build direct pH caclautions from chem props"""
-        required_props = PyomoBuildOptions()
+        required_props = PropOptions()
         required_props.register_property(
             PropTypes.chem_prop, "speciesActivityLn", property_index
         )
@@ -291,11 +325,28 @@ class PyomoProperties:
 
     def alkalinityAsCaCO3(self, property_index=None):
         """build alkalinity and convert it to CaCO3 basis"""
-        required_props = PyomoBuildOptions()
+        required_props = PropOptions()
         required_props.register_property(PropTypes.aqueous_prop, "alkalinity")
         required_props.register_build_function(
             propFuncs.build_alkalinity_as_caco3_constraint
         )
+        return required_props
+
+    def elementAmount(self, property_index):
+        """build element amount"""
+        required_props = PropOptions()
+        for mol, spc in self.state.element_to_species[property_index]:
+            required_props.register_property(
+                property_type=PropTypes.chem_prop,
+                property_name="speciesAmount",
+                property_index=spc,
+            )
+        required_props.register_option(
+            "element_sum",
+            [(mol, spc) for mol, spc in self.state.element_to_species[property_index]],
+        )
+
+        required_props.register_build_function(propFuncs.build_element_sum_constraint)
         return required_props
 
 
@@ -305,28 +356,76 @@ class ConvertedPropTypes:
         self.chem_props = chem_props
         self.aqueous_props = aqueous_props
 
+    def elementAmount(self, property_index):
+        """build element amount"""
+        output = PropOptions()
+        for mol, spc in self.state.element_to_species[property_index]:
+            output.register_property(
+                property_type=PropTypes.chem_prop,
+                property_name="speciesAmount",
+                property_index=spc,
+            )
+        output.calculate_value = lambda x: sum(
+            mol * x["speciesAmount", spc].value
+            for mol, spc in self.state.element_to_species[property_index]
+        )
+        output.calculate_derivative_conversion = lambda x: sum(
+            mol * x["speciesAmount", spc].derivative
+            for mol, spc in self.state.element_to_species[property_index]
+        )
+        return output
+
     def scalingTendency(self, property_index):
         """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
-        output = RktOutput(
+        output = PropOptions()
+        output.register_property(
             property_type=PropTypes.aqueous_prop,
             property_name="saturationIndex",
             property_index=property_index,
         )
-        output.converted_prop_type = "scalingTendency"
-        output.conversion_function = lambda x: 10 ** (x)
-        output.derivative_conversion_function = lambda x: 10**x * math.log(10)
+        output.calculate_value = lambda x: 10 ** (
+            x["saturationIndex", property_index].value
+        )
+        output.calculate_derivative_conversion = (
+            lambda x: x["saturationIndex", property_index].derivative
+            * (10 ** x["saturationIndex", property_index].value)
+            * math.log(10)
+        )
         return output
 
     def logSpeciesAmount(self, property_index):
         """build log species amount"""
-        output = RktOutput(
+        output = PropOptions()
+        output.register_property(
             property_type=PropTypes.chem_prop,
             property_name="speciesAmount",
             property_index=property_index,
         )
-        output.converted_prop_type = "logSpeciesAmount"
-        output.conversion_function = lambda x: math.log10(x)
-        output.derivative_conversion_function = lambda x: 1 / (x * math.log(10))
+        output.calculate_value = lambda x: math.log10(
+            x["speciesAmount", property_index].value
+        )
+        output.calculate_derivative_conversion = (
+            lambda x: x["speciesAmount", property_index].derivative
+            * 1
+            / (x["speciesAmount", property_index].value * math.log(10))
+        )
+        return output
+
+    def pH(self, property_index):
+        """build log species amount"""
+        output = PropOptions()
+        output.register_property(
+            property_type=PropTypes.chem_prop,
+            property_name="speciesActivityLn",
+            property_index="H+",
+        )
+        output.calculate_value = (
+            lambda x: -1 * x["speciesActivityLn", "H+"].value / math.log(10)
+        )
+        output.calculate_derivative_conversion = (
+            lambda x: x["speciesActivityLn", "H+"].derivative * -1 / math.log(10)
+        )
+
         return output
 
 
@@ -359,7 +458,6 @@ class ReaktoroOutputExport:
             )
             self.rkt_outputs[key].min_rkt_value = obj.min_rkt_value
             self.rkt_outputs[key].max_rkt_value = obj.max_rkt_value
-            self.rkt_outputs[key].converted_prop_type = obj.converted_prop_type
             self.rkt_outputs[key].remove_unpicklable_data()
 
     def copy_user_outputs(self, outputs):
@@ -375,7 +473,6 @@ class ReaktoroOutputExport:
             )
             self.user_outputs[key].min_rkt_value = obj.min_rkt_value
             self.user_outputs[key].max_rkt_value = obj.max_rkt_value
-            self.user_outputs[key].converted_prop_type = obj.converted_prop_type
             self.user_outputs[key].remove_unpicklable_data()
 
 
@@ -401,7 +498,12 @@ class ReaktoroOutputSpec:
         self.supported_properties[PropTypes.converted_prop] = ConvertedPropTypes(
             self.state, self.supported_properties[PropTypes.chem_prop], aq_props
         )
-
+        self.prop_check_order = [
+            PropTypes.converted_prop,
+            PropTypes.pyomo_built_prop,
+            PropTypes.chem_prop,
+            PropTypes.aqueous_prop,
+        ]
         self.rkt_outputs = {}  # outputs that reaktoro needs to generate
         self.user_outputs = {}  # outputs user requests
         self.output_limits = {}
@@ -420,7 +522,6 @@ class ReaktoroOutputSpec:
         RktOutputObject,
         property_type=None,
         update_values_in_object=False,
-        apply_der_conversion=True,
     ):
         """evaluating reaktoro output object, doing it here so we can
         provide custom property types -> this will be require for numerical derivatives
@@ -436,8 +537,11 @@ class ReaktoroOutputSpec:
             )
         if property_type is None:
             property_type = self.supported_properties[RktOutputObject.property_type]
+
         return RktOutputObject.get_value(
-            property_type, update_values_in_object, apply_der_conversion
+            property_type,
+            update_values_in_object,
+            self.supported_properties,
         )
 
     def register_output(
@@ -522,21 +626,23 @@ class ReaktoroOutputSpec:
                     self.apply_output_limits(
                         prop.property_name, self.rkt_outputs[index]
                     )
-
             elif property_type == PropTypes.converted_prop:
                 # if converted prop, we need to get the converted prop type
                 # and then set the get function
-                self.user_outputs[index] = get_function
-                self.user_outputs[index].set_pyomo_var(pyomo_var)
-                self.apply_output_limits(
-                    get_function.property_name, self.user_outputs[index]
+
+                self.user_outputs[index] = RktOutput(
+                    property_type=property_type,
+                    property_name=property_name,
+                    property_index=property_index,
+                    pyomo_var=pyomo_var,
                 )
+
+                self.user_outputs[index].calculation_options = get_function
+                self.user_outputs[index].set_pyomo_var(pyomo_var)
+                self.apply_output_limits(property_type, self.user_outputs[index])
+                self.user_outputs[index].io_type = prop_type
                 if index not in self.rkt_outputs:
                     self.rkt_outputs[index] = self.user_outputs[index]
-                    self.rkt_outputs[index].jacobian_index = (
-                        get_function.property_name,
-                        get_function.property_index,
-                    )
             else:
                 self.user_outputs[index] = RktOutput(
                     property_type=property_type,
@@ -550,6 +656,7 @@ class ReaktoroOutputSpec:
                 self.user_outputs[index].io_type = prop_type
                 if index not in self.rkt_outputs:
                     self.rkt_outputs[index] = self.user_outputs[index]
+
         else:
             _log.warning("Output {index}, already added!")
 
@@ -564,7 +671,6 @@ class ReaktoroOutputSpec:
                     property_type, get_function = self.get_prop_type(
                         property_name, specie
                     )
-                    print(property_type, get_function)
                     self.process_output(
                         property_type=property_type,
                         property_name=property_name,
@@ -593,7 +699,8 @@ class ReaktoroOutputSpec:
         call functions to figure out property type (aquous, chem, etc) and how
         to get the actual value prop.value(), prop.value(index), prop.value(index).val()
         and so forth"""
-        for supported_props, prop in self.supported_properties.items():
+        for supported_props in self.prop_check_order:
+            prop = self.supported_properties.get(supported_props)
             for func_attempt in [
                 self._get_prop_phase_name_val,
                 self._get_prop_name,
@@ -618,11 +725,13 @@ class ReaktoroOutputSpec:
                         func_results = getattr(prop, property_name)(
                             property_index=property_index
                         )
-                        _, func_result = self.get_prop_type(
-                            func_results.property_name,
-                            func_results.property_index,
-                        )
-                        func_results.set_get_function(func_result)
+                        for prop_key, obj in func_results.properties.items():
+
+                            supported_prop, func_result = self.get_prop_type(
+                                obj.property_name, obj.property_index
+                            )
+                            obj.set_get_function(func_result)
+                            obj.set_property_type(supported_prop)
                         return supported_props, func_results
                     else:
                         self._func_tester(
@@ -670,35 +779,28 @@ class ReaktoroOutputSpec:
             """get converted function for converted properties"""
             prop_info = getattr(
                 self.supported_properties[PropTypes.converted_prop],
-                obj.converted_prop_type,
+                obj.property_name,
             )(obj.property_index)
-            obj.conversion_function = prop_info.conversion_function
-            obj.derivative_conversion_function = (
-                prop_info.derivative_conversion_function
-            )
-            print(obj, obj.conversion_function, obj.derivative_conversion_function)
-            return obj.conversion_function
+            for prop_key, sub_obj in prop_info.properties.items():
+                supported_prop, func_result = self.get_prop_type(
+                    sub_obj.property_name, sub_obj.property_index
+                )
+                sub_obj.set_get_function(func_result)
+                sub_obj.set_property_type(supported_prop)
 
-        for key, obj in self.rkt_outputs.items():
-            property_type, get_function = self.get_prop_type(
-                obj.property_name,
-                obj.property_index,
-            )
-            assert property_type == obj.property_type
-            print(key, property_type, obj.converted_prop_type)
-            if obj.converted_prop_type is not None:
-                get_converted_function(obj)
-            obj.set_option_function(property_type, get_function)
-        for key, obj in self.user_outputs.items():
-            property_type, get_function = self.get_prop_type(
-                obj.property_name,
-                obj.property_index,
-            )
-            if obj.converted_prop_type is not None:
-                get_converted_function(obj)
+            obj.calculation_options = prop_info
 
-            assert property_type == obj.property_type
-            obj.set_option_function(property_type, get_function)
+        for rkt_type in [self.rkt_outputs, self.user_outputs]:
+            for key, obj in rkt_type.items():
+                property_type, get_function = self.get_prop_type(
+                    obj.property_name,
+                    obj.property_index,
+                )
+                assert property_type == obj.property_type
+                if obj.property_type == PropTypes.converted_prop:
+                    get_converted_function(obj)
+                else:
+                    obj.set_option_function(property_type, get_function)
 
     #### start of possible call function to extract values from reactoro properties #####
 
@@ -711,7 +813,6 @@ class ReaktoroOutputSpec:
             value = func(prop_type, prop_name, prop_index)
 
         except RuntimeError as error:
-
             if "Unable to interpolate" not in str(error):
                 raise error
 

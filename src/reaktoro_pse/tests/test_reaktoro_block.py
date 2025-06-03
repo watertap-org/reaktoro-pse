@@ -93,40 +93,42 @@ def build_rkt_state_with_indexed_species():
     return m
 
 
-# def test_blockBuild(build_rkt_state_with_species):
-#     m = build_rkt_state_with_species
-#     m.outputs.display()
-#     m.property_block = ReaktoroBlock(
-#         aqueous_phase={
-#             "composition": m.composition,
-#             "convert_to_rkt_species": True,
-#         },
-#         system_state={
-#             "temperature": m.temp,
-#             "pressure": m.pressure,
-#             "pH": m.pH,
-#         },
-#         database="PhreeqcDatabase",
-#         database_file="pitzer.dat",
-#         outputs=m.outputs,
-#     )
-#     print("rkt block")
-#     m.property_block.reaktoro_model.display()
+def test_blockBuild(build_rkt_state_with_species):
+    m = build_rkt_state_with_species
+    m.outputs.display()
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+        },
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        outputs=m.outputs,
+    )
+    print("rkt block")
+    m.property_block.reaktoro_model.display()
+    print("rkt block")
+    m.property_block.initialize()
 
-#     print("rkt block")
-#     m.property_block.initialize()
-#     cy_solver = get_cyipopt_watertap_solver()
-#     cy_solver.options["max_iter"] = 20
-#     m.pH.fix()
-#     m.composition["H2O"].unfix()
-#     m.composition["H2O"].setlb(30)
-#     m.outputs[("scalingTendency", "Calcite")].fix(5)
-#     m.property_block.reaktoro_model.display()
-#     print(degrees_of_freedom(m))
-#     result = cy_solver.solve(m, tee=True)
-#     assert_optimal_termination(result)
-#     m.display()
-#     assert pytest.approx(m.composition["H2O"].value, 1e-3) == 68.0601837
+    m.property_block.display_jacobian_scaling()
+    cy_solver = get_cyipopt_watertap_solver()
+    cy_solver.options["max_iter"] = 20
+    m.pH.fix()
+    m.composition["H2O"].unfix()
+    m.composition["H2O"].setlb(30)
+    m.outputs[("scalingTendency", "Calcite")].fix(5)
+    m.property_block.output_constraints.pprint()
+    print(degrees_of_freedom(m))
+    assert degrees_of_freedom(m) == 0
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    m.display()
+    assert pytest.approx(m.composition["H2O"].value, 1e-3) == 68.0601837
 
 
 # def test_activate_deactivate(build_rkt_state_with_species):
@@ -266,7 +268,7 @@ def test_blockBuild_with_speciation_and_log_basis_with_ph_relaxation_block(
         database_file="pitzer.dat",
         chemistry_modifier=m.CaO,
         outputs=m.outputs,
-        # speciation_output_type="log10_species",
+        speciation_output_type="log10_species",
         enable_pH_relaxation_on_property_block=ph_relax,
         enable_solvent_relaxation_on_property_block=water_relax,
         enable_charge_relaxation_on_property_block=charge_relax,
@@ -274,13 +276,19 @@ def test_blockBuild_with_speciation_and_log_basis_with_ph_relaxation_block(
         build_speciation_block=True,
     )
     m.property_block.initialize()
-    cy_solver = get_cyipopt_watertap_solver()
-    cy_solver.options["max_iter"] = 25
+    cy_solver = get_cyipopt_watertap_solver(limited_memory=False)
+    cy_solver.options["max_iter"] = 50
     m.pH.unfix()
     m.property_block.speciation_block.reaktoro_model.outputs.display()
-    m.property_block.reaktoro_model.inputs.display()
+    new_scaling = m.property_block.display_jacobian_scaling()
+    # m.property_block.reaktoro_model.inputs.display()
+    # for key in new_scaling["speciation_block"]:
+    #     new_scaling[key] = 0.001
+    # m.property_block.update_jacobian_scaling(new_scaling)
     m.property_block.display_jacobian_scaling()
     m.outputs[("scalingTendency", "Calcite")].fix(5)
+    print(degrees_of_freedom(m))
+    assert degrees_of_freedom(m) == 0
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
 
@@ -351,8 +359,8 @@ def test_blockBuild_with_speciation_and_log_basis_with_ph_relaxation_block(
 #     "ph_relax, water_relax, charge_relax",
 #     [
 #         (False, False, False),
-#         (True, False, False),
-#         # (False, True, False),
+#         # (True, False, False),
+#         # # (False, True, False),
 #         (True, True, False),
 #         # (False, True, True),  # pitzer does not like fixed property block charge ,
 #         # (
@@ -608,6 +616,47 @@ def test_blockBuild_with_speciation_and_log_basis_with_ph_relaxation_block(
 #     for e, con in m.property_block.rkt_inputs.constraint_dict.items():
 #         print(e, con)
 #     m.property_block.initialize()
+#     m.property_block.check_for_zero_outputs_and_deactivate(threshold=1e-10)
+#     expected_deactivated_constraints = [
+#         ("speciesAmount", "CO(aq)"),
+#         ("speciesAmount", "ClO-"),
+#         ("speciesAmount", "ClO2-"),
+#         ("speciesAmount", "ClO3-"),
+#         ("speciesAmount", "ClO4-"),
+#         ("speciesAmount", "H2O2(aq)"),
+#         ("speciesAmount", "H2S2O3(aq)"),
+#         ("speciesAmount", "H2S2O4(aq)"),
+#         ("speciesAmount", "HClO(aq)"),
+#         ("speciesAmount", "HClO2(aq)"),
+#         ("speciesAmount", "HO2-"),
+#         ("speciesAmount", "HS2O3-"),
+#         ("speciesAmount", "HS2O4-"),
+#         ("speciesAmount", "HSO3-"),
+#         ("speciesAmount", "HSO5-"),
+#         ("speciesAmount", "O2(aq)"),
+#         ("speciesAmount", "S2O4-2"),
+#         ("speciesAmount", "S2O5-2"),
+#         ("speciesAmount", "S2O6-2"),
+#         ("speciesAmount", "S2O8-2"),
+#         ("speciesAmount", "S3O6-2"),
+#         ("speciesAmount", "S4O6-2"),
+#         ("speciesAmount", "S5O6-2"),
+#         ("speciesAmount", "SO2(aq)"),
+#         ("speciesAmount", "SO3-2"),
+#     ]
+#     for key in m.property_block.speciation_block.output_constraints:
+#         if key in m.property_block.zero_point_outputs:
+#             assert (
+#                 m.property_block.speciation_block.output_constraints[key].active
+#                 == False
+#             )
+#             assert key in expected_deactivated_constraints
+#         else:
+#             assert (
+#                 m.property_block.speciation_block.output_constraints[key].active == True
+#             )
+#             assert key not in expected_deactivated_constraints
+
 #     m.property_block.display_jacobian_outputs()
 #     # sup critical does not like limited_memory option
 #     cy_solver = get_cyipopt_watertap_solver(limited_memory=False)

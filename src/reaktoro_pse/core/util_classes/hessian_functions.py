@@ -126,7 +126,7 @@ class HessianApproximation:
             sTy = s.T @ y
             if np.sum(y) != 0 and np.sum(s) != 0:
                 sigma = np.zeros(bfgs_hessian[i].shape)
-                sigma[sTy != 0] = sTy[sTy != 0] / sTs[sTy != 0]
+                sigma[sTs != 0] = sTy[sTs != 0] / sTs[sTs != 0]
                 sigma[sigma == np.inf] = 0
                 sigma[sigma == -np.inf] = 0
                 bfgs_hessian[i] = np.identity(len(old_step)) * sigma
@@ -178,7 +178,6 @@ class HessianApproximation:
         h_sum = np.zeros((len(self.inputs), len(self.inputs)))
         for i in range(self.jacobian_matrix.shape[0]):
             h_sum += self._outputs_dual_multipliers[i] * self.bfgs_hessian[i]
-
         self.hessian_matrix = h_sum.copy()
 
     def hessian_lbfgs(self):
@@ -440,7 +439,7 @@ class HessianApproximation:
         elif self.hessian_matrix_type == HessTypes.sparse_16:
             self.sparse_diagonal(len(self.inputs), 1e-16)
         elif self.hessian_matrix_type == HessTypes.GaussNewton:
-            self.hessian_gauss_newton_version(sparse_jac=True)
+            self.hessian_gauss_newton_version(sparse_jac=False)
         elif self.hessian_matrix_type == HessTypes.LBFGS:
             self.hessian_lbfgs()
         elif self.hessian_matrix_type == HessTypes.BFGS:

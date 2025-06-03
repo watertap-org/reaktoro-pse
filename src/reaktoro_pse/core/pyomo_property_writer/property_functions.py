@@ -22,6 +22,16 @@ def build_alkalinity_as_caco3_constraint(rkt_output_object):
     )  # mg/mol * mol/L
 
 
+def build_element_sum_constraint(rkt_output_object):
+    user_output_var = rkt_output_object.pyomo_var
+    build_properties = rkt_output_object.pyomo_build_options.properties
+    build_options = rkt_output_object.pyomo_build_options.options
+    return user_output_var == sum(
+        mol * build_properties["speciesAmount", spc].pyomo_var
+        for mol, spc in build_options["element_sum"]
+    )
+
+
 def build_scaling_tendency_constraint(rkt_output_object):
     user_output_var = rkt_output_object.pyomo_var
     build_properties = rkt_output_object.pyomo_build_options.properties
