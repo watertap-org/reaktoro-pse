@@ -21,7 +21,9 @@ from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from reaktoro_pse.core.reaktoro_solver import (
     ReaktoroSolver,
 )
-
+from reaktoro_pse.core.reaktoro_coupled_solver import (
+    ReaktoroCoupledSolver,
+)
 from reaktoro_pse.core.reaktoro_gray_box import (
     ReaktoroGrayBox,
 )
@@ -53,7 +55,10 @@ class ReaktoroBlockBuilder:
         self.block = block
         # TODO: add check to make sure block is a pyomo block, or model
         self.solver = reaktoro_solver
-        if isinstance(self.solver, ReaktoroSolver) == False:
+        if (
+            isinstance(self.solver, ReaktoroSolver) == False
+            and isinstance(self.solver, ReaktoroCoupledSolver) == False
+        ):
             raise TypeError("Reaktoro block builder requires a ReaktoroSolver class")
         self.configure_jacobian_scaling()
         self.reaktoro_initialize_function = None  # used to provide external solve call
@@ -134,11 +139,14 @@ class ReaktoroBlockBuilder:
         if self.solver.input_specs.dissolve_species_in_rkt:
 
             @self.block.Constraint(self.solver.input_specs.rkt_inputs.rkt_input_list)
-            def input_constraints(fs, key):
+            def input_constraints(fs, *kwargs):
+                if len(kwargs) == 1:
+                    kwargs = kwargs[0]
+
                 return (
-                    self.block.reaktoro_model.inputs[key]
+                    self.block.reaktoro_model.inputs[kwargs]
                     == self.solver.input_specs.rkt_inputs[
-                        key
+                        kwargs
                     ].get_pyomo_with_required_units()
                 )
 
@@ -273,12 +281,19 @@ class ReaktoroBlockBuilder:
             total_h2o_amount = []
             if ("chargeDirect", None) in self.solver.output_specs.user_outputs:
                 self.charge_type = "chargeDirect"
+            elif ("logcharge", None) in self.solver.output_specs.user_outputs:
+                self.charge_type = "logcharge"
             else:
                 self.charge_type = "charge"
             charge_var = self.solver.output_specs.user_outputs[
                 (self.charge_type, None)
             ].get_pyomo_var()
-            self.block.relaxed_charge_neutrality = Constraint(expr=0 == charge_var)
+            if self.charge_type == "logcharge":
+                self.block.relaxed_charge_neutrality = Constraint(
+                    expr=0 == 10**charge_var
+                )
+            else:
+                self.block.relaxed_charge_neutrality = Constraint(expr=0 == charge_var)
 
     def initialize_relaxation_outputs(self, use_default_scaling=True):
         """initialize relaxation constraints"""
@@ -311,12 +326,13 @@ class ReaktoroBlockBuilder:
                 (self.charge_type, None)
             ].get_pyomo_var()
 
-            charge_scale = 1  # 1e8
+            charge_scale = 1
             iscale.set_scaling_factor(charge_var, charge_scale)
 
-            if self.charge_type == "charge":
+            if self.charge_type == "charge" or self.charge_type == "logcharge":
+                charge_scale = 1
                 rkt_charge_var = self.solver.output_specs.rkt_outputs[
-                    ("charge", None)
+                    (self.charge_type, None)
                 ].get_pyomo_var()
                 iscale.set_scaling_factor(rkt_charge_var, charge_scale)
                 rkt_charge_var.auto_scaled = False
@@ -376,7 +392,7 @@ class ReaktoroBlockBuilder:
 
             print("charge relax", init_value, sf)
             relaxed_var.value = init_value
-            iscale.set_scaling_factor(relaxed_var, sf)
+            iscale.set_scaling_factor(relaxed_var, 1 / 10)
 
         if "total_hydrogen_link" in self.relaxation_constraint_types:
             user_val = self.solver.input_specs.user_inputs["pH"].get_pyomo_var()
@@ -425,7 +441,7 @@ class ReaktoroBlockBuilder:
         self.initialize_relaxation_inputs()
         self.initialize_input_variables_and_constraints()
         if self.reaktoro_initialize_function is None:
-            self.solver.state.equilibrate_state()
+            self.solver.equilibrate_state()
             self.solver.solve_reaktoro_block(presolve=presolve_during_initialization)
         else:
             self.reaktoro_initialize_function(presolve=presolve_during_initialization)
@@ -441,6 +457,7 @@ class ReaktoroBlockBuilder:
         sf, auto_scaled = self._get_sf(
             rkt_input_output.get_pyomo_var(), use_default_scaling
         )
+
         # if rkt_input_output.io_type == "element":
         #     sf = sf * 10
         return sf
@@ -539,7 +556,7 @@ class ReaktoroBlockBuilder:
                 self.solver.output_specs.rkt_outputs.items()
             ):
                 out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
-                sf = 1 / out_sf
+                sf = out_sf
                 self.solver.jacobian_scaling_values[i] = sf
         elif self.jacobian_scaling_type == JacScalingTypes.variable_io_scaling:
             for i, (key, obj) in enumerate(
@@ -559,6 +576,7 @@ class ReaktoroBlockBuilder:
             self.solver.jacobian_scaling_values = (
                 np.sum(np.abs(self.solver.jacobian_matrix) ** 2, axis=1) ** 0.5
             )
+        print(self.solver.jacobian_scaling_values)
 
     def get_jacobian_scaling(self):
         return self.solver.jacobian_scaling_values
@@ -616,6 +634,6 @@ class ReaktoroBlockBuilder:
 
     def display_state(self):
         if self.display_reaktoro_state_function is None:
-            print(self.solver.state.state)
+            self.solver.display_state()
         else:
             self.display_reaktoro_state_function()

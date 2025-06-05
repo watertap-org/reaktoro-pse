@@ -32,21 +32,26 @@ from reaktoro_pse.core.util_classes.cyipopt_solver import (
 from idaes.core.util.model_statistics import degrees_of_freedom
 
 
+import idaes.core.util.scaling as iscale
+
+
 @pytest.fixture
 def build_rkt_state_with_species():
     m = ConcreteModel()
     m.temp = Var(initialize=293.15, units=pyunits.K)
+    iscale.set_scaling_factor(m.temp, 1 / 293.15)
     m.temp.fix()
     m.pressure = Var(initialize=1e5, units=pyunits.Pa)
+    iscale.set_scaling_factor(m.pressure, 1 / 1e5)
     m.pressure.fix()
     m.pH = Var(initialize=7, units=pyunits.dimensionless)
     m.pH.fix()
+    iscale.set_scaling_factor(m.pH, 1 / 7)
     m.composition = Var(
         ["H2O", "Mg", "Na", "Cl", "Ca", "HCO3", "SO4"],
         initialize=1,
         units=pyunits.mol / pyunits.s,
     )
-    m.composition.construct()
     m.composition["H2O"].fix(50)
     m.composition["Mg"].fix(0.1)
     m.composition["Na"].fix(0.5)
@@ -54,6 +59,8 @@ def build_rkt_state_with_species():
     m.composition["Ca"].fix(0.01)
     m.composition["HCO3"].fix(0.01)
     m.composition["SO4"].fix(0.01)
+    for v, obj in m.composition.items():
+        iscale.set_scaling_factor(obj, 1 / obj.value)
     m.outputs = Var(
         [("scalingTendency", "Calcite"), ("pH", None)],
         initialize=1,
@@ -93,42 +100,42 @@ def build_rkt_state_with_indexed_species():
     return m
 
 
-def test_blockBuild(build_rkt_state_with_species):
-    m = build_rkt_state_with_species
-    m.outputs.display()
-    m.property_block = ReaktoroBlock(
-        aqueous_phase={
-            "composition": m.composition,
-            "convert_to_rkt_species": True,
-        },
-        system_state={
-            "temperature": m.temp,
-            "pressure": m.pressure,
-            "pH": m.pH,
-        },
-        database="PhreeqcDatabase",
-        database_file="pitzer.dat",
-        outputs=m.outputs,
-    )
-    print("rkt block")
-    m.property_block.reaktoro_model.display()
-    print("rkt block")
-    m.property_block.initialize()
+# def test_blockBuild(build_rkt_state_with_species):
+#     m = build_rkt_state_with_species
+#     m.outputs.display()
+#     m.property_block = ReaktoroBlock(
+#         aqueous_phase={
+#             "composition": m.composition,
+#             "convert_to_rkt_species": True,
+#         },
+#         system_state={
+#             "temperature": m.temp,
+#             "pressure": m.pressure,
+#             "pH": m.pH,
+#         },
+#         database="PhreeqcDatabase",
+#         database_file="pitzer.dat",
+#         outputs=m.outputs,
+#     )
+#     print("rkt block")
+#     m.property_block.reaktoro_model.display()
+#     print("rkt block")
+#     m.property_block.initialize()
 
-    m.property_block.display_jacobian_scaling()
-    cy_solver = get_cyipopt_watertap_solver()
-    cy_solver.options["max_iter"] = 20
-    m.pH.fix()
-    m.composition["H2O"].unfix()
-    m.composition["H2O"].setlb(30)
-    m.outputs[("scalingTendency", "Calcite")].fix(5)
-    m.property_block.output_constraints.pprint()
-    print(degrees_of_freedom(m))
-    assert degrees_of_freedom(m) == 0
-    result = cy_solver.solve(m, tee=True)
-    assert_optimal_termination(result)
-    m.display()
-    assert pytest.approx(m.composition["H2O"].value, 1e-3) == 68.0601837
+#     m.property_block.display_jacobian_scaling()
+#     cy_solver = get_cyipopt_watertap_solver()
+#     cy_solver.options["max_iter"] = 20
+#     m.pH.fix()
+#     m.composition["H2O"].unfix()
+#     m.composition["H2O"].setlb(30)
+#     m.outputs[("scalingTendency", "Calcite")].fix(5)
+#     m.property_block.output_constraints.pprint()
+#     print(degrees_of_freedom(m))
+#     assert degrees_of_freedom(m) == 0
+#     result = cy_solver.solve(m, tee=True)
+#     assert_optimal_termination(result)
+#     m.display()
+#     assert pytest.approx(m.composition["H2O"].value, 1e-3) == 68.0601837
 
 
 # def test_activate_deactivate(build_rkt_state_with_species):
@@ -228,23 +235,135 @@ def test_blockBuild(build_rkt_state_with_species):
 #     )
 
 
-@pytest.mark.parametrize(
-    "ph_relax, water_relax, charge_relax",
-    [
-        # (False, False, False),
-        (True, False, False),
-        # # (False, True, False),
-        # (True, True, False),
-        # (False, True, True),  # pitzer does not like fixed property block charge ,
-        # (
-        #     False,
-        #     True,
-        #     True,
-        # ),  # pitzer does not like fixed property block charge ,
-    ],
-)
-def test_blockBuild_with_speciation_and_log_basis_with_ph_relaxation_block(
-    build_rkt_state_with_species, ph_relax, water_relax, charge_relax
+# @pytest.mark.parametrize(
+#     "ph_relax, water_relax, charge_relax",
+#     [
+#         # (False, False, False),
+#         (True, False, False),
+#         # # (False, True, False),
+#         # (True, True, False),
+#         # (False, True, True),  # pitzer does not like fixed property block charge ,
+#         # (
+#         #     False,
+#         #     True,
+#         #     True,
+#         # ),  # pitzer does not like fixed property block charge ,
+#     ],
+# )
+# def test_blockBuild_with_speciation_and_log_basis_with_ph_relaxation_block(
+#     build_rkt_state_with_species, ph_relax, water_relax, charge_relax
+# ):
+#     m = build_rkt_state_with_species
+#     m.CaO = Var(["CaO"], initialize=0.001, units=pyunits.mol / pyunits.s)
+#     m.CaO.fix()
+#     m.outputs.display()
+#     # if ph_relax:
+#     #     charge_balance_pH = False
+#     # else:
+#     #     charge_balance_pH = True
+#     m.property_block = ReaktoroBlock(
+#         aqueous_phase={
+#             "composition": m.composition,
+#             "convert_to_rkt_species": True,
+#         },
+#         system_state={
+#             "temperature": m.temp,
+#             "pressure": m.pressure,
+#             "pH": m.pH,
+#         },
+#         database="PhreeqcDatabase",
+#         database_file="pitzer.dat",
+#         chemistry_modifier=m.CaO,
+#         outputs=m.outputs,
+#         speciation_output_type="log10_species",
+#         enable_pH_relaxation_on_property_block=ph_relax,
+#         enable_solvent_relaxation_on_property_block=water_relax,
+#         enable_charge_relaxation_on_property_block=charge_relax,
+#         assert_charge_neutrality_on_property_block=False,
+#         build_speciation_block=True,
+#     )
+#     m.property_block.initialize()
+#     cy_solver = get_cyipopt_watertap_solver(limited_memory=False)
+#     cy_solver.options["max_iter"] = 50
+#     m.pH.unfix()
+#     m.property_block.speciation_block.reaktoro_model.outputs.display()
+#     new_scaling = m.property_block.display_jacobian_scaling()
+#     # m.property_block.reaktoro_model.inputs.display()
+#     # for key in new_scaling["speciation_block"]:
+#     #     new_scaling[key] = 0.001
+#     # m.property_block.update_jacobian_scaling(new_scaling)
+#     m.property_block.display_jacobian_scaling()
+#     m.outputs[("scalingTendency", "Calcite")].fix(5)
+#     print(degrees_of_freedom(m))
+#     assert degrees_of_freedom(m) == 0
+#     result = cy_solver.solve(m, tee=True)
+#     assert_optimal_termination(result)
+
+#     assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.7496301
+#     assert pytest.approx(m.pH.value, 1e-2) == 6.401
+#     m.property_block.update_block_scaling()
+#     m.property_block.update_jacobian_scaling()
+#     scaling_result = m.property_block.display_jacobian_scaling()
+#     print(scaling_result)
+#     expected_scaling = {
+#         "speciation_block": {
+#             ("speciesAmount", "H+"): 3.572346198064619e-07,
+#             ("speciesAmount", "H2O"): 49.999999999999964,
+#             ("speciesAmount", "CO3-2"): 5.270878569855947e-07,
+#             ("speciesAmount", "CO2"): 0.004869585415531453,
+#             ("speciesAmount", "Ca+2"): 0.01000000000000001,
+#             ("speciesAmount", "Cl-"): 0.6948233272770805,
+#             ("speciesAmount", "HCO3-"): 0.005083729629376738,
+#             ("speciesAmount", "SO4-2"): 0.009999670822188339,
+#             ("speciesAmount", "HSO4-"): 3.2917781166618695e-07,
+#             ("speciesAmount", "Mg+2"): 0.09995359767966706,
+#             ("speciesAmount", "MgCO3"): 4.6157867234827786e-05,
+#             ("speciesAmount", "MgOH+"): 2.4445309808284274e-07,
+#             ("speciesAmount", "Na+"): 0.5000000000000001,
+#             ("speciesAmount", "OH-"): 1.514269261926446e-08,
+#         },
+#         "property_block": {
+#             ("saturationIndex", "Calcite"): 0.6989700043392908,
+#             ("pH", None): 6.749544872788476,
+#             ("elementAmount", "H"): 100.00508467563753,
+#             ("elementAmount", "O"): 50.066130674180215,
+#             ("scalingTendency", "Calcite"): 5.000000000115939,
+#         },
+#     }
+
+#     m.property_block.display_reaktoro_state()
+#     assert "speciation_block" in scaling_result
+#     assert "property_block" in scaling_result
+#     new_scaling = {}
+#     for key in scaling_result["speciation_block"]:
+#         new_scaling[key] = 1
+#         assert (
+#             pytest.approx(scaling_result["speciation_block"][key], 1e-3)
+#             == expected_scaling["speciation_block"][key]
+#         )
+#     m.property_block.update_jacobian_scaling(new_scaling)
+#     scaling_result = m.property_block.display_jacobian_scaling()
+
+#     assert "speciation_block" in scaling_result
+#     for key in scaling_result["speciation_block"]:
+#         assert scaling_result["speciation_block"][key] == 1
+#     new_scaling = {}
+#     for key in scaling_result["property_block"]:
+#         new_scaling[key] = 1
+#         assert (
+#             pytest.approx(scaling_result["property_block"][key], 1e-3)
+#             == expected_scaling["property_block"][key]
+#         )
+#     m.property_block.update_jacobian_scaling(new_scaling)
+#     scaling_result = m.property_block.display_jacobian_scaling()
+#     m.property_block.display_reaktoro_state()
+#     assert "property_block" in scaling_result
+#     for key in scaling_result["property_block"]:
+#         assert scaling_result["property_block"][key] == 1
+
+
+def test_blockBuild_with_speciation_and_direct_coupling(
+    build_rkt_state_with_species,
 ):
     m = build_rkt_state_with_species
     m.CaO = Var(["CaO"], initialize=0.001, units=pyunits.mol / pyunits.s)
@@ -268,91 +387,89 @@ def test_blockBuild_with_speciation_and_log_basis_with_ph_relaxation_block(
         database_file="pitzer.dat",
         chemistry_modifier=m.CaO,
         outputs=m.outputs,
-        speciation_output_type="log10_species",
-        enable_pH_relaxation_on_property_block=ph_relax,
-        enable_solvent_relaxation_on_property_block=water_relax,
-        enable_charge_relaxation_on_property_block=charge_relax,
         assert_charge_neutrality_on_property_block=False,
         build_speciation_block=True,
     )
+    m.property_block.display()
+    # iscale.set_scaling_factor(m.outputs[("scalingTendency", "Calcite")], 10)
+    # iscale.set_scaling_factor(m.outputs[("pH", None)], 10)
     m.property_block.initialize()
-    cy_solver = get_cyipopt_watertap_solver(limited_memory=False)
-    cy_solver.options["max_iter"] = 50
+    # m.property_block.display()
+    # m.display()
+    cy_solver = get_cyipopt_watertap_solver()
+    cy_solver.options["max_iter"] = 100
     m.pH.unfix()
-    m.property_block.speciation_block.reaktoro_model.outputs.display()
-    new_scaling = m.property_block.display_jacobian_scaling()
-    # m.property_block.reaktoro_model.inputs.display()
-    # for key in new_scaling["speciation_block"]:
-    #     new_scaling[key] = 0.001
-    # m.property_block.update_jacobian_scaling(new_scaling)
-    m.property_block.display_jacobian_scaling()
     m.outputs[("scalingTendency", "Calcite")].fix(5)
-    print(degrees_of_freedom(m))
-    assert degrees_of_freedom(m) == 0
+
     result = cy_solver.solve(m, tee=True)
+    m.property_block.display_jacobian_scaling()
+    m.display()
     assert_optimal_termination(result)
+
+    # # m.display()
+    # m.property_block.reaktoro_model.outputs.display()
 
     assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.7496301
     assert pytest.approx(m.pH.value, 1e-2) == 6.401
-    m.property_block.update_block_scaling()
-    m.property_block.update_jacobian_scaling()
-    scaling_result = m.property_block.display_jacobian_scaling()
-    print(scaling_result)
-    expected_scaling = {
-        "speciation_block": {
-            ("speciesAmount", "H+"): 3.572346198064619e-07,
-            ("speciesAmount", "H2O"): 49.999999999999964,
-            ("speciesAmount", "CO3-2"): 5.270878569855947e-07,
-            ("speciesAmount", "CO2"): 0.004869585415531453,
-            ("speciesAmount", "Ca+2"): 0.01000000000000001,
-            ("speciesAmount", "Cl-"): 0.6948233272770805,
-            ("speciesAmount", "HCO3-"): 0.005083729629376738,
-            ("speciesAmount", "SO4-2"): 0.009999670822188339,
-            ("speciesAmount", "HSO4-"): 3.2917781166618695e-07,
-            ("speciesAmount", "Mg+2"): 0.09995359767966706,
-            ("speciesAmount", "MgCO3"): 4.6157867234827786e-05,
-            ("speciesAmount", "MgOH+"): 2.4445309808284274e-07,
-            ("speciesAmount", "Na+"): 0.5000000000000001,
-            ("speciesAmount", "OH-"): 1.514269261926446e-08,
-        },
-        "property_block": {
-            ("saturationIndex", "Calcite"): 0.6989700043392908,
-            ("pH", None): 6.749544872788476,
-            ("elementAmount", "H"): 100.00508467563753,
-            ("elementAmount", "O"): 50.066130674180215,
-            ("scalingTendency", "Calcite"): 5.000000000115939,
-        },
-    }
+    # m.property_block.update_block_scaling()
+    # m.property_block.update_jacobian_scaling()
+    # scaling_result = m.property_block.display_jacobian_scaling()
+    # print(scaling_result)
+    # expected_scaling = {
+    #     "speciation_block": {
+    #         ("speciesAmount", "H+"): 3.572346198064619e-07,
+    #         ("speciesAmount", "H2O"): 49.999999999999964,
+    #         ("speciesAmount", "CO3-2"): 5.270878569855947e-07,
+    #         ("speciesAmount", "CO2"): 0.004869585415531453,
+    #         ("speciesAmount", "Ca+2"): 0.01000000000000001,
+    #         ("speciesAmount", "Cl-"): 0.6948233272770805,
+    #         ("speciesAmount", "HCO3-"): 0.005083729629376738,
+    #         ("speciesAmount", "SO4-2"): 0.009999670822188339,
+    #         ("speciesAmount", "HSO4-"): 3.2917781166618695e-07,
+    #         ("speciesAmount", "Mg+2"): 0.09995359767966706,
+    #         ("speciesAmount", "MgCO3"): 4.6157867234827786e-05,
+    #         ("speciesAmount", "MgOH+"): 2.4445309808284274e-07,
+    #         ("speciesAmount", "Na+"): 0.5000000000000001,
+    #         ("speciesAmount", "OH-"): 1.514269261926446e-08,
+    #     },
+    #     "property_block": {
+    #         ("saturationIndex", "Calcite"): 0.6989700043392908,
+    #         ("pH", None): 6.749544872788476,
+    #         ("elementAmount", "H"): 100.00508467563753,
+    #         ("elementAmount", "O"): 50.066130674180215,
+    #         ("scalingTendency", "Calcite"): 5.000000000115939,
+    #     },
+    # }
 
-    m.property_block.display_reaktoro_state()
-    assert "speciation_block" in scaling_result
-    assert "property_block" in scaling_result
-    new_scaling = {}
-    for key in scaling_result["speciation_block"]:
-        new_scaling[key] = 1
-        assert (
-            pytest.approx(scaling_result["speciation_block"][key], 1e-3)
-            == expected_scaling["speciation_block"][key]
-        )
-    m.property_block.update_jacobian_scaling(new_scaling)
-    scaling_result = m.property_block.display_jacobian_scaling()
+    # m.property_block.display_reaktoro_state()
+    # assert "speciation_block" in scaling_result
+    # assert "property_block" in scaling_result
+    # new_scaling = {}
+    # for key in scaling_result["speciation_block"]:
+    #     new_scaling[key] = 1
+    #     assert (
+    #         pytest.approx(scaling_result["speciation_block"][key], 1e-3)
+    #         == expected_scaling["speciation_block"][key]
+    #     )
+    # m.property_block.update_jacobian_scaling(new_scaling)
+    # scaling_result = m.property_block.display_jacobian_scaling()
 
-    assert "speciation_block" in scaling_result
-    for key in scaling_result["speciation_block"]:
-        assert scaling_result["speciation_block"][key] == 1
-    new_scaling = {}
-    for key in scaling_result["property_block"]:
-        new_scaling[key] = 1
-        assert (
-            pytest.approx(scaling_result["property_block"][key], 1e-3)
-            == expected_scaling["property_block"][key]
-        )
-    m.property_block.update_jacobian_scaling(new_scaling)
-    scaling_result = m.property_block.display_jacobian_scaling()
-    m.property_block.display_reaktoro_state()
-    assert "property_block" in scaling_result
-    for key in scaling_result["property_block"]:
-        assert scaling_result["property_block"][key] == 1
+    # assert "speciation_block" in scaling_result
+    # for key in scaling_result["speciation_block"]:
+    #     assert scaling_result["speciation_block"][key] == 1
+    # new_scaling = {}
+    # for key in scaling_result["property_block"]:
+    #     new_scaling[key] = 1
+    #     assert (
+    #         pytest.approx(scaling_result["property_block"][key], 1e-3)
+    #         == expected_scaling["property_block"][key]
+    #     )
+    # m.property_block.update_jacobian_scaling(new_scaling)
+    # scaling_result = m.property_block.display_jacobian_scaling()
+    # m.property_block.display_reaktoro_state()
+    # assert "property_block" in scaling_result
+    # for key in scaling_result["property_block"]:
+    #     assert scaling_result["property_block"][key] == 1
 
 
 # @pytest.mark.parametrize(

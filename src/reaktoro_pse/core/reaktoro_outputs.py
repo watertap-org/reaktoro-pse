@@ -76,7 +76,6 @@ class RktOutput:
         self.derivative = None
 
     def set_derivative(self, value):
-
         self.derivative = value
 
     def get_calculated_jacobian_value(self):
@@ -375,23 +374,85 @@ class ConvertedPropTypes:
         )
         return output
 
-    def scalingTendency(self, property_index):
-        """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
+    def logcharge(self, property_index):
+        """build element amount"""
         output = PropOptions()
-        output.register_property(
-            property_type=PropTypes.aqueous_prop,
-            property_name="saturationIndex",
-            property_index=property_index,
+        species = []
+        for specie in self.state.state.system().species():
+            name, charge = specie.name(), specie.charge()
+            if charge != 0:
+                species.append((charge, name))
+                output.register_property(
+                    property_type=PropTypes.chem_prop,
+                    property_name="speciesAmount",
+                    property_index=name,
+                )
+        output.calculate_value = lambda x: math.log10(
+            abs(sum(charge * x["speciesAmount", spc].value for charge, spc in species))
         )
-        output.calculate_value = lambda x: 10 ** (
-            x["saturationIndex", property_index].value
-        )
-        output.calculate_derivative_conversion = (
-            lambda x: x["saturationIndex", property_index].derivative
-            * (10 ** x["saturationIndex", property_index].value)
-            * math.log(10)
+        output.calculate_derivative_conversion = lambda x: sum(
+            charge * x["speciesAmount", spc].derivative for charge, spc in species
+        ) / (
+            math.log(10)
+            * abs(
+                sum(charge * x["speciesAmount", spc].value for charge, spc in species)
+            )
         )
         return output
+
+    def charge(self, property_index):
+        """build element amount"""
+        output = PropOptions()
+        species = []
+        for specie in self.state.state.system().species():
+            name, charge = specie.name(), specie.charge()
+            if charge != 0:
+                species.append((charge, name))
+                output.register_property(
+                    property_type=PropTypes.chem_prop,
+                    property_name="speciesAmount",
+                    property_index=name,
+                )
+        output.calculate_value = lambda x: sum(
+            charge * x["speciesAmount", spc].value for charge, spc in species
+        )
+
+        output.calculate_derivative_conversion = lambda x: sum(
+            charge * x["speciesAmount", spc].derivative for charge, spc in species
+        )
+        return output
+
+    # def alkalinityAsCaCO3(self, property_index=None):
+    #     """build alkalinity and convert it to CaCO3 basis"""
+    #     output = PropOptions()
+    #     output.register_property(
+    #         property_type=PropTypes.aqueous_prop,
+    #         property_name="alkalinity",
+    #         property_index=None,
+    #     )
+    #     output.calculate_value = lambda x: (x["alkalinity", None].value * 100.09 * 1000)
+    #     output.calculate_derivative_conversion = lambda x: (
+    #         x["alkalinity", None].derivative * 100.09 * 1000
+    #     )
+    #     return output
+
+    # def scalingTendency(self, property_index):
+    #     """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
+    #     output = PropOptions()
+    #     output.register_property(
+    #         property_type=PropTypes.aqueous_prop,
+    #         property_name="saturationIndex",
+    #         property_index=property_index,
+    #     )
+    #     output.calculate_value = lambda x: 10 ** (
+    #         x["saturationIndex", property_index].value
+    #     )
+    #     output.calculate_derivative_conversion = (
+    #         lambda x: x["saturationIndex", property_index].derivative
+    #         * (10 ** x["saturationIndex", property_index].value)
+    #         * math.log(10)
+    #     )
+    #     return output
 
     def logSpeciesAmount(self, property_index):
         """build log species amount"""
@@ -411,22 +472,22 @@ class ConvertedPropTypes:
         )
         return output
 
-    def pH(self, property_index):
-        """build log species amount"""
-        output = PropOptions()
-        output.register_property(
-            property_type=PropTypes.chem_prop,
-            property_name="speciesActivityLn",
-            property_index="H+",
-        )
-        output.calculate_value = (
-            lambda x: -1 * x["speciesActivityLn", "H+"].value / math.log(10)
-        )
-        output.calculate_derivative_conversion = (
-            lambda x: x["speciesActivityLn", "H+"].derivative * -1 / math.log(10)
-        )
+    # def pH(self, property_index):
+    #     """build log species amount"""
+    #     output = PropOptions()
+    #     output.register_property(
+    #         property_type=PropTypes.chem_prop,
+    #         property_name="speciesActivityLn",
+    #         property_index="H+",
+    #     )
+    #     output.calculate_value = (
+    #         lambda x: -1 * x["speciesActivityLn", "H+"].value / math.log(10)
+    #     )
+    #     output.calculate_derivative_conversion = (
+    #         lambda x: x["speciesActivityLn", "H+"].derivative * -1 / math.log(10)
+    #     )
 
-        return output
+    #     return output
 
 
 class PropTypes:
@@ -477,38 +538,41 @@ class ReaktoroOutputExport:
 
 
 class ReaktoroOutputSpec:
-    def __init__(self, reaktor_state):
-        self.state = reaktor_state
-        if isinstance(self.state, ReaktoroState) == False:
-            raise TypeError("Reator outputs require rektoroState class")
+    def __init__(self, reaktor_state=None):
+        if reaktor_state is not None:
+            self.state = reaktor_state
+            if isinstance(self.state, ReaktoroState) == False:
+                raise TypeError("Reator outputs require rektoroState class")
 
-        self.supported_properties = {}
-        self.supported_properties[PropTypes.chem_prop] = self.state.state.props()
+            self.supported_properties = {}
+            self.supported_properties[PropTypes.chem_prop] = self.state.state.props()
 
-        if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
-            self.supported_properties[PropTypes.aqueous_prop] = rkt.AqueousProps(
-                self.state.state.props()
+            if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
+                self.supported_properties[PropTypes.aqueous_prop] = rkt.AqueousProps(
+                    self.state.state.props()
+                )
+                aq_props = self.supported_properties[PropTypes.aqueous_prop]
+            else:
+                aq_props = None
+            self.supported_properties[PropTypes.pyomo_built_prop] = PyomoProperties(
+                self.state, self.supported_properties[PropTypes.chem_prop], aq_props
             )
-            aq_props = self.supported_properties[PropTypes.aqueous_prop]
-        else:
-            aq_props = None
-        self.supported_properties[PropTypes.pyomo_built_prop] = PyomoProperties(
-            self.state, self.supported_properties[PropTypes.chem_prop], aq_props
-        )
-        self.supported_properties[PropTypes.converted_prop] = ConvertedPropTypes(
-            self.state, self.supported_properties[PropTypes.chem_prop], aq_props
-        )
-        self.prop_check_order = [
-            PropTypes.converted_prop,
-            PropTypes.pyomo_built_prop,
-            PropTypes.chem_prop,
-            PropTypes.aqueous_prop,
-        ]
-        self.rkt_outputs = {}  # outputs that reaktoro needs to generate
-        self.user_outputs = {}  # outputs user requests
-        self.output_limits = {}
-        self.register_output_limits("speciesAmount", min_value=1e-16, max_value=None)
-        self.get_possible_indexes()
+            self.supported_properties[PropTypes.converted_prop] = ConvertedPropTypes(
+                self.state, self.supported_properties[PropTypes.chem_prop], aq_props
+            )
+            self.prop_check_order = [
+                PropTypes.converted_prop,
+                PropTypes.pyomo_built_prop,
+                PropTypes.chem_prop,
+                PropTypes.aqueous_prop,
+            ]
+            self.rkt_outputs = {}  # outputs that reaktoro needs to generate
+            self.user_outputs = {}  # outputs user requests
+            self.output_limits = {}
+            self.register_output_limits(
+                "speciesAmount", min_value=1e-16, max_value=None
+            )
+            self.get_possible_indexes()
 
     def update_supported_props(self):
         self.state.state.props().update(self.state.state)

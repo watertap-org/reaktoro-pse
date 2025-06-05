@@ -291,6 +291,7 @@ class ReaktoroStateExport:
             self.inputs[key].value = obj.value
             self.inputs[key].converted_value = obj.converted_value
             self.inputs[key].log10_input = obj.log10_input
+            self.inputs[key].dummy_var_key = obj.dummy_var_key
         self.inputs.registered_phases = inputs.registered_phases
         self.inputs.all_species = inputs.all_species
         self.inputs.species_list = inputs.species_list

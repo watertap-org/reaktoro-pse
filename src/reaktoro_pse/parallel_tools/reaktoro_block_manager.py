@@ -38,11 +38,16 @@ class ReaktoroBlockData:
 
     def get_configs(self):
         configs = []
-        configs.append(self.state.export_config())
-        configs.append(self.inputs.export_config())
-        configs.append(self.outputs.export_config())
-        configs.append(self.jacobian.export_config())
-        configs.append(self.solver.export_config())
+        if self.state is not None:
+            configs.append(self.state.export_config())
+        if self.inputs is not None:
+            configs.append(self.inputs.export_config())
+        if self.outputs is not None:
+            configs.append(self.outputs.export_config())
+        if self.jacobian is not None:
+            configs.append(self.jacobian.export_config())
+        if self.solver is not None:
+            configs.append(self.solver.export_config())
         return configs
 
     def freeze_state(self):
@@ -276,7 +281,17 @@ class ReaktoroBlockManagerData(ProcessBlockData):
                 self.config.worker_timeout,
             )
 
-    def register_block(self, state, inputs, outputs, jacobian, solver, builder):
+    def register_block(
+        self,
+        state=None,
+        inputs=None,
+        outputs=None,
+        jacobian=None,
+        solver=None,
+        builder=None,
+        speciation_block=None,
+        property_block=None,
+    ):
         blk = ReaktoroBlockData()
         blk.state = state
         blk.inputs = inputs
@@ -284,8 +299,32 @@ class ReaktoroBlockManagerData(ProcessBlockData):
         blk.jacobian = jacobian
         blk.solver = solver
         blk.builder = builder
-        blk.freeze_state()
 
+        if speciation_block is not None:
+            blk.frozen_state = {}
+            # blk.config["main_config"] = blk.get_configs()
+
+            for i, spc_blk in enumerate(speciation_block):
+                setattr(blk, f"spc_blk_{i}", ReaktoroBlockData())
+                getattr(blk, f"spc_blk_{i}").state = spc_blk["state"]
+                getattr(blk, f"spc_blk_{i}").inputs = spc_blk["inputs"]
+                getattr(blk, f"spc_blk_{i}").outputs = spc_blk["outputs"]
+                getattr(blk, f"spc_blk_{i}").jacobian = spc_blk["jacobian"]
+                getattr(blk, f"spc_blk_{i}").solver = spc_blk["solver"]
+                getattr(blk, f"spc_blk_{i}").freeze_state()
+                blk.frozen_state[f"spc_blk_{i}"] = getattr(
+                    blk, f"spc_blk_{i}"
+                ).get_configs()
+        else:
+            blk.freeze_state()
+        if property_block is not None:
+            blk.property_block = ReaktoroBlockData()
+            blk.property_block.state = property_block["state"]
+            blk.property_block.inputs = property_block["inputs"]
+            blk.property_block.outputs = property_block["outputs"]
+            blk.property_block.jacobian = property_block["jacobian"]
+            blk.property_block.solver = property_block["solver"]
+            blk.frozen_state["property_block"] = blk.property_block.get_configs()
         self.registered_blocks.append(blk)
         return blk
 

@@ -119,6 +119,12 @@ class ReaktoroSolver:
             export_object.hessian_type,
         )
 
+    def equilibrate_state(self):
+        self.state.equilibrate_state()
+
+    def display_state(self):
+        print(self.state.state)
+
     def set_solver_options(
         self,
         epsilon=1e-32,
@@ -168,21 +174,25 @@ class ReaktoroSolver:
         else:
             getattr(self.conditions, custom_bound)(index, value)
 
-    def update_specs(self, params):
+    def update_specs(self, params, use_temp):
         for input_key in self.input_specs.rkt_inputs.rkt_input_list:
             input_obj = self.input_specs.rkt_inputs[input_key]
-            if params is None:
+            if params is None and use_temp is False:
                 value = input_obj.get_value(
                     update_temp=True,
                     apply_conversion=True,  # delog=False
                 )
+            elif use_temp:
+                value = input_obj.get_temp_value()
             else:
                 value = params.get(input_key)
                 # value = input_obj.delog10_input(value)
                 input_obj.set_temp_value(value)
             unit = input_obj.main_unit
             self._input_params[input_key] = value
-
+            # print(
+            #     f"Updating input {input_key} to value {value} with unit {unit} in block {self.block_name}"
+            # )
             if input_key == RktInputTypes.temperature:
                 self.conditions.temperature(value, unit)
             elif input_key == RktInputTypes.pressure:
@@ -192,7 +202,10 @@ class ReaktoroSolver:
             else:
                 # TODO figure out how deal with units...
                 self.conditions.set(input_obj.get_rkt_input_name(), value)
-            if ("charge", None) in self.output_specs.rkt_outputs:
+            if ("charge", None) in self.output_specs.rkt_outputs or (
+                "logcharge",
+                None,
+            ) in self.output_specs.rkt_outputs:
                 # if charge is in outputs, we need to update the charge neutrality
                 # condition to match the current input values
                 if input_key == "pH" or input_key == "pOH":
@@ -204,11 +217,10 @@ class ReaktoroSolver:
             val = self.output_specs.evaluate_property(obj, update_values_in_object=True)
 
             output_arr.append(val)
-            if "charge" in key:
+            if "charge" in key or "logcharge" in key:
                 print(self.block_name, key, output_arr[-1])
             if "pE" in key:
                 print(self.block_name, key, output_arr[-1])
-                # print(self.state.state)
         return output_arr
 
     def get_jacobian(self):
@@ -227,12 +239,13 @@ class ReaktoroSolver:
     def solve_reaktoro_block(
         self,
         params=None,
+        use_temp=False,
         display=False,
         presolve=False,
     ):
         # here we solve reaktor model and return the jacobian matrix and solution, as
         # Cell as update relevant reaktoroSpecs
-        self.update_specs(params)
+        self.update_specs(params, use_temp)
         solve_failed = False
         try:
 

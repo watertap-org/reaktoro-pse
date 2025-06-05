@@ -48,7 +48,7 @@ class ReaktoroSolverOptions:
         CONFIG.declare(
             "output_limits_for_pyomo",
             ConfigValue(
-                default={"speciesAmount": {"min": 1e-32, "max": None}},
+                default={"speciesAmount": {"min": None, "max": None}},
                 domain=None,
                 description="Maximum number of output limits for pyomo from reaktoro",
                 doc="""

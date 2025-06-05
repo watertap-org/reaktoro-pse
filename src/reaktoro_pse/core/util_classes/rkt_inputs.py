@@ -10,7 +10,7 @@
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
 from pyomo.environ import Var, value, units as pyunits
-from pyomo.core.base.var import VarData
+from pyomo.core.base.var import VarData, ScalarVar
 import math
 
 __author__ = "Alexander V. Dudchenko"
@@ -52,6 +52,23 @@ class RktInputTypes:
     non_species_types = [pH, enthalpy, pressure, temperature, relaxation, pOH]
 
 
+# imitator for pyomo object, passed as input to speciation block
+class DummyPyomoVar:
+    def __init__(self):
+        self.value = 1
+        self.main_unit = RktInputTypes.dimensionless  # default unit
+        self.original_key = None  # used to track original key in rkt inputs
+
+    def value(self):
+        return self.value
+
+    def set_value(self, value):
+        self.value = value
+
+    def get_value(self):
+        return self.value
+
+
 class RktInput:
     def __init__(self, var_name, pyomo_var=None):
         # TODO: Add more flexible check that user providd a pyomo variable or param
@@ -75,13 +92,22 @@ class RktInput:
         self.io_type = None  # input or output
         self.auto_scaled = False
         self.log10_input = False
+        self.dummy_var = None
+        self.dummy_var_key = None
         if pyomo_var is not None:
-            if isinstance(pyomo_var, (Var, VarData)) == False:
+            if isinstance(pyomo_var, DummyPyomoVar):
+                # if its a dummy variable, we do not need to set it
+                self.pyomo_var = None
+                self.dummy_var = pyomo_var
+                self.value = self.dummy_var.value
+                self.dummy_var_key = self.dummy_var.original_key
+            elif isinstance(pyomo_var, (Var, VarData, ScalarVar)):
+                self.value = pyomo_var.value
+                self.pyomo_var = pyomo_var
+            else:
                 raise TypeError(
                     "{var_name} is not a pyomo variable, ensure its pyomo variable"
                 )
-            self.value = pyomo_var.value
-            self.pyomo_var = pyomo_var
             self.check_unit()
         else:
             self.pyomo_var = None
@@ -114,14 +140,19 @@ class RktInput:
 
             else:
                 self.converted_value = self.value
-
+        if self.dummy_var is not None:
+            self.value = self.dummy_var.get_value()
         if update_temp:
             self.set_temp_value(self.value)
 
     def set_temp_value(self, value):
+        if self.dummy_var is not None:
+            self.dummy_var.set_value(value)
         self.temp_value = value
 
     def get_temp_value(self):
+        if self.dummy_var is not None:
+            return self.dummy_var.get_value()
         return self.temp_value
 
     def get_lower_bound(self):
@@ -220,20 +251,29 @@ class RktInput:
         reaktoro is "batch" and has no flow, so here we will isolate
         the primary mass unit from time unit and
         also convert them to string"""
-        default_unit = str(pyunits.get_units(self.pyomo_var))
+        if self.pyomo_var is not None:
+            default_unit = str(pyunits.get_units(self.pyomo_var))
+
+        elif self.dummy_var is not None:
+            default_unit = self.dummy_var.main_unit
+        else:
+            raise TypeError(
+                f"RktInput {self.var_name} does not have a pyomo variable or dummy variable"
+            )
         if (
             default_unit == RktInputTypes.dimensionless
             and self.var_name not in RktInputTypes.non_species_types
         ):
             self.main_unit = RktInputTypes.mol
             self.time_unit = None
-        split_units = default_unit.split("/")
-        if len(split_units) == 2:
-            self.time_unit = split_units[1]
-            self.main_unit = split_units[0]
         else:
-            self.time_unit = None
-            self.main_unit = default_unit
+            split_units = default_unit.split("/")
+            if len(split_units) == 2:
+                self.time_unit = split_units[1]
+                self.main_unit = split_units[0]
+            else:
+                self.time_unit = None
+                self.main_unit = default_unit
 
 
 class RktInputs(dict):

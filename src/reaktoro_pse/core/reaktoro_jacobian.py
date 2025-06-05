@@ -347,7 +347,6 @@ class ReaktoroJacobianSpec:
         ts = time.time()
         input_index = input_object.get_jacobian_index()
         input_value = input_object.get_temp_value()
-        # print("getvalk too took", time.time() - ts)
         input_log_conversion = 1  # input_object.get_log_conversion_factor()
         jacobian_abs_matrix = self.process_jacobian_matrix(
             jacobian_matrix, input_index, input_value
@@ -378,11 +377,11 @@ class ReaktoroJacobianSpec:
                 for idx, calc_obj in output_obj.calculation_options.properties.items():
                     calc_obj.set_derivative(get_jacobian(calc_obj))
                 jac_val = output_obj.get_calculated_jacobian_value()
+
             else:
                 jac_val = get_jacobian(output_obj)
 
             output_jacobian.append(jac_val)
-
         return output_jacobian
 
     def center_diff_order(self, order):

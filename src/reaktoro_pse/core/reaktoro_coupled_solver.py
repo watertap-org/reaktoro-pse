@@ -1,0 +1,240 @@
+#################################################################################
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/reaktoro-pse/"
+#################################################################################
+from matplotlib.table import Cell
+import reaktoro as rkt
+
+import numpy as np
+from reaktoro_pse.core.util_classes.rkt_inputs import (
+    RktInputs,
+    RktInputTypes,
+    DummyPyomoVar,
+)
+from reaktoro_pse.core.reaktoro_state import ReaktoroState
+from reaktoro_pse.core.reaktoro_outputs import (
+    ReaktoroOutputSpec,
+)
+from reaktoro_pse.core.reaktoro_inputs import (
+    ReaktoroInputSpec,
+)
+from reaktoro_pse.core.reaktoro_jacobian import (
+    ReaktoroJacobianSpec,
+)
+import cyipopt
+import idaes.logger as idaeslog
+
+__author__ = "Alexander V. Dudchenko, Ben Knueven, Ilayda Akkor"
+
+_log = idaeslog.getLogger(__name__)
+
+
+class ReaktoroCoupledSolver:
+    def __init__(self, speciation_solvers):
+        self.speciation_solvers = speciation_solvers
+        self.get_master_inputs()
+        self.get_speciation_outputs()
+
+    def register_property_solver(self, property_solver):
+        self.property_solver = property_solver
+        self.prop_inputs_idx = []
+        self.prop_jac_idx = []
+        self.prop_jac_propagation_idx = np.zeros(len(self.output_key_order), dtype=int)
+        self.prop_jac_propagation_keys = np.empty(
+            len(self.output_key_order), dtype=object
+        )
+        for key, obj in self.property_solver.input_specs.user_inputs.items():
+            if obj.io_type != "specie" and obj.io_type != "element":
+                new_key = self.modify_key("prop", key)
+                self.input_specs.user_inputs[new_key] = obj
+                self.master_mapping[new_key] = key
+
+        for idx, key in enumerate(
+            self.property_solver.input_specs.rkt_inputs.rkt_input_list
+        ):
+
+            if key in self.property_solver.input_specs.rkt_inputs:
+                obj = self.property_solver.input_specs.rkt_inputs[key]
+                if obj.io_type != "specie" and obj.io_type != "element":
+                    new_key = self.modify_key("prop", key)
+                    self.input_specs.rkt_inputs[new_key] = obj
+                    self.master_mapping[new_key] = key
+                    self.update_input_list(new_key)
+                    self.prop_jac_idx.append(idx)
+                else:
+                    self.prop_jac_propagation_idx[
+                        self.output_key_order[obj.dummy_var_key]
+                    ] = idx
+                    self.prop_jac_propagation_keys[
+                        self.output_key_order[obj.dummy_var_key]
+                    ] = key
+            elif key in self.property_solver.input_specs.rkt_chemical_inputs:
+                obj = self.property_solver.input_specs.rkt_chemical_inputs[key]
+                if obj.io_type != "specie" and obj.io_type != "element":
+                    new_key = self.modify_key("prop", key)
+                    self.input_specs.rkt_chemical_inputs[new_key] = obj
+                    self.master_mapping[new_key] = key
+                    self.update_input_list(new_key)
+                    self.prop_jac_idx.append(idx)
+                else:
+                    self.prop_jac_propagation_idx[
+                        self.output_key_order[obj.dummy_var_key]
+                    ] = idx
+                    self.prop_jac_propagation_keys[
+                        self.output_key_order[obj.dummy_var_key]
+                    ] = key
+        # rkt_inputs are not used in property solver, so we do not register them
+        self.get_master_outputs()
+        for key in self.prop_jac_propagation_keys:
+            new_key = self.modify_key("prop", key)
+            self.input_specs.user_inputs[new_key] = (
+                self.property_solver.input_specs.user_inputs[key]
+            )
+            self.master_mapping[new_key] = key
+        self.hessian_type = self.property_solver.hessian_type
+
+    def modify_key(self, index, key):
+        new_index = [index]
+        if isinstance(key, str):
+            new_index.append(key)
+        elif isinstance(key, (list, tuple)):
+            for k in key:
+                new_index.append(k)
+        return tuple(new_index)
+
+    def update_input_list(self, new_key):
+        if new_key not in self.input_specs.rkt_inputs.rkt_input_list:
+            self.input_specs.rkt_inputs.rkt_input_list.append(new_key)
+
+    def get_master_inputs(self):
+        # create master inputs for all speciation solvers
+        self.input_specs = ReaktoroInputSpec()
+        self.input_specs.user_inputs = RktInputs()
+        self.input_specs.rkt_chemical_inputs = RktInputs()
+        self.input_specs.rkt_inputs = RktInputs()
+        self.master_mapping = {}
+        self.speciation_jac_idx = {}
+
+        def update_input_list(new_key):
+            if new_key not in self.input_specs.rkt_inputs.rkt_input_list:
+                self.input_specs.rkt_inputs.rkt_input_list.append(new_key)
+
+        for i, solver in enumerate(self.speciation_solvers):
+            self.speciation_jac_idx[i] = []
+            for key, obj in solver.input_specs.user_inputs.items():
+                new_key = self.modify_key(f"s_{i}", key)
+                self.master_mapping[new_key] = key
+                self.input_specs.user_inputs[new_key] = obj
+                # self.update_input_list(new_key)
+            for idx, key in enumerate(solver.input_specs.rkt_inputs.rkt_input_list):
+                if key in solver.input_specs.rkt_inputs:
+                    new_key = self.modify_key(f"s_{i}", key)
+                    self.master_mapping[new_key] = key
+                    self.input_specs.rkt_inputs[new_key] = (
+                        solver.input_specs.rkt_inputs[key]
+                    )
+                    self.update_input_list(new_key)
+                elif key in solver.input_specs.rkt_chemical_inputs:
+                    new_key = self.modify_key(f"s_{i}", key)
+                    self.master_mapping[new_key] = key
+                    self.input_specs.rkt_chemical_inputs[new_key] = (
+                        solver.input_specs.rkt_chemical_inputs[key]
+                    )
+                    self.update_input_list(new_key)
+                self.speciation_jac_idx[i].append(idx)
+        self.input_specs.dissolve_species_in_rkt = self.speciation_solvers[
+            0
+        ].input_specs.dissolve_species_in_rkt
+        self.input_specs.exact_speciation = self.speciation_solvers[
+            0
+        ].input_specs.exact_speciation
+
+    def get_speciation_outputs(self):
+        self.outputs = {}
+        self.output_key_order = {}
+        self.output_specs = ReaktoroOutputSpec()
+        for idx, output in enumerate(
+            self.speciation_solvers[0].output_specs.rkt_outputs
+        ):
+            self.outputs[output] = DummyPyomoVar()
+            self.outputs[output].original_key = output
+            self.output_key_order[output] = idx
+
+    def get_master_outputs(self):
+        # create master inputs/outputs for property solver
+        self.output_specs = ReaktoroOutputSpec()
+        self.output_specs.user_outputs = self.property_solver.output_specs.user_outputs
+        self.output_specs.rkt_outputs = self.property_solver.output_specs.rkt_outputs
+
+    def equilibrate_state(
+        self,
+    ):
+        for solver in self.speciation_solvers:
+            solver.equilibrate_state()
+        self.prop_block_not_equilibrated = True
+
+    def equilibrate_property_state(self):
+        """Equilibrate the property solver state."""
+        if self.prop_block_not_equilibrated:
+            self.property_solver.equilibrate_state()
+        self.prop_block_not_equilibrated = False
+
+    def propagate_speciation_outputs(self):
+        for output, obj in self.speciation_solvers[0].output_specs.rkt_outputs.items():
+            self.outputs[output].set_value(obj.value)
+
+    def compute_combined_jacobian(self, speciation_jacs, property_jac):
+        self.jacobian = np.zeros(
+            (
+                len(self.output_specs.rkt_outputs),
+                len(self.input_specs.rkt_inputs.rkt_input_list),
+            )
+        )
+        prop_prop_jac = property_jac.T[[self.prop_jac_propagation_idx]][0].T
+        spec_prop_jack = prop_prop_jac @ speciation_jacs[0]
+        self.jacobian[:, : speciation_jacs[0].shape[1]] = spec_prop_jack
+        sub_prop_jac = property_jac.T[[self.prop_jac_idx]][0].T
+        self.jacobian[:, speciation_jacs[0].shape[1] :] = sub_prop_jac
+
+    def solve_reaktoro_block(self, params=None, presolve=False):
+        if params is None:
+            use_temp = False
+        else:
+            use_temp = True
+        self.update_inputs(params)
+        outputs, jacs = {}, {}
+        for i, solver in enumerate(self.speciation_solvers):
+            jac, out = solver.solve_reaktoro_block(presolve=presolve, use_temp=use_temp)
+            outputs[i] = out
+            jacs[i] = jac
+        self.propagate_speciation_outputs()
+        self.equilibrate_property_state()
+        jac, outputs = self.property_solver.solve_reaktoro_block(
+            presolve=presolve, use_temp=use_temp
+        )
+
+        self.compute_combined_jacobian(jacs, jac)
+        # print(params)
+        # print(jac)
+        # print("Jacobian:", self.jacobian)
+        # print("Outputs:", outputs)
+        return self.jacobian, outputs
+
+    def update_inputs(self, params):
+        """Propagate inputs to all speciation solvers."""
+        if params != None:
+            for key, value in params.items():
+                self.input_specs.rkt_inputs[key].set_temp_value(value)
+
+    def get_jacobian_scaling(self):
+        return self.jacobian_scaling_values
+
+    def get_input_scaling(self):
+        return self.property_solver.input_scaling_values

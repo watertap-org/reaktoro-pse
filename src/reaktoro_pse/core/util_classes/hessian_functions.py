@@ -216,14 +216,6 @@ class HessianApproximation:
                     )
                     y_s = yk.T @ sk
                     mach_eps = np.finfo(float).eps
-                    # if (
-                    #     (
-                    #         y_s.T
-                    #         > np.sqrt(mach_eps)
-                    #         * np.linalg.norm(sk.T)
-                    #         * np.linalg.norm(yk.T @ sk)
-                    #     )
-                    #     and (np.linalg.norm(sk.T, np.inf) >= 1 * mach_eps)
                     if (
                         yk.T @ sk > 1e-6
                         and np.sum(yk) != 0

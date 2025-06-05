@@ -133,9 +133,6 @@ def build_direct_charge(rkt_output_object):
     )
 
 
-# * sum(
-#         (build_properties[("speciesAmount", key)].pyomo_var for key, charge in species)
-#     )
 def build_direct_scaling_tendency_constraint(rkt_output_object):
     # https://reaktoro.org/api/namespaceReaktoro.html#a55b9a29cdf35e98a6b07e67ed2edbc25
     user_output_var = rkt_output_object.pyomo_var

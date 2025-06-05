@@ -51,6 +51,7 @@ class ReaktoroInputExport:
             self.rkt_chemical_inputs[key].input_type = obj.input_type
             self.rkt_chemical_inputs[key].io_type = obj.io_type
             self.rkt_chemical_inputs[key].value = obj.value
+            self.rkt_chemical_inputs[key].log10_input = obj.log10_input
             self.rkt_chemical_inputs[key].converted_value = obj.converted_value
 
         self.rkt_chemical_inputs.registered_phases = chem_inputs.registered_phases
@@ -67,30 +68,33 @@ class ReaktoroInputExport:
 
 
 class ReaktoroInputSpec:
-    def __init__(self, reaktor_state):
+    def __init__(self, reaktor_state=None):
         # initialize parameters needed to build reaktor solver
-        self.state = reaktor_state
-        if isinstance(self.state, ReaktoroState) == False:
-            raise TypeError("Reator inputs require rektoroState class")
-        self.user_inputs = reaktor_state.inputs  # user inputs provided to state
-        self.rkt_inputs = RktInputs()  # inputs that will be fed to rkt spec
-        self.rkt_chemical_inputs = RktInputs()
-        # tracking which elements to not include in summation constraints
-        self.ignore_elements_for_constraints = []
-        self.fixed_solvent_specie = {}
-        self.fixed_solvent_speciation = {}
-        self.fixed_solvent_type = {}
+        if reaktor_state is not None:
+            self.state = reaktor_state
+            if isinstance(self.state, ReaktoroState) == False:
+                raise TypeError("Reator inputs require rektoroState class")
+            self.user_inputs = reaktor_state.inputs  # user inputs provided to state
+            self.rkt_inputs = RktInputs()  # inputs that will be fed to rkt spec
+            self.rkt_chemical_inputs = RktInputs()
+            # tracking which elements to not include in summation constraints
+            self.ignore_elements_for_constraints = []
+            self.fixed_solvent_specie = {}
+            self.fixed_solvent_speciation = {}
+            self.fixed_solvent_type = {}
 
-        self.fixed_species = {}
-        # execute default configuration options, user can update settings
-        self.register_charge_neutrality()
-        self.default_speciation()
-        self.register_open_species()
-        # register default for aqueous phase
-        if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
-            self.register_fixed_solvent_specie(RktInputTypes.aqueous_phase, "H2O")
+            self.fixed_species = {}
+            # execute default configuration options, user can update settings
+            self.register_charge_neutrality()
+            self.default_speciation()
+            self.register_open_species()
+            # register default for aqueous phase
+            if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
+                self.register_fixed_solvent_specie(RktInputTypes.aqueous_phase, "H2O")
 
-    def register_chemistry_modifiers(self, chemical_dict, index=None):
+    def register_chemistry_modifiers(
+        self, chemical_dict, index=None, log10_basis=False
+    ):
         """registers chemistry modifiers being added to system
         chemistry_modifier -- chemicals to be added (pyo object should be mole flow of chemical that would enter a system with same species as in apparat_species_mol_flow
                         chemistry_modifier = {'HCl':m.fs.HCl_dose} example for HCl
@@ -99,9 +103,9 @@ class ReaktoroInputSpec:
             if index is None or index in chemical:
                 if isinstance(chemical, tuple):
                     chemical = chemical[-1]
-                self.register_chemistry_modifier(chemical, obj)
+                self.register_chemistry_modifier(chemical, obj, log10_basis=log10_basis)
 
-    def register_chemistry_modifier(self, chemical, pyomo_var):
+    def register_chemistry_modifier(self, chemical, pyomo_var, log10_basis=False):
         chemical = self.safe_modifier_name(chemical)
         if chemical not in self.chemical_to_elements:
             raise ValueError(
@@ -110,6 +114,7 @@ class ReaktoroInputSpec:
         self.rkt_chemical_inputs[chemical] = RktInput(
             var_name=chemical, pyomo_var=pyomo_var
         )
+        self.rkt_chemical_inputs[chemical].log10_input = log10_basis
         mw, mw_unit = self.get_modifier_mw(self.chemical_to_elements[chemical])
         self.state.verify_unit(self.rkt_chemical_inputs[chemical], mw, mw_unit)
 
@@ -459,7 +464,7 @@ class ReaktoroInputSpec:
             else:
                 self.rkt_inputs[specie].set_lower_bound(0)
 
-            self.rkt_inputs[specie].io_type = "specie"
+            self.rkt_inputs[specie].io_type = "chemical_specie"
         # elif specie in self.rkt_inputs:
         #     self.rkt_inputs[specie].set_rkt_index(idx)
         #     self.rkt_inputs[specie].set_rkt_input_name(input_name)
