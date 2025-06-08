@@ -365,6 +365,8 @@ class ReaktoroJacobianSpec:
                     diff = np.diff(values)
                     step = np.diff(self.numerical_steps * input_value)
                     jac_val = np.average(diff / step)
+                    if jac_val != jac_val:
+                        jac_val = 0
                 elif JacType.center_difference:
                     jac_val = np.array(values) * self.cdf_multipliers
                     jac_val = np.sum(jac_val) / (

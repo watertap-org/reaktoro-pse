@@ -70,7 +70,7 @@ def test_with_rkt_sum(build_rkt_state_with_species):
         "temperature",
         "pressure",
         "pH",
-        "CO3-2",
+        "HCO3-",
         "CO2",
         "H2O",
         "Na+",
@@ -81,7 +81,7 @@ def test_with_rkt_sum(build_rkt_state_with_species):
         assert ei in rkt_input.rkt_inputs.keys()
         assert ei in rkt_input.user_inputs.keys()
     rkt_expected_inputs = [
-        "inputCO3-2",
+        "inputHCO3-",
         "inputCO2",
         "H2O",
         "inputNa+",
@@ -93,12 +93,12 @@ def test_with_rkt_sum(build_rkt_state_with_species):
         assert ei == rkt_input.rkt_inputs[key].get_rkt_input_name()
     assert len(rkt_input.rkt_inputs.keys()) == len(expected_inputs)
     expected_con_dict = {
-        "C": [(1.0, "CO3-2"), (1.0, "CO2")],
+        "C": [(1.0, "HCO3-"), (1.0, "CO2")],
         "Na": [(1, "Na+")],
         "Ca": [(1, "Ca+2")],
         "Mg": [(1, "Mg+2")],
     }
-    expected_active_species = ["CO3-2", "CO2", "Na+", "Mg+2", "Ca+2"]
+    expected_active_species = ["HCO3-", "CO2", "Na+", "Mg+2", "Ca+2"]
     for ion, ecd in expected_con_dict.items():
         rkt_ecd = rkt_input.constraint_dict[ion]
         # order might change....
@@ -159,7 +159,7 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
         "temperature",
         "pressure",
         "H2O",
-        "CO3-2",
+        "HCO3-",
         "Na+",
         "Mg+2",
         "Ca+2",
@@ -170,13 +170,13 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
         # assert ei in rkt_input.userInputs.keys()
     assert len(rkt_input.rkt_inputs.keys()) == len(expected_inputs)
     expected_con_dict = {
-        "C": [(1.0, "CO3-2")],
+        "C": [(1.0, "HCO3-")],
         "Na": [(1, "Na+")],
         "Mg": [(1, "Mg+2")],
         "Ca": [(1, "Ca+2")],
         "Cl": [(1, "Cl-")],
     }
-    expected_active_species = ["CO3-2", "Na+", "Mg+2", "Ca+2", "Cl-"]
+    expected_active_species = ["HCO3-", "Na+", "Mg+2", "Ca+2", "Cl-"]
     for ion, ecd in expected_con_dict.items():
         rkt_ecd = rkt_input.constraint_dict[ion]
         # order might change....
@@ -249,7 +249,7 @@ def test_with_pyomo_sum(build_rkt_state_with_species):
         "Cl",
         "Ca+2",
         "Ca",
-        "CO3-2",
+        "HCO3-",
         "HCO3",
         "CO2",
         "temperature",
@@ -264,12 +264,12 @@ def test_with_pyomo_sum(build_rkt_state_with_species):
         assert ei in rkt_input.rkt_inputs.keys()
     assert len(rkt_input.rkt_inputs.keys()) == len(expected_inputs)
     expected_con_dict = {
-        "C": [(1.0, "CO3-2"), (1.0, "CO2")],
+        "C": [(1.0, "HCO3-"), (1.0, "CO2")],
         "Na": [(1, "Na+")],
         "Ca": [(1, "Ca+2")],
         "Mg": [(1, "Mg+2")],
     }
-    expected_active_species = ["CO3-2", "CO2", "Na+", "Mg+2", "Ca+2"]
+    expected_active_species = ["HCO3-", "CO2", "Na+", "Mg+2", "Ca+2"]
     for ion, ecd in expected_con_dict.items():
         rkt_ecd = rkt_input.constraint_dict[ion]
         # order might change....
@@ -299,12 +299,12 @@ def test_with_chemical(build_rkt_state_with_species):
     rkt_input.configure_specs(dissolve_species_in_rkt=True)
     rkt_input.build_input_specs()
     expected_con_dict = {
-        "C": [(1.0, "CO3-2"), (1.0, "CO2")],
+        "C": [(1.0, "HCO3-"), (1.0, "CO2")],
         "Na": [(1, "Na+")],
         "Ca": [(1, "Ca+2"), (1, "modifier_CaO")],
         "Mg": [(1, "Mg+2")],
     }
-    expected_active_species = ["modifier_CaO", "CO3-2", "CO2", "Na+", "Mg+2", "Ca+2"]
+    expected_active_species = ["modifier_CaO", "HCO3-", "CO2", "Na+", "Mg+2", "Ca+2"]
     print(rkt_input.constraint_dict)
     for ion, ecd in expected_con_dict.items():
         rkt_ecd = rkt_input.constraint_dict[ion]
@@ -342,12 +342,12 @@ def test_input_with_pickle_copy(build_rkt_state_with_species):
     new_rkt_input.load_from_export_object(unpickled_object)
     new_rkt_input.build_input_specs()
     expected_con_dict = {
-        "C": [(1.0, "CO3-2"), (1.0, "CO2")],
+        "C": [(1.0, "HCO3-"), (1.0, "CO2")],
         "Na": [(1, "Na+")],
         "Ca": [(1, "Ca+2"), (1, "modifier_CaO")],
         "Mg": [(1, "Mg+2")],
     }
-    expected_active_species = ["modifier_CaO", "CO3-2", "CO2", "Na+", "Mg+2", "Ca+2"]
+    expected_active_species = ["modifier_CaO", "HCO3-", "CO2", "Na+", "Mg+2", "Ca+2"]
     print(new_rkt_input.constraint_dict)
     for ion, ecd in expected_con_dict.items():
         rkt_ecd = new_rkt_input.constraint_dict[ion]

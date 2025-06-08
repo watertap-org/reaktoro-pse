@@ -310,6 +310,9 @@ class LocalWorker:
         self.local_pipe.send(WorkerMessages.terminate)
         _log.info("Worker terminated")
 
+    def get_jacobian_matrix_function(self):
+        return self.jacobian_matrix.copy()
+
 
 class ReaktoroParallelManager:
     def __init__(self, time_out):
@@ -331,6 +334,9 @@ class ReaktoroParallelManager:
 
     def get_display_function(self, block_idx):
         return self.registered_workers[block_idx].display_state
+
+    def get_jacobian_matrix_function(self, block_idx):
+        return self.registered_workers[block_idx].get_jacobian_matrix_function
 
     def start_workers(self):
         for idx, local_worker in self.registered_workers.items():

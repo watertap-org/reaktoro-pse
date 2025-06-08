@@ -229,8 +229,6 @@ def test_build_with_pyomo_dissolution_mass_basis(
     m.rkt_block = Block()
     builder = ReaktoroBlockBuilder(m.rkt_block, rkt_solver)
     builder.initialize()
-    # will have as many DOFs as outputs due to pyomo not
-    # knowing tha graybox exists.
     assert degrees_of_freedom(m) == 0
     cy_solver = get_cyipopt_watertap_solver()
     cy_solver.options["max_iter"] = 20

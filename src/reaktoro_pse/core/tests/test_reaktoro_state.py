@@ -79,7 +79,7 @@ def build_rkt_state_with_species_mass_basis():
     m.composition["Na"].fix(0.5 * 0.022989251420091117)
     m.composition["Cl"].fix(0.5 * 0.035453548579908886)
     m.composition["Ca"].fix(0.01 * 0.040078902840182236)
-    m.composition["HCO3"].fix(0.01 * 0.06001219715981776)
+    m.composition["HCO3"].fix(0.01 * 0.06101964857990888)
     m.composition["CO2"].fix(0.001 * 0.0440111)
     rkt_state = rktState.ReaktoroState()
 
@@ -218,8 +218,8 @@ def test_state_with_species_mass_basis(build_rkt_state_with_species_mass_basis):
         "Cl": 0.035453548579908886,
         "Ca+2": 0.040078902840182236,
         "Ca": 0.040078902840182236,
-        "CO3-2": 0.06001219715981776,
-        "HCO3": 0.06001219715981776,
+        "HCO3-": 0.06101964857990888,
+        "HCO3": 0.06101964857990888,
         "CO2": 0.0440111,
         "temperature": None,
         "pressure": None,
@@ -231,7 +231,7 @@ def test_state_with_species_mass_basis(build_rkt_state_with_species_mass_basis):
     # print(test_dict)
 
 
-def test_chian_activity(build_rkt_state_with_species):
+def test_chain_activity(build_rkt_state_with_species):
     m, rkt_state = build_rkt_state_with_species
 
     rkt_state.set_aqueous_phase_activity_model(
@@ -257,7 +257,7 @@ def test_state_with_solids(build_rkt_state_with_species):
     print(rkt_state.state)
     assert (
         pytest.approx(float(rkt_state.state.props().speciesAmount("Calcite")), 1e-5)
-        == 0.008835542753970915
+        == 0.002787909076292376
     )
 
 
@@ -303,5 +303,5 @@ def test_state_with_pickle_copy(build_rkt_state_with_species):
     new_rkt_state.equilibrate_state()
     assert (
         pytest.approx(float(new_rkt_state.state.props().speciesAmount("Calcite")), 1e-5)
-        == 0.008835542753970915
+        == 0.002787909076292376
     )

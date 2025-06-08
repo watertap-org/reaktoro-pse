@@ -96,11 +96,11 @@ def add_vapor_pressure_properties(m):
         # we can use default converter as its defined for default database (Phreeqc and pitzer)
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
-        jacobian_options={
-            "user_scaling": {
-                ("speciesActivityLn", "H2O(g)"): 1,
-            },
-        },
+        # jacobian_options={
+        #     "user_scaling": {
+        #         ("speciesActivityLn", "H2O(g)"): 1,
+        #     },
+        # },
     )
 
 

@@ -46,18 +46,18 @@ def build_modification_example(water_comp):
     # pressure.construct()
     m.feed_pH = Var(initialize=7.8, bounds=(4, 12), units=pyunits.dimensionless)
     m.feed_pH.fix(7.8)  # feed pH used in phreeqc sim
-    m.acid_addition = Var(initialize=0.0, units=pyunits.mol / pyunits.s)
+    m.acid_addition = Var(initialize=1e-8, units=pyunits.mol / pyunits.s)
     m.acid_addition.fix()
-    m.base_addition = Var(initialize=0.0, units=pyunits.mol / pyunits.s)
+    m.base_addition = Var(initialize=1e-8, units=pyunits.mol / pyunits.s)
     m.base_addition.fix()
-    m.lime_addition = Var(initialize=0.0, units=pyunits.mol / pyunits.s)
+    m.lime_addition = Var(initialize=1e-8, units=pyunits.mol / pyunits.s)
     m.lime_addition.fix()
     m.modified_properties_water_removal = Var(
-        initialize=0,
+        initialize=1e-8,
         units=pyunits.mol / pyunits.s,
     )
     m.water_recovery = Var(
-        initialize=0.0,
+        initialize=1e-8,
         bounds=(0.0, 0.9),
         units=pyunits.dimensionless,
     )
@@ -101,14 +101,14 @@ def add_standard_properties(m):
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
         # reaktoro_solve_options={"open_species_on_property_block": ["OH-", "H2O"]},
-        jacobian_options={
-            "user_scaling": {
-                ("saturationIndex", "Calcite"): 1,
-                ("saturationIndex", "Gypsum"): 1,
-                ("pH", None): 1,
-                ("speciesActivityLn", "H2O"): 1,
-            },
-        },
+        # jacobian_options={
+        #     "user_scaling": {
+        #         ("saturationIndex", "Calcite"): 1,
+        #         ("saturationIndex", "Gypsum"): 1,
+        #         ("pH", None): 1,
+        #         ("speciesActivityLn", "H2O"): 1,
+        #     },
+        # },
     )
     scale_model(m)
 
@@ -128,6 +128,7 @@ def initialize(m):
         m.modified_properties_water_removal, m.eq_water_flow
     )
     m.eq_modified_properties.initialize()
+    m.display()
     solve(m)
 
 

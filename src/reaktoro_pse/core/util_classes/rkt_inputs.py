@@ -132,14 +132,15 @@ class RktInput:
             return value
 
     def update_values(self, update_temp=False):
-
         if self.pyomo_var is not None:
+
             self.value = self.pyomo_var.value
             if self.conversion_value is not None:
                 self.converted_value = value(self.get_pyomo_with_required_units())
 
             else:
                 self.converted_value = self.value
+
         if self.dummy_var is not None:
             self.value = self.dummy_var.get_value()
         if update_temp:
@@ -177,17 +178,17 @@ class RktInput:
     def get_value(self, update_temp=False, delog=False, apply_conversion=False):
         self.update_values(update_temp)
         if apply_conversion and self.conversion_value is not None:
-            _value = self.conversion_value
+            _value = self.converted_value
         else:
             _value = self.value
+
         return self.delog10_input(_value, delog=delog)
 
     def get_pyomo_with_required_units(self, delog=False):
-        if delog:
-            return self.delog10_input(self.pyomo_var, delog=delog)
         if self.conversion_value == None:
-            return self.pyomo_var
+            return self.delog10_input(self.pyomo_var, delog=delog)
         else:
+
             return self.delog10_input(
                 pyunits.convert(
                     self.pyomo_var / (self.conversion_value * self.conversion_unit),

@@ -143,8 +143,9 @@ def add_standard_properties(m):
         outputs={"speciesAmount": True},  # get exact speciation for the feed
         dissolve_species_in_reaktoro=True,
         build_speciation_block=False,
+        build_graybox_model=False,
     )
-    m.eq_ratio_feed_2_properties = ReaktoroBlock(
+    m.eq_mixed_properties = ReaktoroBlock(
         aqueous_phase={
             "composition": m.ratio_feed_composition_2,
             "convert_to_rkt_species": True,
@@ -155,36 +156,11 @@ def add_standard_properties(m):
             "pressure": m.feed_pressure,
             "pH": m.feed_2_pH,
         },
-        outputs={"speciesAmount": True},  # get exact speciation for the feed
-        build_speciation_block=False,
-    )
-
-    m.mixed_speciation = Var(list(m.eq_feed_properties.outputs.keys()), initialize=1)
-
-    @m.Constraint(list(m.eq_feed_properties.outputs.keys()))
-    def eq_mixed_speciation(fs, key, prop):
-        return (
-            m.eq_feed_properties.outputs[(key, prop)]
-            + m.eq_ratio_feed_2_properties.outputs[(key, prop)]
-            == m.mixed_speciation[(key, prop)]
-        )
-
-    # building mixing props block, here we will take
-    # the mixed speciation which is exact, and pass it directly into
-    # reaktoro to get new properties
-
-    m.eq_mixed_properties = ReaktoroBlock(
-        aqueous_phase={
-            "composition": m.mixed_speciation,
-            "convert_to_rkt_species": False,
-            "activity_model": rkt.ActivityModelPitzer(),
-        },
-        system_state={"temperature": m.feed_temperature, "pressure": m.feed_pressure},
         outputs=m.modified_properties,  # get exact speciation for the feed
-        dissolve_species_in_reaktoro=True,
-        exact_speciation=True,
-        build_speciation_block=False,
+        build_speciation_block=True,
+        external_speciation_reaktoro_blocks=[m.eq_feed_properties],
     )
+
     scale_model(m)
 
 
@@ -203,12 +179,7 @@ def scale_model(m):
 
 
 def initialize(m):
-    m.eq_feed_properties.initialize()
-    m.eq_ratio_feed_2_properties.initialize()
-    for key in m.mixed_speciation:
-        calculate_variable_from_constraint(
-            m.mixed_speciation[key], m.eq_mixed_speciation[key]
-        )
+
     m.eq_mixed_properties.initialize()
     standardModel.solve(m)
 

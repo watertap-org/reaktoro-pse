@@ -86,18 +86,9 @@ def add_mineral_properties(m):
         outputs=m.modified_properties,
         mineral_phase={"phase_components": ["Calcite", "Gypsum"]},
         chemistry_modifier={"CaO": m.lime_addition},
-        dissolve_species_in_reaktoro=False,
+        dissolve_species_in_reaktoro=True,
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
-        jacobian_options={
-            "user_scaling": {
-                ("speciesAmount", "Calcite"): 1,
-                ("speciesAmount", "Gypsum"): 1,
-                ("pH", None): 0.1,
-                ("saturationIndex", "Calcite"): 1,
-                ("saturationIndex", "Gypsum"): 1,
-            },
-        },
     )
 
 

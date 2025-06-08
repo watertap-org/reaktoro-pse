@@ -180,13 +180,12 @@ class ReaktoroSolver:
             if params is None and use_temp is False:
                 value = input_obj.get_value(
                     update_temp=True,
-                    apply_conversion=True,  # delog=False
+                    apply_conversion=True,
                 )
             elif use_temp:
                 value = input_obj.get_temp_value()
             else:
                 value = params.get(input_key)
-                # value = input_obj.delog10_input(value)
                 input_obj.set_temp_value(value)
             unit = input_obj.main_unit
             self._input_params[input_key] = value
@@ -202,25 +201,12 @@ class ReaktoroSolver:
             else:
                 # TODO figure out how deal with units...
                 self.conditions.set(input_obj.get_rkt_input_name(), value)
-            if ("charge", None) in self.output_specs.rkt_outputs or (
-                "logcharge",
-                None,
-            ) in self.output_specs.rkt_outputs:
-                # if charge is in outputs, we need to update the charge neutrality
-                # condition to match the current input values
-                if input_key == "pH" or input_key == "pOH":
-                    print(self.block_name, input_key, value)
 
     def get_outputs(self):
         output_arr = []
         for key, obj in self.output_specs.rkt_outputs.items():
             val = self.output_specs.evaluate_property(obj, update_values_in_object=True)
-
             output_arr.append(val)
-            if "charge" in key or "logcharge" in key:
-                print(self.block_name, key, output_arr[-1])
-            if "pE" in key:
-                print(self.block_name, key, output_arr[-1])
         return output_arr
 
     def get_jacobian(self):
@@ -298,7 +284,7 @@ class ReaktoroSolver:
         return result
 
     def get_jacobian_scaling(self):
-        return self.jacobian_scaling_values
+        raise NotImplementedError("This method gets updated by ReaktoroBlockBuilder")
 
     def get_input_scaling(self):
-        return self.input_scaling_values
+        raise NotImplementedError("This method gets updated by ReaktoroBlockBuilder")

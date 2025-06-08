@@ -2,7 +2,7 @@ from watertap_solvers import get_solver
 
 
 def get_cyipopt_watertap_solver(
-    max_iter=500, ma27=False, limited_memory=True, solver_args=None
+    max_iter=500, ma27=False, limited_memory=False, solver_args=None
 ):
     """general config for cyipopt solver"""
     cy_solver = get_solver(solver="cyipopt-watertap")

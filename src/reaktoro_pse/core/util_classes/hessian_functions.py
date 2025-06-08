@@ -51,6 +51,7 @@ class HessianMemory:
                 mla.pop(0)
 
     def reset_memory(self):
+        print("hess memory resdet")
         for mla in self.memory_limited_arrays:
             mla.clear()
 
@@ -270,7 +271,7 @@ class HessianApproximation:
                 y_s = y_k.T @ s_k
                 H_s = self.bfgs_hessian[i] @ s_k
 
-                if y_k.T @ s_k > 1e-16 and np.sum(H_s) != 0:
+                if y_k.T @ s_k > 1e-32 and np.sum(H_s) != 0:
                     self.bfgs_hessian[i] = (
                         self.bfgs_hessian[i]
                         + (y_k @ y_k.T) / (y_s)
@@ -283,7 +284,7 @@ class HessianApproximation:
         self.create_bfgs_matrix()
         if len(self.hessian_memory.get_range()) > 1:
             s_k = (np.array([self.inputs]) - self.hessian_memory.get_last_input()).T
-            eps = 1e-6
+            eps = 100 * np.finfo(float).eps
             for i in range(self.jacobian_matrix.shape[0]):
                 y_k = np.array(
                     [

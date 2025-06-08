@@ -54,9 +54,10 @@ def test_precip_comp():
 
 def test_acid_base_comp():
     result = acid_base_addition_comparison.main(False, False)
+    print(result)
     hcl_result = {
-        "Calcite": 0.6170240328965659,
-        "pH": 0.007244657764840176,
+        "Calcite": 0.6159176945253274,
+        "pH": 0.007230990243316364,
         "Osmotic pressure": 0.05902701717931409,
     }
     naoh_result = {

@@ -213,7 +213,7 @@ class PyomoProperties:
         self.chem_props = chem_props
         self.aqueous_props = aqueous_props
 
-    def scalingTendency(self, property_index):
+    def scalingTendencySaturationIndex(self, property_index):
         """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
         required_props = PropOptions()
         required_props.register_property(
@@ -244,6 +244,7 @@ class PyomoProperties:
         """build pyomo constraint for scaling index calculations directly form chem props
         #TODO: Need to add check for database being used as only PhreeqC is really supported at the
         moment"""
+        print("building sc direct")
         required_props = PropOptions()
         ref_temp = 25  # degC
         ref_pressure = 1  # atm
@@ -304,12 +305,12 @@ class PyomoProperties:
         required_props.register_option("gas_constant", rkt.universalGasConstant)
         return required_props
 
-    # def pH(self, property_index=None):
-    #     """build direct pH caclautions from chem props"""
-    #     required_props = PropOptions()
-    #     required_props.register_property(PropTypes.chem_prop, "speciesActivityLn", "H+")
-    #     required_props.register_build_function(propFuncs.build_ph_constraint)
-    #     return required_props
+    def pHDirect(self, property_index=None):
+        """build direct pH caclautions from chem props"""
+        required_props = PropOptions()
+        required_props.register_property(PropTypes.chem_prop, "speciesActivityLn", "H+")
+        required_props.register_build_function(propFuncs.build_ph_constraint)
+        return required_props
 
     def vaporPressure(self, property_index=None):
         """build direct pH caclautions from chem props"""
@@ -422,37 +423,37 @@ class ConvertedPropTypes:
         )
         return output
 
-    # def alkalinityAsCaCO3(self, property_index=None):
-    #     """build alkalinity and convert it to CaCO3 basis"""
-    #     output = PropOptions()
-    #     output.register_property(
-    #         property_type=PropTypes.aqueous_prop,
-    #         property_name="alkalinity",
-    #         property_index=None,
-    #     )
-    #     output.calculate_value = lambda x: (x["alkalinity", None].value * 100.09 * 1000)
-    #     output.calculate_derivative_conversion = lambda x: (
-    #         x["alkalinity", None].derivative * 100.09 * 1000
-    #     )
-    #     return output
+    def alkalinityAsCaCO3(self, property_index=None):
+        """build alkalinity and convert it to CaCO3 basis"""
+        output = PropOptions()
+        output.register_property(
+            property_type=PropTypes.aqueous_prop,
+            property_name="alkalinity",
+            property_index=None,
+        )
+        output.calculate_value = lambda x: (x["alkalinity", None].value * 100.09 * 1000)
+        output.calculate_derivative_conversion = lambda x: (
+            x["alkalinity", None].derivative * 100.09 * 1000
+        )
+        return output
 
-    # def scalingTendency(self, property_index):
-    #     """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
-    #     output = PropOptions()
-    #     output.register_property(
-    #         property_type=PropTypes.aqueous_prop,
-    #         property_name="saturationIndex",
-    #         property_index=property_index,
-    #     )
-    #     output.calculate_value = lambda x: 10 ** (
-    #         x["saturationIndex", property_index].value
-    #     )
-    #     output.calculate_derivative_conversion = (
-    #         lambda x: x["saturationIndex", property_index].derivative
-    #         * (10 ** x["saturationIndex", property_index].value)
-    #         * math.log(10)
-    #     )
-    #     return output
+    def scalingTendency(self, property_index):
+        """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
+        output = PropOptions()
+        output.register_property(
+            property_type=PropTypes.aqueous_prop,
+            property_name="saturationIndex",
+            property_index=property_index,
+        )
+        output.calculate_value = lambda x: 10 ** (
+            x["saturationIndex", property_index].value
+        )
+        output.calculate_derivative_conversion = (
+            lambda x: x["saturationIndex", property_index].derivative
+            * (10 ** x["saturationIndex", property_index].value)
+            * math.log(10)
+        )
+        return output
 
     def logSpeciesAmount(self, property_index):
         """build log species amount"""
@@ -472,22 +473,22 @@ class ConvertedPropTypes:
         )
         return output
 
-    # def pH(self, property_index):
-    #     """build log species amount"""
-    #     output = PropOptions()
-    #     output.register_property(
-    #         property_type=PropTypes.chem_prop,
-    #         property_name="speciesActivityLn",
-    #         property_index="H+",
-    #     )
-    #     output.calculate_value = (
-    #         lambda x: -1 * x["speciesActivityLn", "H+"].value / math.log(10)
-    #     )
-    #     output.calculate_derivative_conversion = (
-    #         lambda x: x["speciesActivityLn", "H+"].derivative * -1 / math.log(10)
-    #     )
+    def pH(self, property_index):
+        """build log species amount"""
+        output = PropOptions()
+        output.register_property(
+            property_type=PropTypes.chem_prop,
+            property_name="speciesActivityLn",
+            property_index="H+",
+        )
+        output.calculate_value = (
+            lambda x: -1 * x["speciesActivityLn", "H+"].value / math.log(10)
+        )
+        output.calculate_derivative_conversion = (
+            lambda x: x["speciesActivityLn", "H+"].derivative * -1 / math.log(10)
+        )
 
-    #     return output
+        return output
 
 
 class PropTypes:

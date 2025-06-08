@@ -43,7 +43,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_step",
             ConfigValue(
-                default=1e-3,
+                default=1e-4,
                 domain=float,
                 description="Defines the step to use for numerical descritiazaiton",
                 doc="""This will define how small of a step to use for numerical derivative propagation which takes
@@ -55,16 +55,43 @@ class JacobianOptions:
         CONFIG.declare(
             "scaling_type",
             ConfigValue(
-                default=JacScalingTypes.variable_scaling,
+                default=JacScalingTypes.jacobian_matrix_inverse_sum,
                 domain=IsInstance((str, JacScalingTypes)),
                 description="Defines how to scale Jacobian matrix",
                 doc="""
                 Defines methods for jacobian scaling:
                 - if option is no_scaling, jacobian scale will == 1 for all outputs
                 - if option is 'variable_scaling' will use output variable scaling factors
+                - if option is 'inverse_variable_scaling' will use inverse of output variable scaling factors
                 - if option is 'variable_io_scaling' will sums squared of input scales and output scales
-                - if option is jacobian_matrix will use actual jac matrix to calculate scaling factors
+                - if option is jacobian_matrix_inverse_sum will use inverse of sum of absolute values of jacobian matrix
+                - if option is jacobian_matrix_square_sum will use squared sum of absolute values of jacobian matrix
                 - if user_scaling is not None then uses user provided scaling
+                """,
+            ),
+        )
+        CONFIG.declare(
+            "jacobian_scale_bounds",
+            ConfigValue(
+                default=(1e-16, 1e2),
+                domain=IsInstance(tuple),
+                description="Defines lower and upper bounds for jacobian scaling factors",
+                doc="""
+                This will clip jacobian scale by defined upper and lower bound (min, max).   
+                Passing in None instead of a value will disable clipping for min or max (e.g. (None, 1e2) will disable lower bound clipping).             
+                """,
+            ),
+        )
+        CONFIG.declare(
+            "update_jacobian_scale_every_solve",
+            ConfigValue(
+                default=False,
+                domain=bool,
+                description="Defines if jacobian scale should be updated every solve",
+                doc="""
+                This will recalculate jacobian scale every time a new solve is started. 
+                This only works if user updates output/input variable scaling between solves 
+                or if user uses any of the jacobian_matrix scaling methods, otherwise the jacobian scale factors will not change            
                 """,
             ),
         )

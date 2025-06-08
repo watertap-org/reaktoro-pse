@@ -227,14 +227,15 @@ class ReaktoroBlockManagerData(ProcessBlockData):
             domain=IsInstance((str, HessTypes)),
             description="Hessian type to use for reaktor gray box",
             doc="""Hessian type to use, some might provide better stability
-                options:
+                options:                
                 - ZeroHessian - no hessian
                 - GaussNewton - default
+                - LBFGS - limited memory BFGS
                 - BFGS - Broyden-Fletcher-Goldfarb-Shanno   
+                - CBFGS - conditional BFGS
                 - BFGS_mod - modified BFGS
                 - BFGS_damp - damped BFGS   
                 - BFGS_ipopt - BFGS with ipopt update step
-                - diag_inv - diagonal inverse
                     
                     """,
         ),
@@ -384,6 +385,7 @@ class ReaktoroBlockManagerData(ProcessBlockData):
             if self.config.use_parallel_mode:
                 init_func = self.parallel_manager.get_initialize_function(block_idx)
                 disp_func = self.parallel_manager.get_display_function(block_idx)
+                jac_func = self.parallel_manager.get_jacobian_matrix_function(block_idx)
             else:
                 init_func = self.aggregate_solver_state.solver_functions[block_idx]
                 disp_func = None
@@ -391,6 +393,7 @@ class ReaktoroBlockManagerData(ProcessBlockData):
                 gray_box_model=pseudo_gray_box_model,
                 reaktoro_initialize_function=init_func,
                 display_reaktoro_state_function=disp_func,
+                get_jacobian_matrix_function=jac_func,
             )
             block.pseudo_gray_box = pseudo_gray_box_model
 

@@ -40,7 +40,7 @@ def test_pyomo_properties(build_standard_state):
         rkt_outputs.supported_properties[PropTypes.chem_prop],
         rkt_outputs.supported_properties[PropTypes.aqueous_prop],
     )
-    props.scalingTendency("Calcite")
+    props.scalingTendencySaturationIndex("Calcite")
     props.scalingTendencyDirect("Calcite")
     props.osmoticPressure("H2O")
     props.pHDirect()
@@ -51,7 +51,12 @@ def test_output_setup(build_standard_state):
     """testing setting out outputs"""
     rkt_outputs = build_standard_state
     """ make sure we have all expected props"""
-    expected_properties = ["chemProp", "aqueousProp", "pyomoBuiltProperties"]
+    expected_properties = [
+        "chemProp",
+        "aqueousProp",
+        "pyomoBuiltProperties",
+        "convertedProp",
+    ]
     for ep in expected_properties:
         assert ep in rkt_outputs.supported_properties
     assert len(expected_properties) == len(rkt_outputs.supported_properties)
@@ -95,7 +100,12 @@ def test_output_pickle(build_standard_state, build_rkt_state_with_species):
     new_rkt_outputs = ReaktoroOutputSpec(rkt_state)
     new_rkt_outputs.load_from_export_object(unpickled_object)
     """ make sure we have all expected props"""
-    expected_properties = ["chemProp", "aqueousProp", "pyomoBuiltProperties"]
+    expected_properties = [
+        "chemProp",
+        "aqueousProp",
+        "pyomoBuiltProperties",
+        "convertedProp",
+    ]
     for ep in expected_properties:
         assert ep in rkt_outputs.supported_properties
     assert len(expected_properties) == len(new_rkt_outputs.supported_properties)
@@ -152,16 +162,16 @@ def test_pyomo_constraints(build_standard_state):
 
     assert ("pHDirect", None) in rkt_outputs.user_outputs
 
-    rkt_outputs.register_output("scalingTendency", "Calcite")
-    assert ("scalingTendency", "Calcite") in rkt_outputs.user_outputs
+    rkt_outputs.register_output("scalingTendencyDirect", "Calcite")
+    assert ("scalingTendencyDirect", "Calcite") in rkt_outputs.user_outputs
     assert ("scalingTendency", "Calcite") not in rkt_outputs.rkt_outputs
     assert (
-        rkt_outputs.user_outputs[("scalingTendency", "Calcite")].property_type
+        rkt_outputs.user_outputs[("scalingTendencyDirect", "Calcite")].property_type
         == PropTypes.pyomo_built_prop
     )
 
     rkt_outputs.register_output("scalingTendencyDirect", "Calcite")
-    assert ("scalingTendency", "Calcite") in rkt_outputs.user_outputs
+    assert ("scalingTendencyDirect", "Calcite") in rkt_outputs.user_outputs
     assert ("scalingTendency", "Calcite") not in rkt_outputs.rkt_outputs
     assert (
         rkt_outputs.user_outputs[("scalingTendencyDirect", "Calcite")].property_type

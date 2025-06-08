@@ -55,7 +55,6 @@ class ReaktoroCoupledSolver:
                 new_key = self.modify_key("prop", key)
                 self.input_specs.user_inputs[new_key] = obj
                 self.master_mapping[new_key] = key
-
         for idx, key in enumerate(
             self.property_solver.input_specs.rkt_inputs.rkt_input_list
         ):
@@ -180,6 +179,15 @@ class ReaktoroCoupledSolver:
             solver.equilibrate_state()
         self.prop_block_not_equilibrated = True
 
+    def display_state(self):
+        """Display the current state of the Reaktoro coupled solver."""
+        _log.info("Reaktoro Coupled Solver State:")
+        for i, solver in enumerate(self.speciation_solvers):
+            _log.info(f"Speciation Solver {i}:")
+            solver.display_state()
+        _log.info("Property Solver State:")
+        self.property_solver.display_state()
+
     def equilibrate_property_state(self):
         """Equilibrate the property solver state."""
         if self.prop_block_not_equilibrated:
@@ -187,21 +195,31 @@ class ReaktoroCoupledSolver:
         self.prop_block_not_equilibrated = False
 
     def propagate_speciation_outputs(self):
-        for output, obj in self.speciation_solvers[0].output_specs.rkt_outputs.items():
-            self.outputs[output].set_value(obj.value)
+
+        for output, obj in self.outputs.items():
+            sum_element = 0
+            for i in self.speciation_solvers:
+                sum_element += i.output_specs.rkt_outputs[output].value
+            self.outputs[output].set_value(sum_element)
 
     def compute_combined_jacobian(self, speciation_jacs, property_jac):
-        self.jacobian = np.zeros(
+        self.jacobian_matrix = np.zeros(
             (
                 len(self.output_specs.rkt_outputs),
                 len(self.input_specs.rkt_inputs.rkt_input_list),
             )
         )
+
         prop_prop_jac = property_jac.T[[self.prop_jac_propagation_idx]][0].T
-        spec_prop_jack = prop_prop_jac @ speciation_jacs[0]
-        self.jacobian[:, : speciation_jacs[0].shape[1]] = spec_prop_jack
+        end_idx = 0
+        start_idx = 0
+        for i, spc in enumerate(self.speciation_solvers):
+            spec_prop_jack = prop_prop_jac @ speciation_jacs[i]
+            end_idx += speciation_jacs[i].shape[1]
+            self.jacobian_matrix[:, start_idx:end_idx] = spec_prop_jack
+            start_idx = end_idx
         sub_prop_jac = property_jac.T[[self.prop_jac_idx]][0].T
-        self.jacobian[:, speciation_jacs[0].shape[1] :] = sub_prop_jac
+        self.jacobian_matrix[:, end_idx:] = sub_prop_jac
 
     def solve_reaktoro_block(self, params=None, presolve=False):
         if params is None:
@@ -225,7 +243,7 @@ class ReaktoroCoupledSolver:
         # print(jac)
         # print("Jacobian:", self.jacobian)
         # print("Outputs:", outputs)
-        return self.jacobian, outputs
+        return self.jacobian_matrix, outputs
 
     def update_inputs(self, params):
         """Propagate inputs to all speciation solvers."""
@@ -234,7 +252,9 @@ class ReaktoroCoupledSolver:
                 self.input_specs.rkt_inputs[key].set_temp_value(value)
 
     def get_jacobian_scaling(self):
-        return self.jacobian_scaling_values
+        raise NotImplementedError(
+            "This method gets updated by ReaktoroBlockBuilder, did you build the builder?"
+        )
 
     def get_input_scaling(self):
-        return self.property_solver.input_scaling_values
+        raise NotImplementedError("This method gets updated by ReaktoroBlockBuilder")

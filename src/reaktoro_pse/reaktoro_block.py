@@ -27,7 +27,7 @@ from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from reaktoro_pse.core.reaktoro_outputs import (
     ReaktoroOutputSpec,
 )
-
+from types import SimpleNamespace
 from reaktoro_pse.core.reaktoro_jacobian import ReaktoroJacobianSpec
 from reaktoro_pse.core.reaktoro_solver import ReaktoroSolver
 from reaktoro_pse.core.reaktoro_block_builder import ReaktoroBlockBuilder
@@ -127,6 +127,36 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
+        "direct_speciation_to_property_block_coupling",
+        ConfigValue(
+            default=True,
+            domain=bool,
+            description="This mode will directly couple speciation block to property block",
+            doc="""
+            - If True this will build a single graybox model that contains both the speciation and property blocks, the true species from speciation block will
+            be directly pass the property block, and chain rule will be used to compute the jacobian.
+            - If False, this will build two separate graybox models, one for speciation and one for property block, the true species from speciation block
+            will be passed to property block through pyomo constraints. This mode is less stable as property block can fail to due to solver taking steps that result
+            in infeasible true species composition, in general it suggested to enable pH or charge relaxation on property block when using this mode.
+            """,
+        ),
+    )
+    CONFIG.declare(
+        "build_graybox_model",
+        ConfigValue(
+            default=True,
+            domain=bool,
+            description="This will build a graybox model",
+            doc="""
+            Use this option to disable building graybox models and generate a number of configured speciation blocks that can be passed
+            together into a single property block in direct coupling mode. These configured Reaktoro model blocks can be passed into another ReaktoroBlock through
+            'external_speciation_reaktoro_blocks' option.
+            Use this to perform mixing operations, (e.g. speciate multiple streams and then mix them together in a single property block).
+            """,
+        ),
+    )
+
+    CONFIG.declare(
         "exclude_species_list",
         ConfigValue(
             default=None,
@@ -209,13 +239,12 @@ class ReaktoroBlockData(ProcessBlockData):
     CONFIG.declare(
         "speciation_output_type",
         ConfigValue(
-            default="species_direct",
+            default="species",
             domain=str,
             description="Defines if element or species are passed from speciation block to property block",
             doc="""
             Defines if element or species are passed from speciation block to property block,
             Options:
-             0) 'species_direct' - this passes species directly and couples speciation block to prop block
              1) 'species'
              2) 'elements'.
              3) 'log10_species' - this will pass log10 of species amount, which is useful for IPOPT solver""",
@@ -290,15 +319,16 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare(
-        "OH_scale",
+        "charge_scale",
         ConfigValue(
-            default=1e8,
+            default=1,
             domain=float,
-            description="Scale used for OH- species when charge balancing if user did not provide initial OH amount",
+            description="Scale used for charge when enable_Charge_relaxation_on_property_block=True",
             doc="""
-            Multiplier used to increase charge scale to ensure that pH is correctly solved, this will take scale for current charge amount and multiply it by this value""",
+            Scale used for charge""",
         ),
     )
+
     CONFIG.declare(
         "assert_charge_neutrality",
         ConfigValue(
@@ -412,7 +442,17 @@ class ReaktoroBlockData(ProcessBlockData):
             before doing any initialization calls, or interacting with ReaktoroBlocks themself .""",
         ),
     )
-
+    CONFIG.declare(
+        "external_speciation_reaktoro_blocks",
+        ConfigValue(
+            default=None,
+            domain=IsInstance(list),
+            description="Provides a list of external reaktoro blocks for speciation",
+            doc="""
+            Used to for mixing different speciation blocks when useing "species_direct" options
+            Build external reaktoro block and then pass them into this option. .""",
+        ),
+    )
     CONFIG.declare("jacobian_options", JacobianOptions().get_dict())
 
     CONFIG.declare(
@@ -430,7 +470,11 @@ class ReaktoroBlockData(ProcessBlockData):
         self.direct_coupling_mode = False
         if self.config.build_speciation_block:
             # create speciation block and then property block
-            self.speciation_block = Block()
+            if self.config.direct_speciation_to_property_block_coupling:
+                self.direct_coupling_mode = True
+                self.speciation_block = SimpleNamespace()
+            else:
+                self.speciation_block = Block()
             self.build_rkt_state(self.speciation_block, speciation_block=True)
             self.build_rkt_inputs(self.speciation_block, speciation_block=True)
             self.build_rkt_outputs(self.speciation_block, speciation_block=True)
@@ -451,11 +495,18 @@ class ReaktoroBlockData(ProcessBlockData):
             # create property block only
             self.build_rkt_state(self)
             self.build_rkt_inputs(self)
-
+        if (
+            self.config.external_speciation_reaktoro_blocks is not None
+            and self.direct_coupling_mode == False
+        ):
+            raise TypeError(
+                "Provide external_speciation_reaktoro_blocks only when using 'species_direct' option"
+            )
         self.build_rkt_outputs(self)
         self.build_rkt_jacobian(self)
         self.build_rkt_solver(self)
-        self.build_gray_box(self)
+        if self.config.build_graybox_model:
+            self.build_gray_box(self)
 
     def build_rkt_state(
         self,
@@ -919,7 +970,7 @@ class ReaktoroBlockData(ProcessBlockData):
             and self.relaxing_charge_enabled == False
         ):
             # only do so if we have 'H+' in species
-            ion_for_balancing = "pOH"
+            ion_for_balancing = "pH"
             if (
                 "H+" not in block.rkt_state.database_species
                 or self.config.assert_charge_neutrality_on_property_block == False
@@ -1019,13 +1070,6 @@ class ReaktoroBlockData(ProcessBlockData):
                     get_all_indexes=True,
                     ignore_indexes=self.config.speciation_block_exclude_species,
                 )
-            elif self.config.speciation_output_type == "species_direct":
-                block.rkt_outputs.register_output(
-                    "speciesAmount",
-                    get_all_indexes=True,
-                    ignore_indexes=self.config.speciation_block_exclude_species,
-                )
-                self.direct_coupling_mode = True
             elif self.config.speciation_output_type == "log10_species":
                 block.rkt_outputs.register_output(
                     "logSpeciesAmount",
@@ -1148,8 +1192,6 @@ class ReaktoroBlockData(ProcessBlockData):
         block -- pyomo block to build the model on
         """
         # build block
-        scaling = self.config.jacobian_options.user_scaling
-        scaling_type = self.config.jacobian_options.scaling_type
 
         if (
             self.config.reaktoro_block_manager is not None
@@ -1158,8 +1200,13 @@ class ReaktoroBlockData(ProcessBlockData):
             self.speciation_block_data = []
         if self.direct_coupling_mode:
             if speciation_block:
-                self.coupled_solver = ReaktoroCoupledSolver([block.rkt_solver])
+                solver_blocks = [block.rkt_solver]
+                if self.config.external_speciation_reaktoro_blocks is not None:
+                    for spc in self.config.external_speciation_reaktoro_blocks:
+                        solver_blocks.append(spc.rkt_solver)
+                self.coupled_solver = ReaktoroCoupledSolver(solver_blocks)
                 block.outputs = self.coupled_solver.outputs
+
                 solver = None
                 if self.config.reaktoro_block_manager is not None:
                     self.speciation_block_data.append(
@@ -1171,6 +1218,17 @@ class ReaktoroBlockData(ProcessBlockData):
                             "solver": block.rkt_solver,
                         }
                     )
+                    if self.config.external_speciation_reaktoro_blocks is not None:
+                        for spc in self.config.external_speciation_reaktoro_blocks:
+                            self.speciation_block_data.append(
+                                {
+                                    "state": spc.rkt_state,
+                                    "inputs": spc.rkt_inputs,
+                                    "outputs": spc.rkt_outputs,
+                                    "jacobian": spc.rkt_jacobian,
+                                    "solver": spc.rkt_solver,
+                                }
+                            )
             else:
                 self.coupled_solver.register_property_solver(block.rkt_solver)
                 solver = self.coupled_solver
@@ -1189,7 +1247,10 @@ class ReaktoroBlockData(ProcessBlockData):
                 block, solver, build_on_init=False
             )
             block.rkt_block_builder.configure_jacobian_scaling(
-                jacobian_scaling_type=scaling_type, user_scaling=scaling
+                jacobian_scaling_type=self.config.jacobian_options.scaling_type,
+                user_scaling=self.config.jacobian_options.user_scaling,
+                jacobian_scaling_bounds=self.config.jacobian_options.jacobian_scale_bounds,
+                update_jacobian_scale_every_solve=self.config.jacobian_options.update_jacobian_scale_every_solve,
             )
 
             if self.relaxing_pH_enabled:
@@ -1211,7 +1272,7 @@ class ReaktoroBlockData(ProcessBlockData):
             if self.relaxing_charge_enabled:
                 block.rkt_block_builder.configure_relaxation_constraints(
                     constraint_types={
-                        "charge_neutrality": {"OH_scale": self.config.OH_scale}
+                        "charge_neutrality": {"charge_scale": self.config.charge_scale}
                     }
                 )
 
@@ -1243,59 +1304,11 @@ class ReaktoroBlockData(ProcessBlockData):
     # TODO: Update to provide output location (e.g. StringIO)
     def display_jacobian_outputs(self):
         """Displays jacobian output types"""
-        if self.config.build_speciation_block:
+        if self.config.build_speciation_block and self.direct_coupling_mode == False:
             _log.info("-----Displaying information for speciation block ------")
             self.speciation_block.rkt_jacobian.display_jacobian_output_types()
         _log.info("-----Displaying information for property block ------")
         self.rkt_jacobian.display_jacobian_output_types()
-
-    def check_for_zero_outputs_and_deactivate(
-        self, threshold=1e-11, report_deactivation=True, report_reactivation=True
-    ):
-        if self.config.build_speciation_block is False:
-            block = self
-        else:
-            block = self.speciation_block
-        if not hasattr(self, "zero_point_outputs"):
-            self.zero_point_outputs = {}
-        reactivated_vars = 0
-        deactivated_vars = 0
-        for key, variable in block.reaktoro_model.outputs.items():
-            if (
-                "specie" in str(key).lower()
-                and variable.value < threshold
-                and key not in self.zero_point_outputs
-            ):
-                if report_deactivation:
-                    _log.info(
-                        'Deactivating output "{}" with value {}'.format(
-                            key, variable.value
-                        )
-                    )
-                self.zero_point_outputs[key] = {"vars": [], "constraints": []}
-                block.outputs[key].fix(threshold)
-                self.zero_point_outputs[key]["vars"].append(block.outputs[key])
-                block.output_constraints[key].deactivate()
-                self.zero_point_outputs[key]["constraints"].append(
-                    block.output_constraints[key]
-                )
-            elif key in self.zero_point_outputs and variable.value >= threshold:
-                if report_reactivation:
-                    _log.info(
-                        'Reactivating output "{}" with value {}'.format(
-                            key, variable.value
-                        )
-                    )
-                for var in self.zero_point_outputs[key]["vars"]:
-                    var.unfix()
-                for constraint in self.zero_point_outputs[key]["constraints"]:
-                    constraint.activate()
-                del self.zero_point_outputs[key]
-                reactivated_vars += 1
-        _log.info(
-            f"Deactivated {len(self.zero_point_outputs)} outputs with value below {threshold}."
-        )
-        return reactivated_vars, len(self.zero_point_outputs)
 
     # TODO:# Update to provide output location (e.g. StringIO)
     def display_jacobian_scaling(self):

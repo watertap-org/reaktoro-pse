@@ -71,45 +71,13 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
     scaling_result = m.property_block.display_jacobian_scaling()
     print(scaling_result)
     expected_scaling = {
-        "speciation_block": {
-            ("speciesAmount", "H+"): 9.008000000000023e-08,
-            ("speciesAmount", "H2O"): 49.999999999999964,
-            ("speciesAmount", "CO3-2"): 3.2176918698800403e-06,
-            ("speciesAmount", "CO2"): 0.001890049191646547,
-            ("speciesAmount", "Ca+2"): 0.01000000000000001,
-            ("speciesAmount", "Cl-"): 0.6916048636482265,
-            ("speciesAmount", "HCO3-"): 0.00782561945440841,
-            ("speciesAmount", "SO4-2"): 0.009999916992739206,
-            ("speciesAmount", "HSO4-"): 8.300726079741266e-08,
-            ("speciesAmount", "Mg+2"): 0.09971791911744696,
-            ("speciesAmount", "MgCO3"): 0.0002811136620751731,
-            ("speciesAmount", "MgOH+"): 9.672204778991323e-07,
-            ("speciesAmount", "Na+"): 0.5000000000000001,
-            ("speciesAmount", "OH-"): 6.005625780099479e-08,
-        },
         "property_block": {
-            ("saturationIndex", "Calcite"): 1.0044028388381383,
-            ("pH", None): 7.000000001868148,
-            ("elementAmount", "H"): 100.00508467563753,
-            ("elementAmount", "O"): 50.066130674180215,
-        },
+            ("scalingTendency", "Calcite"): 4.8427389921397407e-08,
+            ("pH", None): 2.5891024643724075e-09,
+        }
     }
 
-    assert "speciation_block" in scaling_result
     assert "property_block" in scaling_result
-    new_scaling = {}
-    for key in scaling_result["speciation_block"]:
-        new_scaling[key] = 1
-        assert (
-            pytest.approx(scaling_result["speciation_block"][key], 1e-3)
-            == expected_scaling["speciation_block"][key]
-        )
-    m.property_block.update_jacobian_scaling(new_scaling)
-    scaling_result = m.property_block.display_jacobian_scaling()
-
-    assert "speciation_block" in scaling_result
-    for key in scaling_result["speciation_block"]:
-        assert scaling_result["speciation_block"][key] == 1
     new_scaling = {}
     for key in scaling_result["property_block"]:
         new_scaling[key] = 1
@@ -149,15 +117,6 @@ def test_blockBuild_with_wateqf_data_base(build_rkt_state_with_species):
         outputs=m.outputs,
         build_speciation_block=True,
         reaktoro_block_manager=m.reaktoro_manager,
-        exclude_species_list=[
-            "CH4",
-            "O2",
-            "S2-2",
-            "S4-2",
-            "S3-2",
-            "S5-2",
-            "S6-2",
-        ],
     )
     m.reaktoro_manager.build_reaktoro_blocks()
     m.property_block.initialize()
@@ -168,6 +127,6 @@ def test_blockBuild_with_wateqf_data_base(build_rkt_state_with_species):
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
     m.display()
-    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 7.49301431889365
-    assert pytest.approx(m.pH.value, 1e-2) == 6.669409618808208
+    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 8.02734612095552
+    assert pytest.approx(m.pH.value, 1e-2) == 7.2526416924401556
     m.reaktoro_manager.terminate_workers()
