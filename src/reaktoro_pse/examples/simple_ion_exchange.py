@@ -162,6 +162,8 @@ def build_simple_desal():
         # we do not need to re-speciate.
         exact_speciation=True,
         build_speciation_block=False,
+        enable_pH_relaxation_on_property_block=True,
+        H_scale_multiplier=1e4,
     )
     m.eq_ix_properties.display_reaktoro_state()
     # assert False
@@ -298,7 +300,7 @@ def display_results(m):
 
 
 def solve(m):
-    cy_solver = get_cyipopt_watertap_solver()
+    cy_solver = get_cyipopt_watertap_solver(limited_memory=True)
     result = cy_solver.solve(m, tee=True)
     display_results(m)
     return result

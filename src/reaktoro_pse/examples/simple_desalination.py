@@ -59,7 +59,7 @@ def main():
     return m
 
 
-def build_simple_desal(parallel_mode=True):
+def build_simple_desal(parallel_mode=False):
     m = ConcreteModel()
     m.feed_composition = Var(
         ["H2O", "Mg", "Na", "Cl", "SO4", "Ca", "HCO3"],

@@ -18,21 +18,21 @@ from reaktoro_pse.examples import (
 )
 
 
-# def test_desal():
-#     m = simple_desalination.main()
+def test_desal():
+    m = simple_desalination.main()
 
-#     assert (
-#         pytest.approx(m.desal_properties[("scalingTendency", "Gypsum")].value, 1e-3)
-#         == 0.604051223942643
-#     )
-#     assert (
-#         pytest.approx(m.desal_properties[("osmoticPressure", "H2O")].value, 1e-1)
-#         == 1548396.415543
-#     )
+    assert (
+        pytest.approx(m.desal_properties[("scalingTendency", "Gypsum")].value, 1e-3)
+        == 0.604051223942643
+    )
+    assert (
+        pytest.approx(m.desal_properties[("osmoticPressure", "H2O")].value, 1e-1)
+        == 1548396.415543
+    )
 
-#     assert pytest.approx(m.desal_properties[("pH", None)].value, 1e-2) == 6.284055
-#     assert pytest.approx(m.water_recovery.value, 1e-3) == 0.899999
-#     assert pytest.approx(m.acid_addition.value, 1e-3) == 0.003043
+    assert pytest.approx(m.desal_properties[("pH", None)].value, 1e-2) == 6.284055
+    assert pytest.approx(m.water_recovery.value, 1e-3) == 0.899999
+    assert pytest.approx(m.acid_addition.value, 1e-3) == 0.003043
 
 
 def test_thermal_precipt():
@@ -66,8 +66,8 @@ def test_ion_exchange():
     assert pytest.approx(m.base_addition.value, abs=1e-1) == 0.31567192053040094
 
 
-# def test_biogas():
-#     m = biogas_combustion.main()
+def test_biogas():
+    m = biogas_combustion.main()
 
-#     assert pytest.approx(m.air_to_fuel_ratio.value, 1e-1) == 3.8751662012681587
-#     assert pytest.approx(m.exhaust_temperature.value, 1e-1) == 2000
+    assert pytest.approx(m.air_to_fuel_ratio.value, 1e-1) == 3.8751662012681587
+    assert pytest.approx(m.exhaust_temperature.value, 1e-1) == 2000
