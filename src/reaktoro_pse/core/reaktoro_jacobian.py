@@ -18,7 +18,6 @@ from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from reaktoro_pse.core.reaktoro_outputs import (
     ReaktoroOutputSpec,
 )
-import time
 import idaes.logger as idaeslog
 
 _log = idaeslog.getLogger(__name__)
@@ -198,6 +197,8 @@ class ReaktoroJacobianSpec:
         self.jac_idx_ref = {
             key: idx for idx, key in enumerate(self.jac_rows.standard_keys)
         }
+
+        self.inexact_jacobian = False
         self.set_jacobian_type()
         self.configure_numerical_jacobian()
         self.check_existing_jacobian_props()
@@ -254,10 +255,11 @@ class ReaktoroJacobianSpec:
                 )
 
     def update_states(self, new_states):
-        for i in range(len(self.numerical_steps)):
-            self.chem_prop_states[i].update(new_states[:, i])
-            if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
-                self.aqueous_prop_states[i].update(self.chem_prop_states[i])
+        if self.inexact_jacobian:
+            for i in range(len(self.numerical_steps)):
+                self.chem_prop_states[i].update(new_states[:, i])
+                if RktInputTypes.aqueous_phase in self.state.inputs.registered_phases:
+                    self.aqueous_prop_states[i].update(self.chem_prop_states[i])
 
     def get_state_values(self, output_object):
         output_vals = []
@@ -286,6 +288,7 @@ class ReaktoroJacobianSpec:
                 obj.jacobian_type = JacType.exact
             else:
                 obj.jacobian_type = JacType.numeric
+                self.inexact_jacobian = True
 
         # check all inputs and set jacobian type
         for key, obj in self.output_specs.rkt_outputs.items():
@@ -334,7 +337,6 @@ class ReaktoroJacobianSpec:
         """this function is used to pull out a specific column from the jacobian and also
         generate matrix for manually propagating derivatives
         Here we need to retain row order, as its same as input into chem properties"""
-        ts = time.time()
         self.partial_jac_vals = jacobian_matrix[:, input_index]
         jacobian_abs_matrix_fast = self.jac_values + (
             self.partial_jac_vals.reshape(-1, 1)
@@ -344,10 +346,8 @@ class ReaktoroJacobianSpec:
         return jacobian_abs_matrix_fast
 
     def get_jacobian(self, jacobian_matrix, input_object):
-        ts = time.time()
         input_index = input_object.get_jacobian_index()
         input_value = input_object.get_temp_value()
-        input_log_conversion = 1  # input_object.get_log_conversion_factor()
         jacobian_abs_matrix = self.process_jacobian_matrix(
             jacobian_matrix, input_index, input_value
         )
@@ -382,7 +382,6 @@ class ReaktoroJacobianSpec:
 
             else:
                 jac_val = get_jacobian(output_obj)
-
             output_jacobian.append(jac_val)
         return output_jacobian
 
