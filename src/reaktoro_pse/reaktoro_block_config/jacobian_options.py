@@ -73,12 +73,24 @@ class JacobianOptions:
         CONFIG.declare(
             "jacobian_scale_bounds",
             ConfigValue(
-                default=(1e-16, 1e2),
+                default=(1e-10, 1e2),
                 domain=IsInstance(tuple),
                 description="Defines lower and upper bounds for jacobian scaling factors",
                 doc="""
                 This will clip jacobian scale by defined upper and lower bound (min, max).   
                 Passing in None instead of a value will disable clipping for min or max (e.g. (None, 1e2) will disable lower bound clipping).             
+                """,
+            ),
+        )
+        CONFIG.declare(
+            "jacobian_scaling_bounds_output_based",
+            ConfigValue(
+                default=True,
+                domain=bool,
+                description="Defines if lower and upper bounds for jacobian scaling factors should be baseded on output scale",
+                doc="""
+                If True, the jacobian is clipped based on jacbian_scale_bounds multiplied by output variable scaling factors. 
+                If False, the jacobian is clipped based on jacbian_scale_bounds only.            
                 """,
             ),
         )

@@ -105,6 +105,7 @@ class ReaktoroBlockBuilder:
         jacobian_scaling_type=None,
         user_scaling=None,
         jacobian_scaling_bounds=(1e-16, 1e2),
+        jacobian_scaling_bounds_output_based=True,
         update_jacobian_scale_every_solve=False,
     ):
         """define scaling for jacobian, defaults to useing variable scaling
@@ -138,6 +139,7 @@ class ReaktoroBlockBuilder:
             self.user_scaling = {}
         self.jacobian_scaling_bounds = jacobian_scaling_bounds
         self.update_jacobian_scale_every_solve = update_jacobian_scale_every_solve
+        self.jacobian_scaling_bounds_output_based = jacobian_scaling_bounds_output_based
 
     def configure_relaxation_constraints(self, constraint_types=None):
         """configure relaxation constraints"""
@@ -531,6 +533,10 @@ class ReaktoroBlockBuilder:
         self.set_output_vars_and_scale(True)
 
     def set_jacobian_scaling(self):
+        output_scales = [
+            1 / iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
+            for _, obj in self.solver.output_specs.rkt_outputs.items()
+        ]
         if self.jacobian_scaling_type == JacScalingTypes.no_scaling:
             for i, (key, obj) in enumerate(
                 self.solver.output_specs.rkt_outputs.items()
@@ -576,16 +582,28 @@ class ReaktoroBlockBuilder:
             scale_factors[scale_factors != 0] = scale_factors[scale_factors != 0] ** -1
 
             self.solver.jacobian_scaling_values = scale_factors
+
         max_scale = self.jacobian_scaling_bounds[1]
         min_scale = self.jacobian_scaling_bounds[0]
-        if max_scale is not None:
-            self.solver.jacobian_scaling_values[
-                self.solver.jacobian_scaling_values > max_scale
-            ] = max_scale
-        if min_scale is not None:
-            self.solver.jacobian_scaling_values[
-                self.solver.jacobian_scaling_values < min_scale
-            ] = min_scale
+        if self.jacobian_scaling_bounds_output_based:
+            for i, scale in enumerate(self.solver.jacobian_scaling_values):
+                if min_scale is not None and scale < output_scales[i] * min_scale:
+                    self.solver.jacobian_scaling_values[i] = (
+                        output_scales[i] * min_scale
+                    )
+                if max_scale is not None and scale > output_scales[i] * max_scale:
+                    self.solver.jacobian_scaling_values[i] = (
+                        output_scales[i] * max_scale
+                    )
+        else:
+            if max_scale is not None:
+                self.solver.jacobian_scaling_values[
+                    self.solver.jacobian_scaling_values > max_scale
+                ] = max_scale
+            if min_scale is not None:
+                self.solver.jacobian_scaling_values[
+                    self.solver.jacobian_scaling_values < min_scale
+                ] = min_scale
 
     def get_jacobian_matrix(self):
         """get jacobian matrix from reaktoro solver"""

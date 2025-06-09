@@ -1251,6 +1251,7 @@ class ReaktoroBlockData(ProcessBlockData):
                 user_scaling=self.config.jacobian_options.user_scaling,
                 jacobian_scaling_bounds=self.config.jacobian_options.jacobian_scale_bounds,
                 update_jacobian_scale_every_solve=self.config.jacobian_options.update_jacobian_scale_every_solve,
+                jacobian_scaling_bounds_output_based=self.config.jacobian_options.jacobian_scaling_bounds_output_based,
             )
 
             if self.relaxing_pH_enabled:
