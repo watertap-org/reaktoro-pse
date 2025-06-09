@@ -315,40 +315,40 @@ def test_blockBuild_with_speciation_block(
     else:
         expected_scaling = {
             "speciation_block": {
-                ("speciesAmount", "H+"): 1e-16,
-                ("speciesAmount", "H2O"): 1e-16,
-                ("speciesAmount", "CO3-2"): 9.139929493790582e-15,
-                ("speciesAmount", "CO2"): 2.8811688764483596e-11,
-                ("speciesAmount", "Ca+2"): 1e-16,
-                ("speciesAmount", "Cl-"): 2.9430267006675885e-11,
-                ("speciesAmount", "HCO3-"): 2.8175490202167056e-11,
-                ("speciesAmount", "SO4-2"): 1e-16,
-                ("speciesAmount", "HSO4-"): 1e-16,
-                ("speciesAmount", "Mg+2"): 6.271972984289125e-13,
-                ("speciesAmount", "MgCO3"): 6.275692904582841e-13,
-                ("speciesAmount", "MgOH+"): 3.7201369273543433e-16,
-                ("speciesAmount", "Na+"): 1e-16,
-                ("speciesAmount", "OH-"): 1.392175267427363e-16,
+                ("speciesAmount", "H+"): 3.572346198193882e-17,
+                ("speciesAmount", "H2O"): 4.999999999999997e-09,
+                ("speciesAmount", "CO3-2"): 9.139929493679263e-15,
+                ("speciesAmount", "CO2"): 2.8811688764488992e-11,
+                ("speciesAmount", "Ca+2"): 1.0000000000000012e-12,
+                ("speciesAmount", "Cl-"): 6.948233272771661e-11,
+                ("speciesAmount", "HCO3-"): 2.8175490202179848e-11,
+                ("speciesAmount", "SO4-2"): 9.99967082218832e-13,
+                ("speciesAmount", "HSO4-"): 3.2917781167809654e-17,
+                ("speciesAmount", "Mg+2"): 9.99535976796691e-12,
+                ("speciesAmount", "MgCO3"): 6.27569290450919e-13,
+                ("speciesAmount", "MgOH+"): 3.7201369273196507e-16,
+                ("speciesAmount", "Na+"): 5.0000000000000015e-11,
+                ("speciesAmount", "OH-"): 1.392175267414428e-16,
             }
         }
         if water_relax:
             expected_scaling["property_block"] = {
-                ("scalingTendency", "Calcite"): 4.698875178942253e-08,
-                ("pH", None): 1e-16,
-                ("elementAmount", "H"): 2.263255089571341e-11,
-                ("elementAmount", "O"): 2.4236402100187853e-11,
+                ("scalingTendency", "Calcite"): 4.698386834294868e-08,
+                ("pH", None): 6.749544872785636e-10,
+                ("elementAmount", "H"): 1.0000508467563742e-08,
+                ("elementAmount", "O"): 5.006613067418016e-09,
             }
 
         elif ph_relax:
             expected_scaling["property_block"] = {
                 ("scalingTendency", "Calcite"): 4.698402870213914e-08,
-                ("pH", None): 1e-16,
-                ("elementAmount", "H"): 2.5840310168940715e-11,
+                ("pH", None): 6.749544872785618e-10,
+                ("elementAmount", "H"): 1.0000508467563742e-08,
             }
 
         else:
             expected_scaling["property_block"] = {
-                ("scalingTendency", "Calcite"): 1.1875352431887292e-07,
+                ("scalingTendency", "Calcite"): 4.698387021360117e-08,
                 ("pH", None): 4.860784942869509e-09,
             }
         assert "speciation_block" in scaling_result
@@ -441,36 +441,36 @@ def test_blockBuild_with_speciation_log_species_block(
     print(scaling_result)
     expected_scaling = {
         "speciation_block": {
-            ("logSpeciesAmount", "H+"): 1e-16,
-            ("logSpeciesAmount", "H2O"): 1e-16,
-            ("logSpeciesAmount", "CO3-2"): 7.530852573518758e-09,
-            ("logSpeciesAmount", "CO2"): 2.5695734599307174e-09,
-            ("logSpeciesAmount", "Ca+2"): 1e-16,
-            ("logSpeciesAmount", "Cl-"): 1.8395183437532113e-11,
-            ("logSpeciesAmount", "HCO3-"): 2.406984795003625e-09,
-            ("logSpeciesAmount", "SO4-2"): 1e-16,
-            ("logSpeciesAmount", "HSO4-"): 1e-16,
-            ("logSpeciesAmount", "Mg+2"): 2.7251477895372888e-12,
-            ("logSpeciesAmount", "MgCO3"): 5.904732956551229e-09,
-            ("logSpeciesAmount", "MgOH+"): 6.609181688344083e-10,
-            ("logSpeciesAmount", "Na+"): 1e-16,
+            ("logSpeciesAmount", "H+"): 6.447046460016016e-10,
+            ("logSpeciesAmount", "H2O"): 1.6989700043360188e-10,
+            ("logSpeciesAmount", "CO3-2"): 7.530852573517847e-09,
+            ("logSpeciesAmount", "CO2"): 2.569573459931632e-09,
+            ("logSpeciesAmount", "Ca+2"): 1.9999999999999996e-10,
+            ("logSpeciesAmount", "Cl-"): 1.8395183437532258e-11,
+            ("logSpeciesAmount", "HCO3-"): 2.406984795002711e-09,
+            ("logSpeciesAmount", "SO4-2"): 2.000014296246019e-10,
+            ("logSpeciesAmount", "HSO4-"): 6.482569446221956e-10,
+            ("logSpeciesAmount", "Mg+2"): 1.0002015694867532e-10,
+            ("logSpeciesAmount", "MgCO3"): 5.904732956550313e-09,
+            ("logSpeciesAmount", "MgOH+"): 6.611804454329705e-10,
+            ("logSpeciesAmount", "Na+"): 3.0102999566398125e-11,
             ("logSpeciesAmount", "OH-"): 3.992777583884047e-09,
         },
     }
 
     if water_relax:
         expected_scaling["property_block"] = {
-            ("scalingTendency", "Calcite"): 1.4652139578567903e-08,
-            ("pH", None): 1e-16,
-            ("elementAmount", "H"): 1.0363547568163522e-11,
-            ("elementAmount", "O"): 2.1750212532820054e-11,
+            ("scalingTendency", "Calcite"): 1.4656093707371568e-08,
+            ("pH", None): 6.749544872788314e-10,
+            ("elementAmount", "H"): 1.0000508467563742e-08,
+            ("elementAmount", "O"): 5.006613067418019e-09,
         }
 
     elif ph_relax:
         expected_scaling["property_block"] = {
-            ("scalingTendency", "Calcite"): 4.703739097917232e-09,
-            ("pH", None): 1e-16,
-            ("elementAmount", "H"): 1.6200324180145038e-11,
+            ("scalingTendency", "Calcite"): 4.703257017292294e-09,
+            ("pH", None): 6.749544872788421e-10,
+            ("elementAmount", "H"): 1.0000508467563742e-08,
         }
 
     m.property_block.display_reaktoro_state()
@@ -565,34 +565,34 @@ def test_blockBuild_with_speciation_elements_block(
     print(scaling_result)
     expected_scaling = {
         "speciation_block": {
-            ("elementAmount", "H"): 2.8172141704089956e-11,
-            ("elementAmount", "C"): 1e-16,
-            ("elementAmount", "O"): 2.8812422227295943e-11,
-            ("elementAmount", "Na"): 1e-16,
-            ("elementAmount", "Mg"): 1e-16,
-            ("elementAmount", "S"): 1e-16,
-            ("elementAmount", "Cl"): 2.9430267006402534e-11,
-            ("elementAmount", "Ca"): 1e-16,
+            ("elementAmount", "H"): 1.0000508467563702e-08,
+            ("elementAmount", "C"): 1.0000000000000012e-12,
+            ("elementAmount", "O"): 5.0065130674179645e-09,
+            ("elementAmount", "Na"): 5.0000000000000015e-11,
+            ("elementAmount", "Mg"): 1.0000000000000006e-11,
+            ("elementAmount", "S"): 1.0000000000000012e-12,
+            ("elementAmount", "Cl"): 6.948233272777027e-11,
+            ("elementAmount", "Ca"): 1.0000000000000012e-12,
         }
     }
     if water_relax:
         expected_scaling["property_block"] = {
             ("scalingTendency", "Calcite"): 4.698875178942253e-08,
-            ("pH", None): 1e-16,
-            ("elementAmount", "H"): 2.263255089571341e-11,
-            ("elementAmount", "O"): 2.4236402100187853e-11,
+            ("pH", None): 6.749544872468591e-10,
+            ("elementAmount", "H"): 1.0000508467563742e-08,
+            ("elementAmount", "O"): 5.006613067418016e-09,
         }
 
     elif ph_relax:
         expected_scaling["property_block"] = {
             ("scalingTendency", "Calcite"): 4.698402870213914e-08,
-            ("pH", None): 1e-16,
-            ("elementAmount", "H"): 2.5840310168940715e-11,
+            ("pH", None): 6.749544872468591e-10,
+            ("elementAmount", "H"): 1.0000508467563742e-08,
         }
 
     else:
         expected_scaling["property_block"] = {
-            ("scalingTendency", "Calcite"): 1.1875352431887292e-07,
+            ("scalingTendency", "Calcite"): 1.1875352549400553e-07,
             ("pH", None): 4.860784942869509e-09,
         }
 
