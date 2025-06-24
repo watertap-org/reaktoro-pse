@@ -12,7 +12,7 @@ def get_cyipopt_watertap_solver(
     # helps handle property packages that have very small values requiring large steps
     cy_solver.options["diverging_iterates_tol"] = 1e30
     # cy_solver.options["recalc_y"] = "yes"
-    # cy_solver.options["recalc_y_feas_tol"] = 1e-2
+    # cy_solver.options["recalc_y_feas_tol"] = 1e-4
     if ma27:
         cy_solver.options["linear_solver"] = "ma27"
     if limited_memory:

@@ -230,7 +230,7 @@ class ReaktoroBlockManagerData(ProcessBlockData):
                 options:                
                 - ZeroHessian - no hessian
                 - GaussNewton - default
-                - LBFGS - limited memory BFGS
+                - LBFGS - Limited Memory Broyden-Fletcher-Goldfarb-Shanno   
                 - BFGS - Broyden-Fletcher-Goldfarb-Shanno   
                 - CBFGS - conditional BFGS
                 - BFGS_mod - modified BFGS

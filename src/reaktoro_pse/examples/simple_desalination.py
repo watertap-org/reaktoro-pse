@@ -49,8 +49,10 @@ __author__ = "Alexander V. Dudchenko"
 # assumption for evaporative processes.
 
 
-def main():
-    m = build_simple_desal()
+def main(
+    hess_type=None,
+):
+    m = build_simple_desal(hess_type)
     initialize(m)
     setup_optimization(m)
     # assert False
@@ -59,7 +61,7 @@ def main():
     return m
 
 
-def build_simple_desal(parallel_mode=False):
+def build_simple_desal(hess_type, parallel_mode=False):
     m = ConcreteModel()
     m.feed_composition = Var(
         ["H2O", "Mg", "Na", "Cl", "SO4", "Ca", "HCO3"],
@@ -138,6 +140,10 @@ def build_simple_desal(parallel_mode=False):
         m.parallel_block_manager = ReaktoroBlockManager()
     else:
         m.parallel_block_manager = None
+    if hess_type is None:
+        jac_options = {}
+    else:
+        jac_options = {"hessian_type": hess_type}
     m.eq_desal_properties = ReaktoroBlock(
         aqueous_phase={
             "composition": m.desal_composition,
@@ -155,6 +161,7 @@ def build_simple_desal(parallel_mode=False):
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
         reaktoro_block_manager=m.parallel_block_manager,
+        jacobian_options=jac_options,
     )
     # assert False
     if parallel_mode:

@@ -125,13 +125,14 @@ class JacobianOptions:
         CONFIG.declare(
             "hessian_type",
             ConfigValue(
-                default=HessTypes.LBFGS,
+                default=HessTypes.BFGS_damp,
                 domain=IsInstance((str, HessTypes)),
                 description="Hessian type to use for reaktor gray box",
                 doc="""Hessian type to use, some might provide better stability
                 options:                
                 - ZeroHessian - no hessian
                 - GaussNewton - default
+                - LBFGS - Limited Memory Broyden-Fletcher-Goldfarb-Shanno   
                 - BFGS - Broyden-Fletcher-Goldfarb-Shanno   
                 - CBFGS - conditional BFGS
                 - BFGS_mod - modified BFGS
