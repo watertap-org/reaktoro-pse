@@ -20,17 +20,20 @@ __author__ = "Ilayda Akkor, Alexander V. Dudchenko, Paul Vecchiarelli, Ben Knuev
 
 class HessTypes:
     GaussNewton = "GaussNewton"
-
-    LBFGS = "LBFGS"
     BFGS = "BFGS"
     CBFGS = "CBFGS"
     BFGS_mod = "BFGS_mod"
     BFGS_damp = "BFGS_damp"
     BFGS_ipopt = "BFGS_ipopt"
+    LBFGS = "LBFGS"
     no_hessian_estimation = "no_hessian_estimation"
     ZeroHessian = "ZeroHessian"
     sparse_16 = "sparse_16"
     diag_inv = "diag_inv"
+    scalar1 = "scalar1"
+    scalar2 = "scalar2"
+    scalar3 = "scalar3"
+    scalar4 = "scalar4"
 
 
 class HessianMemory:
@@ -38,11 +41,9 @@ class HessianMemory:
         self.memory = memory
         self.inputs = []
         self.jacobian = []
-        self.hessian = []
         self.memory_limited_arrays = [
             self.inputs,
             self.jacobian,
-            self.hessian,
         ]
 
     def trim_memory(self, force_trim=False):
@@ -50,33 +51,29 @@ class HessianMemory:
             for mla in self.memory_limited_arrays:
                 mla.pop(0)
 
-    def reset_memory(self):
-        print("hess memory resdet")
+    def reset_memory(self, leave_last=False):
+        print("hess memory reset")
+        if leave_last:
+            mem_to_reset = self.memory_limited_arrays[:-1]
+        else:
+            mem_to_reset = self.memory_limited_arrays
         for mla in self.memory_limited_arrays:
             mla.clear()
 
-    def memorize(self, inputs, jacobian, hessian):
+    def memorize(self, inputs, jacobian):
         self.inputs.append(inputs.copy())
         self.jacobian.append(jacobian.copy())
-        self.hessian.append(hessian.copy())
-        # print(self.hessian)  #
-        self.trim_memory()  #
+        self.trim_memory()
 
-    def get_last_input(self):
+    def get_last_input(self, offset=0):
         if len(self.inputs) > 0:
-            return self.inputs[-1]
+            return self.inputs[-1 - offset]
         else:
             return None
 
-    def get_last_jacobian(self):
+    def get_last_jacobian(self, offset=0):
         if len(self.jacobian) > 0:
-            return self.jacobian[-1]
-        else:
-            return None
-
-    def get_last_hessian(self):
-        if len(self.hessian) > 0:
-            return self.hessian[-1]
+            return self.jacobian[-1 - offset]
         else:
             return None
 
@@ -88,8 +85,15 @@ class HessianMemory:
 
 
 class HessianApproximation:
-    def __init__(self, hessian_type=None):
-        self.hessian_memory = HessianMemory(memory=4)
+    def __init__(
+        self,
+        hessian_type=None,
+        init_min_hessian_value=1e-16,
+        init_max_hessian_value=1e8,
+        init_const_hessian_value=1e-8,
+        bfgs_initialization_type=HessTypes.scalar1,
+    ):
+        self.hessian_memory = HessianMemory(memory=3)
         if hessian_type is None:
             self.hessian_matrix_type = HessTypes.ZeroHessian
         else:
@@ -99,8 +103,36 @@ class HessianApproximation:
         self.bfgs_hessian = None
         self.old_inputs = None
         self.s = None
+        self.init_min_hessian_value = init_min_hessian_value
+        self.init_max_hessian_value = init_max_hessian_value
+        self.init_const_hessian_value = init_const_hessian_value
         self.bfgs_matrix_not_initialized = True
-        self.reset_counts = 0
+        self.bfgs_intialization_type = bfgs_initialization_type
+
+    def apply_sigma_bounds(self, sigma, abs_test=True):
+        sigma_signs = np.sign(sigma)
+        zeros = sigma == 0
+        if self.init_min_hessian_value > 0:
+            if abs_test:
+                test = np.abs(sigma) < self.init_min_hessian_value
+            else:
+                test = sigma < self.init_min_hessian_value
+            sigma[test] = self.init_min_hessian_value
+            if abs_test:
+                sigma[test] *= sigma_signs[test]
+
+        if self.init_max_hessian_value > 0:
+            if abs_test:
+                test = np.abs(sigma) > self.init_max_hessian_value
+            else:
+                test = sigma > self.init_max_hessian_value
+            sigma[test] = self.init_max_hessian_value
+            if abs_test:
+                sigma[test] *= sigma_signs[test]
+        sigma[zeros] = 0
+        # for i in sigma:
+        #     print(np.min(i[i != 0]), np.max(i[i != 0]))
+        return sigma
 
     def hessian_gauss_newton_version(self, sparse_jac, threshold=1e-16):
         """standard gauss newton hessian approximation"""
@@ -109,92 +141,88 @@ class HessianApproximation:
             row = self.jacobian_matrix[i, :]
             if sparse_jac:
                 row[np.abs(row) < threshold] = 0
-            hess += self._outputs_dual_multipliers[i] * np.outer(row.T, row)
+            hess_row = np.outer(row.T, row)
+            hess += self._outputs_dual_multipliers[i] * hess_row
 
         self.hessian_matrix = hess
 
     def get_initial_hessian(self, old_step, new_step, old_jacobian, new_jacobian):
         bfgs_hessian = []
-        for i in range(self.jacobian_matrix.shape[0]):
-            bfgs_hessian.append(np.identity(len(self.inputs)) * 0)
+        for i in range(new_jacobian.shape[0]):
+            bfgs_hessian.append(np.identity(len(new_step)))
         bfgs_hessian = np.array(bfgs_hessian)
 
         s = np.array([new_step]) - old_step
-        for i in range(self.jacobian_matrix.shape[0]):
+        for i in range(new_jacobian.shape[0]):
             y = np.array([new_jacobian[i, :] - old_jacobian[i, :]])
-            sTs = s.T @ s
-            yTy = y.T @ y
-            sTy = s.T @ y
             if np.sum(y) != 0 and np.sum(s) != 0:
                 sigma = np.zeros(bfgs_hessian[i].shape)
-                sigma[sTs != 0] = sTy[sTs != 0] / sTs[sTs != 0]
-                sigma[sigma == np.inf] = 0
-                sigma[sigma == -np.inf] = 0
-                bfgs_hessian[i] = np.identity(len(old_step)) * sigma
+                if self.bfgs_intialization_type == HessTypes.scalar1:
+                    sTy = s.T @ y
+                    sTs = s.T @ s
+                    sigma[sTs != 0] = sTy[sTs != 0] / sTs[sTs != 0]
+                elif self.bfgs_intialization_type == HessTypes.scalar2:
+                    sTy = s.T @ y
+                    yTy = y.T @ y
+                    sigma[sTy != 0] = yTy[sTy != 0] / sTy[sTy != 0]
+                bfgs_hessian[i] *= sigma
+            else:
+                sigma = self.init_const_hessian_value
+                bfgs_hessian[i] *= sigma
+        bfgs_hessian = self.apply_sigma_bounds(bfgs_hessian)
         return bfgs_hessian
 
-    def create_bfgs_matrix(self):
-        if self.bfgs_hessian is None:
-            self.bfgs_hessian = []
-            for i in range(self.jacobian_matrix.shape[0]):
-                self.bfgs_hessian.append(np.identity(len(self.inputs)) * 0)
-            self.bfgs_hessian = np.array(self.bfgs_hessian)
+    # def get_initial_hessian(self, old_step, new_step, old_jacobian, new_jacobian):
+    #     bfgs_hessian = []
+    #     for i in range(new_jacobian.shape[0]):
+    #         bfgs_hessian.append(np.identity(len(new_step)))
+    #     bfgs_hessian = np.array(bfgs_hessian)
 
-        if (
-            self.check_step()
-            and self.bfgs_matrix_not_initialized
-            or self.reset_counts == 2
-        ):
-            self.bfgs_matrix_not_initialized = False
-            self.bfgs_hessian = self.get_initial_hessian(
-                self.hessian_memory.get_last_input(),
-                self.inputs,
-                self.hessian_memory.get_last_jacobian(),
-                self.jacobian_matrix,
-            )
+    #     s = (np.array([new_step]) - old_step).T
+    #     for i in range(new_jacobian.shape[0]):
+    #         y = np.array([new_jacobian[i, :] - old_jacobian[i, :]]).T
+    #         if np.sum(y) != 0 and np.sum(s) != 0:
+    #             if self.bfgs_intialization_type == HessTypes.scalar1:
+    #                 sTy = s.T @ y
+    #                 sTs = s.T @ s
+    #                 sigma = sTy / sTs
+    #             elif self.bfgs_intialization_type == HessTypes.scalar2:
+    #                 sTy = s.T @ y
+    #                 yTy = y.T @ y
+    #                 sigma = yTy / sTy
+    #             elif self.bfgs_intialization_type == HessTypes.scalar3:
+    #                 sTy = s.T @ y
+    #                 yTy = y.T @ y
+    #                 sTs = s.T @ s
+    #                 sigma = sTy / sTs / 2
+    #                 sigma += (yTy / sTy) / 2
 
-            self.hessian_memory.set_initial_matrix(self.bfgs_hessian)
-            self.hessian_memory.reset_memory()
-            self.reset_counts = 0
-        if np.sum(self._outputs_dual_multipliers) == 0:
-            self.reset_counts += 1
-        else:
-            self.reset_counts = 0
-        self.iters += 1
-
-    def check_step(self):
-        if self.hessian_memory.get_last_input() is None:
-            return False
-        self.s = np.array([self.inputs]) - self.hessian_memory.get_last_input()
-
-        if np.sum(self.s) != 0:
-            return True
-        else:
-            return False
-
-    def update_bfgs_matrix(self):
-        self.hessian_memory.memorize(
-            self.inputs, self.jacobian_matrix, self.bfgs_hessian
-        )
-        h_sum = np.zeros((len(self.inputs), len(self.inputs)))
-        for i in range(self.jacobian_matrix.shape[0]):
-            h_sum += self._outputs_dual_multipliers[i] * self.bfgs_hessian[i]
-        self.hessian_matrix = h_sum.copy()
+    #             elif self.bfgs_intialization_type == HessTypes.scalar4:
+    #                 yTy = y.T @ y
+    #                 sTs = s.T @ s
+    #                 sigma = sTy / sTs
+    #                 sigma *= yTy / sTy
+    #                 sigma_sign = np.sign(sigma)
+    #                 sigma = np.sqrt(np.abs(sigma))
+    #                 sigma *= sigma_sign
+    #         else:
+    #             sigma = self.init_const_hessian_value
+    #         bfgs_hessian[i] *= sigma
+    #     bfgs_hessian = self.apply_sigma_bounds(bfgs_hessian)
+    #     return bfgs_hessian
 
     def hessian_lbfgs(self):
         """Direct LBFGS based on Byrd Representations of quasi-newton matrices and their use in limited memory methods"""
         self.create_bfgs_matrix()
         if len(self.hessian_memory.get_range()) > 1:
-
-            self.bfgs_hessian = self.get_initial_hessian(
-                self.hessian_memory.inputs[-2],
-                self.hessian_memory.inputs[-1],
-                self.hessian_memory.jacobian[-2],
-                self.hessian_memory.jacobian[-1],
+            bfgs_hessian_zero = self.get_initial_hessian(
+                self.hessian_memory.inputs[0],
+                self.hessian_memory.inputs[1],
+                self.hessian_memory.jacobian[0],
+                self.hessian_memory.jacobian[1],
             )
-
             initial_hessians = [None]
-            for r in self.hessian_memory.get_range(1, -1):
+            for r in self.hessian_memory.get_range(1, 0):
                 initial_hessians.append(
                     self.get_initial_hessian(
                         self.hessian_memory.inputs[r - 1],
@@ -206,76 +234,104 @@ class HessianApproximation:
             for i in range(self.jacobian_matrix.shape[0]):
                 bk = []
                 ak = []
-                for r in self.hessian_memory.get_range(1, -1):
+                for r in self.hessian_memory.get_range(1, 0):
                     sk = (
-                        self.hessian_memory.inputs[r]
+                        np.array([self.hessian_memory.inputs[r]])
                         - self.hessian_memory.inputs[r - 1]
-                    )
-                    yk = (
-                        self.hessian_memory.jacobian[r][i, :]
-                        - self.hessian_memory.jacobian[r - 1][i, :]
-                    )
-                    y_s = yk.T @ sk
+                    ).T
+                    yk = np.array(
+                        [
+                            self.hessian_memory.jacobian[r][i, :]
+                            - self.hessian_memory.jacobian[r - 1][i, :]
+                        ]
+                    ).T
                     mach_eps = np.finfo(float).eps
+
                     if (
-                        yk.T @ sk > 1e-6
+                        yk.T @ sk > mach_eps
                         and np.sum(yk) != 0
                         and np.sum(sk) != 0
                         and np.sum(initial_hessians[r]) != 0
                     ):
-                        b = yk / (yk.T @ sk) ** 0.5
-                        b[b != b] = 0
-                        b[b == np.inf] = 0
-                        b[b == -np.inf] = 0
+                        b = yk / (np.abs(yk.T @ sk)) ** 0.5
                         bk.append(b.copy())
-                        if len(ak) > 0:
-                            s = np.zeros(ak[0].shape)
-                            for k in range(1, r):
-                                _bk = bk[k]
-                                _ak = ak[k]
-                                s += (_bk.T @ sk) @ _bk - (_ak.T @ sk) @ _ak
-                            _ak = initial_hessians[r][i] @ sk + s
-                        else:
-                            _ak = initial_hessians[r][i] @ sk
-
-                        ska = sk / (sk.T @ _ak) ** 0.5
-                        ska[ska != ska] = 0
-                        _ak[_ak == np.inf] = 0
-                        _ak[_ak == -np.inf] = 0
-                        ak.append(_ak.copy())
+                        _ak = initial_hessians[r][i] @ sk
+                        for k in range(len(ak)):
+                            _ak += (bk[k].T @ sk) * bk[k] - (ak[k].T @ sk) * ak[k]
+                        ska = _ak / (np.abs(yk.T @ sk)) ** 0.5
+                        ak.append(ska.copy())
+                bfgs_hessian = bfgs_hessian_zero[i].copy()
                 for m in range(len(bk)):
                     sum_ak_bk = bk[m] @ bk[m].T - ak[m] @ ak[m].T
-
-                    self.bfgs_hessian[i] = self.bfgs_hessian[i] + sum_ak_bk
-                    if (
-                        np.isnan(self.bfgs_hessian).any()
-                        or np.isinf(self.bfgs_hessian).any()
-                    ):
-                        print(self.bfgs_hessian[i], sum_ak_bk)
-
-            # print("bfgs_hessian", self.bfgs_hessian)
+                    bfgs_hessian = bfgs_hessian + sum_ak_bk
+                self.bfgs_hessian[i] = bfgs_hessian.copy()
         self.update_bfgs_matrix()
+
+    def create_bfgs_matrix(self):
+        self.hessian_memory.memorize(self.inputs, self.jacobian_matrix)
+        if self.bfgs_hessian is None:
+            self.bfgs_hessian = []
+            for i in range(self.jacobian_matrix.shape[0]):
+                self.bfgs_hessian.append(np.identity(len(self.inputs)))
+            self.bfgs_hessian = np.array(self.bfgs_hessian)
+
+        if self.check_step() and self.bfgs_matrix_not_initialized:
+            print("BFGS matrix not initialized, initializing now")
+            self.bfgs_matrix_not_initialized = False
+            self.bfgs_hessian = self.get_initial_hessian(
+                self.hessian_memory.inputs[-2],
+                self.hessian_memory.inputs[-1],
+                self.hessian_memory.jacobian[-2],
+                self.hessian_memory.jacobian[-1],
+            )
+
+            self.hessian_memory.set_initial_matrix(self.bfgs_hessian)
+            self.hessian_memory.reset_memory(leave_last=True)
+            self.reset_counts = 0
+        if np.sum(self._outputs_dual_multipliers) == 0:
+            self.bfgs_matrix_not_initialized = True
+        self.iters += 1
+
+    def check_step(self):
+        if self.hessian_memory.get_last_input() is None:
+            return False
+        self.s = np.array([self.inputs]) - self.hessian_memory.get_last_input()
+        if np.sum(self.s) != 0:
+            return True
+        else:
+            return False
+
+    def update_bfgs_matrix(self):
+
+        h_sum = np.zeros((len(self.inputs), len(self.inputs)))
+        for i in range(self.jacobian_matrix.shape[0]):
+            h_sum += self._outputs_dual_multipliers[i] * self.bfgs_hessian[i]
+        self.hessian_matrix = h_sum.copy()
 
     def hessian_bfgs(self):
         """Vanilla BFGS update implementation"""
         self.create_bfgs_matrix()
         if len(self.hessian_memory.get_range()) > 1:
-            s_k = (np.array([self.inputs]) - self.hessian_memory.get_last_input()).T
+            s_k = (
+                np.array([self.hessian_memory.inputs[-1]])
+                - self.hessian_memory.inputs[-2]
+            ).T
+            eps = 1 * np.finfo(float).eps
             for i in range(self.jacobian_matrix.shape[0]):
                 y_k = np.array(
                     [
-                        self.jacobian_matrix[i, :]
-                        - self.hessian_memory.get_last_jacobian()[i, :]
+                        self.hessian_memory.jacobian[-1][i, :]
+                        - self.hessian_memory.jacobian[-2][i, :]
                     ]
                 ).T
-                y_s = y_k.T @ s_k
+                B_k = self.bfgs_hessian[i]
                 H_s = self.bfgs_hessian[i] @ s_k
+                if y_k.T @ s_k > eps and np.sum(H_s) != 0:
+                    update_pos = (y_k @ y_k.T) / (y_k.T @ s_k)
+                    update_neg = (B_k @ s_k @ s_k.T @ B_k) / (s_k.T @ B_k @ s_k)
 
-                if y_k.T @ s_k > 1e-32 and np.sum(H_s) != 0:
                     self.bfgs_hessian[i] = (
-                        self.bfgs_hessian[i]
-                        + (y_k @ y_k.T) / (y_s)
-                        - (H_s @ H_s.T) / (s_k.T @ H_s)
+                        self.bfgs_hessian[i] + update_pos - update_neg
                     )
         self.update_bfgs_matrix()
 
@@ -283,8 +339,12 @@ class HessianApproximation:
         """Cautious BFGS update implementation (Li and Fukushima)"""
         self.create_bfgs_matrix()
         if len(self.hessian_memory.get_range()) > 1:
-            s_k = (np.array([self.inputs]) - self.hessian_memory.get_last_input()).T
-            eps = 100 * np.finfo(float).eps
+            s_k = (
+                np.array([self.hessian_memory.inputs[-1]])
+                - self.hessian_memory.inputs[-2]
+            ).T
+
+            eps = 1 * np.finfo(float).eps
             for i in range(self.jacobian_matrix.shape[0]):
                 y_k = np.array(
                     [
@@ -312,7 +372,10 @@ class HessianApproximation:
         """Modified BFGS update implementation (Li and Fukushima)"""
         self.create_bfgs_matrix()
         if len(self.hessian_memory.get_range()) > 1:
-            s_k = (np.array([self.inputs]) - self.hessian_memory.get_last_input()).T
+            s_k = (
+                np.array([self.hessian_memory.inputs[-1]])
+                - self.hessian_memory.inputs[-2]
+            ).T
             for i in range(self.jacobian_matrix.shape[0]):
                 y_k = np.array(
                     [
@@ -341,8 +404,11 @@ class HessianApproximation:
         """apply Powell's damping on the BFGS update"""
         self.create_bfgs_matrix()
         if len(self.hessian_memory.get_range()) > 1:
-            s_k = (np.array([self.inputs]) - self.hessian_memory.get_last_input()).T
-            phi = 0.75
+            s_k = (
+                np.array([self.hessian_memory.inputs[-1]])
+                - self.hessian_memory.inputs[-2]
+            ).T
+            phi = 0.9
             for i in range(self.jacobian_matrix.shape[0]):
                 y_k = np.array(
                     [
@@ -363,20 +429,22 @@ class HessianApproximation:
                 z_s = z_k.T @ s_k
                 if z_k.shape != y_k.shape:
                     raise RuntimeError()
-                if s_k.any() and np.sum(H_s) != 0 and np.sum(z_s) != 0:  # extra
+                if s_k.any() and np.sum(H_s) != 0 and np.sum(z_s) != 0:
                     self.bfgs_hessian[i] = (
                         self.bfgs_hessian[i]
                         + (z_k @ z_k.T) / (z_s)
                         - (H_s @ H_s.T) / (s_H_s)
                     )
-                ###########################################
         self.update_bfgs_matrix()
 
     def hessian_ipopt_bfgs_modification(self):
         """BFGS update is only done on certain conditions (taken from IPOPT's implementation)"""
         self.create_bfgs_matrix()
         if len(self.hessian_memory.get_range()) > 1:
-            s_k = (np.array([self.inputs]) - self.hessian_memory.get_last_input()).T
+            s_k = (
+                np.array([self.hessian_memory.inputs[-1]])
+                - self.hessian_memory.inputs[-2]
+            ).T
             for i in range(self.jacobian_matrix.shape[0]):
                 y_k = np.array(
                     [
@@ -433,8 +501,6 @@ class HessianApproximation:
             self.sparse_diagonal(len(self.inputs), 1e-16)
         elif self.hessian_matrix_type == HessTypes.GaussNewton:
             self.hessian_gauss_newton_version(sparse_jac=False)
-        elif self.hessian_matrix_type == HessTypes.LBFGS:
-            self.hessian_lbfgs()
         elif self.hessian_matrix_type == HessTypes.BFGS:
             self.hessian_bfgs()
         elif self.hessian_matrix_type == HessTypes.CBFGS:
@@ -447,6 +513,8 @@ class HessianApproximation:
             self.hessian_ipopt_bfgs_modification()
         elif self.hessian_matrix_type == HessTypes.diag_inv:
             self.hessian_diag_inv_value()
+        elif self.hessian_matrix_type == HessTypes.LBFGS:
+            self.hessian_lbfgs()
         else:
             raise NotImplementedError(
                 f"Hessian type {self.hessian_matrix_type} not implemented"
@@ -459,7 +527,6 @@ class HessianApproximation:
 
 
 def _hand_tril(jm):
-
     assert jm.shape[0] == jm.shape[1]
     shape = jm.shape[0]
     row = []
