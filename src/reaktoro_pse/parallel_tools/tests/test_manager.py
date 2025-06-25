@@ -27,11 +27,25 @@ from pyomo.environ import (
 from watertap_solvers import get_solver
 
 
-def test_blockBuild_with_speciation_block(build_rkt_state_with_species):
+@pytest.mark.parametrize(
+    "hess_type",
+    [
+        "ZeroHessian",
+        "GaussNewton",
+        "LBFGS",
+        "BFGS",
+        "BFGS_mod",  # Does not work on this example
+        "BFGS_damp",
+        "BFGS_ipopt",
+    ],
+)
+def test_blockBuild_with_speciation_block(build_rkt_state_with_species, hess_type):
     m = build_rkt_state_with_species
     m.CaO = Var(["CaO"], initialize=0.001, units=pyunits.mol / pyunits.s)
     m.CaO.fix()
-    m.reaktoro_manager = ReaktoroBlockManager()
+    m.reaktoro_manager = ReaktoroBlockManager(
+        hessian_options={"hessian_type": hess_type}
+    )
     m.property_block = ReaktoroBlock(
         aqueous_phase={
             "composition": m.composition,

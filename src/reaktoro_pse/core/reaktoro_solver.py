@@ -103,6 +103,11 @@ class ReaktoroSolver:
         export_object.max_iters = self.solver_options.optima.maxiters
         export_object.presolve_max_iters = self.presolve_options.optima.maxiters
         export_object.hessian_type = self.hessian_type
+        export_object.bfgs_initialization_type = self.bfgs_initialization_type
+        export_object.bfgs_init_min_hessian_value = self.bfgs_init_min_hessian_value
+        export_object.bfgs_init_max_hessian_value = self.bfgs_init_max_hessian_value
+        export_object.bfgs_init_const_hessian_value = self.bfgs_init_const_hessian_value
+        export_object.bfgs_hessian_memory = self.bfgs_hessian_memory
         export_object.block_name = self.block_name
         return export_object
 
@@ -117,6 +122,11 @@ class ReaktoroSolver:
             export_object.max_iters,
             export_object.presolve_max_iters,
             export_object.hessian_type,
+            export_object.bfgs_initialization_type,
+            export_object.bfgs_init_min_hessian_value,
+            export_object.bfgs_init_max_hessian_value,
+            export_object.bfgs_init_const_hessian_value,
+            export_object.bfgs_hessian_memory,
         )
 
     def equilibrate_state(self):
@@ -135,6 +145,11 @@ class ReaktoroSolver:
         max_iters=500,
         presolve_max_iters=500,
         hessian_type="ZeroHessian",
+        bfgs_initialization_type="scalar1",
+        bfgs_init_min_hessian_value=1e-32,
+        bfgs_init_max_hessian_value=1e8,
+        bfgs_init_const_hessian_value=1e-16,
+        bfgs_hessian_memory=3,
     ):
         """configuration for reaktro solver
 
@@ -154,6 +169,11 @@ class ReaktoroSolver:
         self.presolve = presolve
         self.solver.setOptions(self.solver_options)
         self.hessian_type = hessian_type
+        self.bfgs_initialization_type = bfgs_initialization_type
+        self.bfgs_init_min_hessian_value = bfgs_init_min_hessian_value
+        self.bfgs_init_max_hessian_value = bfgs_init_max_hessian_value
+        self.bfgs_init_const_hessian_value = bfgs_init_const_hessian_value
+        self.bfgs_hessian_memory = bfgs_hessian_memory
         if self.input_specs.assert_charge_neutrality:
             self.conditions.charge(0)
 

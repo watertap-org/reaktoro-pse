@@ -141,9 +141,9 @@ def build_simple_desal(hess_type, parallel_mode=False):
     else:
         m.parallel_block_manager = None
     if hess_type is None:
-        jac_options = {}
+        hess_options = {}
     else:
-        jac_options = {"hessian_type": hess_type}
+        hess_options = {"hessian_type": hess_type}
     m.eq_desal_properties = ReaktoroBlock(
         aqueous_phase={
             "composition": m.desal_composition,
@@ -161,7 +161,7 @@ def build_simple_desal(hess_type, parallel_mode=False):
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
         reaktoro_block_manager=m.parallel_block_manager,
-        jacobian_options=jac_options,
+        hessian_options=hess_options,
     )
     # assert False
     if parallel_mode:

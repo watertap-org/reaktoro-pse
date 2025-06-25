@@ -98,6 +98,17 @@ class ReaktoroCoupledSolver:
             )
             self.master_mapping[new_key] = key
         self.hessian_type = self.property_solver.hessian_type
+        self.bfgs_initialization_type = self.property_solver.bfgs_initialization_type
+        self.bfgs_init_min_hessian_value = (
+            self.property_solver.bfgs_init_min_hessian_value
+        )
+        self.bfgs_init_max_hessian_value = (
+            self.property_solver.bfgs_init_max_hessian_value
+        )
+        self.bfgs_init_const_hessian_value = (
+            self.property_solver.bfgs_init_const_hessian_value
+        )
+        self.bfgs_hessian_memory = self.property_solver.bfgs_hessian_memory
 
     def modify_key(self, index, key):
         new_index = [index]

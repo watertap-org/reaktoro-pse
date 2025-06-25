@@ -84,12 +84,13 @@ class HessianApproximation:
     def __init__(
         self,
         hessian_type=None,
-        init_min_hessian_value=1e-32,
-        init_max_hessian_value=1e8,
-        init_const_hessian_value=1e-16,
+        bfgs_init_min_hessian_value=1e-32,
+        bfgs_init_max_hessian_value=1e8,
+        bfgs_init_const_hessian_value=1e-16,
         bfgs_initialization_type=HessTypes.scalar1,
+        bfgs_hessian_memory=3,
     ):
-        self.hessian_memory = HessianMemory(memory=3)
+        self.hessian_memory = HessianMemory(memory=bfgs_hessian_memory)
         if hessian_type is None:
             self.hessian_matrix_type = HessTypes.ZeroHessian
         else:
@@ -99,9 +100,9 @@ class HessianApproximation:
         self.bfgs_hessian = None
         self.old_inputs = None
         self.s = None
-        self.init_min_hessian_value = init_min_hessian_value
-        self.init_max_hessian_value = init_max_hessian_value
-        self.init_const_hessian_value = init_const_hessian_value
+        self.init_min_hessian_value = bfgs_init_min_hessian_value
+        self.init_max_hessian_value = bfgs_init_max_hessian_value
+        self.init_const_hessian_value = bfgs_init_const_hessian_value
         self.bfgs_matrix_not_initialized = True
         self.bfgs_intialization_type = bfgs_initialization_type
 
@@ -403,11 +404,12 @@ class HessianApproximation:
                         * np.linalg.norm(self.hessian_memory.jacobian[-1][i, :])
                         * s_k
                     )
-                    self.bfgs_hessian[i] = (
-                        self.bfgs_hessian[i]
-                        + (z_k @ z_k.T) / (z_k.T @ s_k)
-                        - (H_s @ H_s.T) / (s_k.T @ H_s)
-                    )
+                    if z_k.T @ s_k != 0 and s_k.T @ H_s != 0:
+                        self.bfgs_hessian[i] = (
+                            self.bfgs_hessian[i]
+                            + (z_k @ z_k.T) / (z_k.T @ s_k)
+                            - (H_s @ H_s.T) / (s_k.T @ H_s)
+                        )
         self.update_bfgs_matrix()
 
     def hessian_damped_bfgs(self):

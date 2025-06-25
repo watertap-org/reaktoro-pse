@@ -24,6 +24,7 @@ from pyomo.contrib.pynumero.interfaces.external_grey_box import (
 import numpy as np
 from idaes.core.base.process_base import declare_process_block_class, ProcessBlockData
 from pyomo.common.config import ConfigValue, IsInstance
+from reaktoro_pse.reaktoro_block_config.hessian_options import HessianOptions
 
 
 class ReaktoroBlockData:
@@ -220,26 +221,7 @@ class PseudoGrayBox:
 @declare_process_block_class("ReaktoroBlockManager")
 class ReaktoroBlockManagerData(ProcessBlockData):
     CONFIG = ProcessBlockData.CONFIG()
-    CONFIG.declare(
-        "hessian_type",
-        ConfigValue(
-            default=HessTypes.LBFGS,
-            domain=IsInstance((str, HessTypes)),
-            description="Hessian type to use for reaktor gray box",
-            doc="""Hessian type to use, some might provide better stability
-                options:                
-                - ZeroHessian - no hessian
-                - GaussNewton - default
-                - LBFGS - Limited Memory Broyden-Fletcher-Goldfarb-Shanno   
-                - BFGS - Broyden-Fletcher-Goldfarb-Shanno   
-                - CBFGS - conditional BFGS
-                - BFGS_mod - modified BFGS
-                - BFGS_damp - damped BFGS   
-                - BFGS_ipopt - BFGS with ipopt update step
-                    
-                    """,
-        ),
-    )
+    CONFIG.declare("hessian_options", HessianOptions().get_dict())
     CONFIG.declare(
         "use_parallel_mode",
         ConfigValue(
@@ -367,7 +349,12 @@ class ReaktoroBlockManagerData(ProcessBlockData):
             inputs=self.aggregate_solver_state.inputs,
             input_dict=self.aggregate_solver_state.input_dict,
             outputs=self.aggregate_solver_state.outputs,
-            hessian_type=self.config.hessian_type,
+            hessian_type=self.config.hessian_options.hessian_type,
+            bfgs_initialization_type=self.config.hessian_options.bfgs_initialization_type,
+            bfgs_init_min_hessian_value=self.config.hessian_options.bfgs_init_min_hessian_value,
+            bfgs_init_max_hessian_value=self.config.hessian_options.bfgs_init_max_hessian_value,
+            bfgs_init_const_hessian_value=self.config.hessian_options.bfgs_init_const_hessian_value,
+            bfgs_hessian_memory=self.config.hessian_options.bfgs_hessian_memory,
         )
         self.reaktoro_model = ExternalGreyBoxBlock(external_model=external_model)
         for block_idx, block in enumerate(self.registered_blocks):

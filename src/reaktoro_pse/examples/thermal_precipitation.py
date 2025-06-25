@@ -53,7 +53,7 @@ __author__ = "Alexander V. Dudchenko"
 # assumption for evaporative processes.
 
 
-def main(hess_type=None):
+def main(hess_type="BFGS_mod"):
     m = build_simple_precipitation(hess_type=hess_type)
     initialize(m)
 
@@ -236,9 +236,9 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
     else:
         m.parallel_block_manager = None
     if hess_type is None:
-        jac_options = {}
+        hess_options = {}
     else:
-        jac_options = {"hessian_type": hess_type}
+        hess_options = {"hessian_type": hess_type}
     m.eq_feed_properties = ReaktoroBlock(
         system_state={
             "temperature": m.feed_temperature,
@@ -264,7 +264,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         reaktoro_block_manager=m.parallel_block_manager,
         build_speciation_block=False,
         assert_charge_neutrality_on_property_block=True,
-        jacobian_options=jac_options,
+        hessian_options=hess_options,
     )
 
     # """ need to get precipitator enthalpy to find required power input """
@@ -293,7 +293,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         exclude_species_list=exclude_species_list,
         reaktoro_block_manager=m.parallel_block_manager,
         assert_charge_neutrality_on_property_block=True,
-        jacobian_options=jac_options,
+        hessian_options=hess_options,
         # enable_pH_relaxation_on_property_block=False,  # If True, this can cause issues with pH
         # enable_solvent_relaxation_on_property_block=False,  # If True, this can cause issues with pH
     )
@@ -323,7 +323,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         reaktoro_block_manager=m.parallel_block_manager,
         assert_charge_neutrality_on_property_block=True,
         build_speciation_block=False,
-        jacobian_options=jac_options,
+        hessian_options=hess_options,
     )
     # assert False
     if parallel_mode:

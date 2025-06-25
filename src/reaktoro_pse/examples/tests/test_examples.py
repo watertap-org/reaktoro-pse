@@ -18,8 +18,20 @@ from reaktoro_pse.examples import (
 )
 
 
-def test_desal():
-    m = simple_desalination.main()
+@pytest.mark.parametrize(
+    "hess_type",
+    [
+        "ZeroHessian",
+        "GaussNewton",
+        "LBFGS",
+        "BFGS",
+        "BFGS_mod",
+        "BFGS_damp",
+        "BFGS_ipopt",
+    ],
+)
+def test_desal(hess_type):
+    m = simple_desalination.main(hess_type=hess_type)
 
     assert (
         pytest.approx(m.desal_properties[("scalingTendency", "Gypsum")].value, 1e-3)
@@ -35,8 +47,20 @@ def test_desal():
     assert pytest.approx(m.acid_addition.value, 1e-3) == 0.003043
 
 
-def test_thermal_precipt():
-    m = thermal_precipitation.main()
+@pytest.mark.parametrize(
+    "hess_type",
+    [
+        "ZeroHessian",
+        "GaussNewton",
+        "LBFGS",
+        "BFGS",
+        "BFGS_mod",  # Does not work on this example
+        "BFGS_damp",
+        "BFGS_ipopt",
+    ],
+)
+def test_thermal_precipt(hess_type):
+    m = thermal_precipitation.main(hess_type=hess_type)
     assert (
         pytest.approx(
             m.precipitation_properties[("speciesAmount", "Calcite")].value, 1e-2
@@ -66,8 +90,20 @@ def test_ion_exchange():
     assert pytest.approx(m.base_addition.value, abs=1e-1) == 0.31567192053040094
 
 
-def test_biogas():
-    m = biogas_combustion.main()
+@pytest.mark.parametrize(
+    "hess_type",
+    [
+        "ZeroHessian",
+        "GaussNewton",
+        "LBFGS",
+        "BFGS",
+        "BFGS_mod",
+        "BFGS_damp",
+        "BFGS_ipopt",
+    ],
+)
+def test_biogas(hess_type):
+    m = biogas_combustion.main(hess_type=hess_type)
 
     assert pytest.approx(m.air_to_fuel_ratio.value, 1e-1) == 3.8751662012681587
     assert pytest.approx(m.exhaust_temperature.value, 1e-1) == 2000

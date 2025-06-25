@@ -35,6 +35,7 @@ from reaktoro_pse.core.reaktoro_coupled_solver import ReaktoroCoupledSolver
 from reaktoro_pse.parallel_tools.reaktoro_block_manager import ReaktoroBlockManager
 
 from reaktoro_pse.reaktoro_block_config.jacobian_options import JacobianOptions
+from reaktoro_pse.reaktoro_block_config.hessian_options import HessianOptions
 from reaktoro_pse.reaktoro_block_config.reaktoro_solver_options import (
     ReaktoroSolverOptions,
 )
@@ -454,7 +455,7 @@ class ReaktoroBlockData(ProcessBlockData):
         ),
     )
     CONFIG.declare("jacobian_options", JacobianOptions().get_dict())
-
+    CONFIG.declare("hessian_options", HessianOptions().get_dict())
     CONFIG.declare(
         "reaktoro_solve_options",
         ReaktoroSolverOptions().get_dict(advanced_options=True),
@@ -1181,7 +1182,12 @@ class ReaktoroBlockData(ProcessBlockData):
             presolve_epsilon=self.config.reaktoro_presolve_options.epsilon,
             max_iters=self.config.reaktoro_solve_options.max_iterations,
             presolve_max_iters=self.config.reaktoro_presolve_options.max_iterations,
-            hessian_type=self.config.jacobian_options.hessian_type,
+            hessian_type=self.config.hessian_options.hessian_type,
+            bfgs_initialization_type=self.config.hessian_options.bfgs_initialization_type,
+            bfgs_init_min_hessian_value=self.config.hessian_options.bfgs_init_min_hessian_value,
+            bfgs_init_max_hessian_value=self.config.hessian_options.bfgs_init_max_hessian_value,
+            bfgs_init_const_hessian_value=self.config.hessian_options.bfgs_init_const_hessian_value,
+            bfgs_hessian_memory=self.config.hessian_options.bfgs_hessian_memory,
         )
 
     def build_gray_box(self, block, speciation_block=False):

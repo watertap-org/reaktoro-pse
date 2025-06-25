@@ -122,9 +122,9 @@ def build_biogas(hess_type):
         expr=m.heat_duty == m.HHV * Mfuel + h0CO2 + 0.5 * h0H2O * a
     )
     if hess_type is None:
-        jac_options = {}
+        hess_options = {}
     else:
-        jac_options = {"hessian_type": hess_type}
+        hess_options = {"hessian_type": hess_type}
     m.eq_combustion = ReaktoroBlock(
         condensed_phase={
             "composition": m.fuel,
@@ -148,7 +148,7 @@ def build_biogas(hess_type):
         database=db,
         build_speciation_block=False,
         # reaktoro_solve_options={"solver_tolerance": 1e-10},
-        jacobian_options=jac_options,
+        hessian_options=hess_options,
         # exact_speciation=False,
         # jacobian_options={"user_scaling": {("temperature", None): 1000}},
     )
