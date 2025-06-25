@@ -20,7 +20,7 @@ class HessianOptions:
                 doc="""Hessian type to use, some might provide better stability
                 options:                
                 - ZeroHessian - no hessian
-                - GaussNewton - default
+                - GaussNewton - Naive Gauss-Newton Hessian approximation (Jacobian^T * Jacobian)
                 - LBFGS - Limited Memory Broyden-Fletcher-Goldfarb-Shanno   
                 - BFGS - Broyden-Fletcher-Goldfarb-Shanno   
                 - CBFGS - conditional BFGS

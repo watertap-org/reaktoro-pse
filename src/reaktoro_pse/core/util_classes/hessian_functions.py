@@ -51,7 +51,6 @@ class HessianMemory:
                 mla.pop(0)
 
     def reset_memory(self, leave_last=False):
-        print("hess memory reset")
         if leave_last:
             mem_to_reset = self.memory_limited_arrays[:-2]
         else:
@@ -231,17 +230,15 @@ class HessianApproximation:
             return False
 
     def update_bfgs_matrix(self):
-        try:
-            h_sum = np.zeros((len(self.inputs), len(self.inputs)))
-            for i in range(self.hessian_memory.jacobian[-1].shape[0]):
-                h_sum += self._outputs_dual_multipliers[i] * self.bfgs_hessian[i]
-            self.hessian_matrix = h_sum.copy()
-        except:
-            print("Failed to apply duals!")
+        h_sum = np.zeros((len(self.inputs), len(self.inputs)))
+        for i in range(self.hessian_memory.jacobian[-1].shape[0]):
+            h_sum += self._outputs_dual_multipliers[i] * self.bfgs_hessian[i]
+        self.hessian_matrix = h_sum.copy()
 
     def hessian_gauss_newton_version(self, sparse_jac, threshold=1e-16):
         """standard gauss newton hessian approximation"""
         hess = np.zeros((len(self.inputs), len(self.inputs)))
+
         for i in range(self.jacobian_matrix.shape[0]):
             row = self.jacobian_matrix[i, :]
             if sparse_jac:
@@ -254,7 +251,7 @@ class HessianApproximation:
     def hessian_bfgs(self):
         """Vanilla BFGS update implementation"""
         self.create_bfgs_matrix()
-        if len(self.hessian_memory.get_range()) > 2:
+        if len(self.hessian_memory.get_range()) > 1:
             s_k = (
                 np.array([self.hessian_memory.inputs[-1]])
                 - self.hessian_memory.inputs[-2]
@@ -281,8 +278,7 @@ class HessianApproximation:
     def hessian_lbfgs(self):
         """Direct LBFGS based on Byrd Representations of quasi-newton matrices and their use in limited memory methods"""
         self.create_bfgs_matrix()
-
-        if len(self.hessian_memory.get_range()) > 2:
+        if len(self.hessian_memory.get_range()) > 1:
             self.bfgs_hessian = self.get_initial_hessian(
                 self.hessian_memory.inputs[-2],
                 self.hessian_memory.inputs[-1],
@@ -302,6 +298,7 @@ class HessianApproximation:
             for i in range(self.hessian_memory.jacobian[-1].shape[0]):
                 bk = []
                 ak = []
+
                 for r in self.hessian_memory.get_range(1, 0):
                     sk = (
                         np.array([self.hessian_memory.inputs[r]])
@@ -313,10 +310,11 @@ class HessianApproximation:
                             - self.hessian_memory.jacobian[r - 1][i, :]
                         ]
                     ).T
-                    mach_eps = 10 * np.finfo(float).eps
-
+                    y_s = yk.T @ sk
+                    eps = np.finfo(float).eps
                     if (
-                        yk.T @ sk > mach_eps
+                        (y_s.T > np.sqrt(eps) * np.linalg.norm(sk) * np.linalg.norm(yk))
+                        and (np.linalg.norm(sk, np.inf) >= 1 * eps)
                         and np.sum(yk) != 0
                         and np.sum(sk) != 0
                         and np.sum(initial_hessians[r]) != 0
@@ -326,20 +324,20 @@ class HessianApproximation:
                         _ak = initial_hessians[r][i] @ sk
                         for k in range(len(ak)):
                             _ak += (bk[k].T @ sk) * bk[k] - (ak[k].T @ sk) * ak[k]
-                        _ak = _ak / np.sqrt(np.sqrt(np.abs(sk.T @ _ak)))
+                        _ak = _ak / np.sqrt(np.abs(sk.T @ _ak))
                         ak.append(_ak.copy())
 
                 sum_ak_bk = np.zeros(self.bfgs_hessian[i].shape)
-
                 for m in range(len(bk)):
                     sum_ak_bk += bk[m] @ bk[m].T - ak[m] @ ak[m].T
                 self.bfgs_hessian[i] = self.bfgs_hessian[i] + sum_ak_bk
+
         self.update_bfgs_matrix()
 
     def hessian_cbfgs(self):
         """Cautious BFGS update implementation (Li and Fukushima)"""
         self.create_bfgs_matrix()
-        if len(self.hessian_memory.get_range()) > 2:
+        if len(self.hessian_memory.get_range()) > 1:
             s_k = (
                 np.array([self.hessian_memory.inputs[-1]])
                 - self.hessian_memory.inputs[-2]
@@ -375,7 +373,7 @@ class HessianApproximation:
     def hessian_modified_bfgs(self):
         """Modified BFGS update implementation (Li and Fukushima)"""
         self.create_bfgs_matrix()
-        if len(self.hessian_memory.get_range()) > 2:
+        if len(self.hessian_memory.get_range()) > 1:
             s_k = (
                 np.array([self.hessian_memory.inputs[-1]])
                 - self.hessian_memory.inputs[-2]
@@ -408,7 +406,7 @@ class HessianApproximation:
     def hessian_damped_bfgs(self):
         """apply Powell's damping on the BFGS update"""
         self.create_bfgs_matrix()
-        if len(self.hessian_memory.get_range()) > 2:
+        if len(self.hessian_memory.get_range()) > 1:
             s_k = (
                 np.array([self.hessian_memory.inputs[-1]])
                 - self.hessian_memory.inputs[-2]
@@ -446,7 +444,7 @@ class HessianApproximation:
     def hessian_ipopt_bfgs_modification(self):
         """BFGS update is only done on certain conditions (taken from IPOPT's implementation)"""
         self.create_bfgs_matrix()
-        if len(self.hessian_memory.get_range()) > 2:
+        if len(self.hessian_memory.get_range()) > 1:
             s_k = (
                 np.array([self.hessian_memory.inputs[-1]])
                 - self.hessian_memory.inputs[-2]
@@ -466,7 +464,7 @@ class HessianApproximation:
                         y_s.T
                         > np.sqrt(mach_eps) * np.linalg.norm(s_k) * np.linalg.norm(y_k)
                     )
-                    and (np.linalg.norm(s_k, np.inf) >= 1 * mach_eps)
+                    and (np.linalg.norm(s_k, np.inf) >= 100 * mach_eps)
                     and np.sum(H_s) != 0
                 ):
                     self.bfgs_hessian[i] = (

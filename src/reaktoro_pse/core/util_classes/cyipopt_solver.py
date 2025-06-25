@@ -17,10 +17,10 @@ def get_cyipopt_watertap_solver(
         cy_solver.options["linear_solver"] = "ma27"
     if limited_memory:
         cy_solver.options["hessian_approximation"] = "limited-memory"
-        # cy_solver.options["hessian_approximation_space"] = "all-variables"
-        cy_solver.options["limited_memory_max_history"] = 3
-        # cy_solver.options["limited_memory_aug_solver"] = "extended"
-        cy_solver.options["limited_memory_initialization"] = "scalar1"
+        # # cy_solver.options["hessian_approximation_space"] = "all-variables"
+        # # cy_solver.options["limited_memory_max_history"] = 3
+        # # cy_solver.options["limited_memory_aug_solver"] = "extended"
+        # cy_solver.options["limited_memory_initialization"] = "scalar1"
     if solver_args is not None:
         for arg, value in solver_args.items():
             cy_solver.options[arg] = value
