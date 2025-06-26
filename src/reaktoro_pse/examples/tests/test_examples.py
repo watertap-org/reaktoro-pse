@@ -81,8 +81,20 @@ def test_thermal_precipt(hess_type):
     assert pytest.approx(m.precipitator_temperature.value, 1e-3) == 273.15 + 50
 
 
-def test_ion_exchange():
-    m = simple_ion_exchange.main()
+@pytest.mark.parametrize(
+    "hess_type",
+    [
+        "ZeroHessian",
+        "GaussNewton",
+        "LBFGS",
+        "BFGS",
+        "BFGS_mod",  # Does not work on this example
+        "BFGS_damp",
+        "BFGS_ipopt",
+    ],
+)
+def test_ion_exchange(hess_type):
+    m = simple_ion_exchange.main(hess_type=hess_type)
 
     assert pytest.approx(m.removal_percent["Mg"].value, 1e-1) == -35.54130924283
     assert pytest.approx(m.removal_percent["Ca"].value, 1e-1) == -79.15299911033

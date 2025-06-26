@@ -38,15 +38,21 @@ __author__ = "Alexander V. Dudchenko"
 # (4) Optimize addition of acid and bases for maximizing Calcium removal selectivity over Magnesium
 
 
-def main():
-    m = build_simple_desal()
+def main(
+    hess_type=None,
+):
+    m = build_simple_ix(
+        hess_type=None,
+    )
     initialize(m)
     setup_optimization(m)
     solve(m)
     return m
 
 
-def build_simple_desal():
+def build_simple_ix(
+    hess_type=None,
+):
     m = ConcreteModel()
     m.feed_composition = Var(
         ["H2O", "Mg", "Na", "Cl", "SO4", "Ca", "HCO3"],
@@ -105,7 +111,10 @@ def build_simple_desal():
     m.ion_exchange_material["NaX"].fix(0.4)
     m.ion_exchange_material["CaX2"].fix(1e-5)
     m.ion_exchange_material["MgX2"].fix(1e-5)
-
+    if hess_type is None:
+        hess_options = {}
+    else:
+        hess_options = {"hessian_type": hess_type}
     # We will build a block to charge neutralize the feed and adjust apparent species
     # to achieve this and then build a separate block to do ion exchange calculation
     m.eq_speciation_block = ReaktoroBlock(
@@ -126,6 +135,7 @@ def build_simple_desal():
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
         build_speciation_block=False,
+        hessian_options=hess_options,
     )
 
     # build the IX block
@@ -164,6 +174,7 @@ def build_simple_desal():
         build_speciation_block=False,
         enable_pH_relaxation_on_property_block=True,
         H_scale_multiplier=1e4,
+        hessian_options=hess_options,
     )
     m.eq_ix_properties.display_reaktoro_state()
     # assert False
@@ -280,6 +291,8 @@ def setup_optimization(m):
     )
     m.base_addition.unfix()
     m.acid_addition.fix()
+
+    m.base_addition.setlb(0.1e-5)
     m.removal_percent["Mg"].setub(-10)
     m.removal_percent["Ca"].setub(-10)
 
@@ -300,7 +313,7 @@ def display_results(m):
 
 
 def solve(m):
-    cy_solver = get_cyipopt_watertap_solver(limited_memory=True)
+    cy_solver = get_cyipopt_watertap_solver(limited_memory=False)
     result = cy_solver.solve(m, tee=True)
     display_results(m)
     return result

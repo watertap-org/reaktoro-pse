@@ -99,11 +99,12 @@ class HessianApproximation:
         self.bfgs_hessian = None
         self.old_inputs = None
         self.s = None
+        self.epsilon = 1e-12  # 100 * np.finfo(float).eps  # 1e-12
         self.init_min_hessian_value = bfgs_init_min_hessian_value
         self.init_max_hessian_value = bfgs_init_max_hessian_value
         self.init_const_hessian_value = bfgs_init_const_hessian_value
         self.bfgs_matrix_not_initialized = True
-        self.bfgs_intialization_type = bfgs_initialization_type
+        self.bfgs_initialization_type = bfgs_initialization_type
 
     def apply_sigma_bounds(self, sigma, abs_test=True):
         sigma_signs = np.sign(sigma)
@@ -141,11 +142,11 @@ class HessianApproximation:
             y = np.array([new_jacobian[i, :] - old_jacobian[i, :]])
             if np.sum(y) != 0 and np.sum(s) != 0:
                 sigma = np.zeros(bfgs_hessian[i].shape)
-                if self.bfgs_intialization_type == HessTypes.scalar1:
+                if self.bfgs_initialization_type == HessTypes.scalar1:
                     sTy = s.T @ y
                     sTs = s.T @ s
                     sigma[sTs != 0] = sTy[sTs != 0] / sTs[sTs != 0]
-                elif self.bfgs_intialization_type == HessTypes.scalar2:
+                elif self.bfgs_initialization_type == HessTypes.scalar2:
                     sTy = s.T @ y
                     yTy = y.T @ y
                     sigma[sTy != 0] = yTy[sTy != 0] / sTy[sTy != 0]
@@ -166,22 +167,22 @@ class HessianApproximation:
     #     for i in range(new_jacobian.shape[0]):
     #         y = np.array([new_jacobian[i, :] - old_jacobian[i, :]]).T
     #         if np.sum(y) != 0 and np.sum(s) != 0:
-    #             if self.bfgs_intialization_type == HessTypes.scalar1:
+    #             if self.bfgs_initialization_type == HessTypes.scalar1:
     #                 sTy = s.T @ y
     #                 sTs = s.T @ s
     #                 sigma = sTy / sTs
-    #             elif self.bfgs_intialization_type == HessTypes.scalar2:
+    #             elif self.bfgs_initialization_type == HessTypes.scalar2:
     #                 sTy = s.T @ y
     #                 yTy = y.T @ y
     #                 sigma = yTy / sTy
-    #             elif self.bfgs_intialization_type == HessTypes.scalar3:
+    #             elif self.bfgs_initialization_type == HessTypes.scalar3:
     #                 sTy = s.T @ y
     #                 yTy = y.T @ y
     #                 sTs = s.T @ s
     #                 sigma = sTy / sTs / 2
     #                 sigma += (yTy / sTy) / 2
 
-    #             elif self.bfgs_intialization_type == HessTypes.scalar4:
+    #             elif self.bfgs_initialization_type == HessTypes.scalar4:
     #                 yTy = y.T @ y
     #                 sTs = s.T @ s
     #                 sigma = sTy / sTs
@@ -256,7 +257,6 @@ class HessianApproximation:
                 np.array([self.hessian_memory.inputs[-1]])
                 - self.hessian_memory.inputs[-2]
             ).T
-            eps = 1 * np.finfo(float).eps
             for i in range(self.hessian_memory.jacobian[-1].shape[0]):
                 y_k = np.array(
                     [
@@ -266,7 +266,7 @@ class HessianApproximation:
                 ).T
                 B_k = self.bfgs_hessian[i]
                 H_s = self.bfgs_hessian[i] @ s_k
-                if y_k.T @ s_k > eps and np.sum(H_s) != 0:
+                if y_k.T @ s_k > self.epsilon and np.sum(H_s) != 0:
                     update_pos = (y_k @ y_k.T) / (y_k.T @ s_k)
                     update_neg = (B_k @ s_k @ s_k.T @ B_k) / (s_k.T @ B_k @ s_k)
 
@@ -311,21 +311,26 @@ class HessianApproximation:
                         ]
                     ).T
                     y_s = yk.T @ sk
-                    eps = np.finfo(float).eps
                     if (
-                        (y_s.T > np.sqrt(eps) * np.linalg.norm(sk) * np.linalg.norm(yk))
-                        and (np.linalg.norm(sk, np.inf) >= 1 * eps)
+                        (
+                            y_s.T
+                            > np.sqrt(self.epsilon)
+                            * np.linalg.norm(sk)
+                            * np.linalg.norm(yk)
+                        )
+                        and (np.linalg.norm(sk, np.inf) >= self.epsilon)
                         and np.sum(yk) != 0
                         and np.sum(sk) != 0
                         and np.sum(initial_hessians[r]) != 0
                     ):
                         b = yk / np.sqrt(yk.T @ sk)
-                        bk.append(b.copy())
                         _ak = initial_hessians[r][i] @ sk
                         for k in range(len(ak)):
                             _ak += (bk[k].T @ sk) * bk[k] - (ak[k].T @ sk) * ak[k]
-                        _ak = _ak / np.sqrt(np.abs(sk.T @ _ak))
-                        ak.append(_ak.copy())
+                        if sk.T @ _ak > 0:
+                            _ak = _ak / np.sqrt(sk.T @ _ak)
+                            ak.append(_ak.copy())
+                            bk.append(b.copy())
 
                 sum_ak_bk = np.zeros(self.bfgs_hessian[i].shape)
                 for m in range(len(bk)):
@@ -342,8 +347,6 @@ class HessianApproximation:
                 np.array([self.hessian_memory.inputs[-1]])
                 - self.hessian_memory.inputs[-2]
             ).T
-
-            eps = 1 * np.finfo(float).eps
             for i in range(self.hessian_memory.jacobian[-1].shape[0]):
                 y_k = np.array(
                     [
@@ -358,7 +361,7 @@ class HessianApproximation:
                 if np.linalg.norm(self.hessian_memory.jacobian[-1][i, :]) < 1:
                     alpha = 3
                 min_test = (
-                    eps
+                    self.epsilon
                     * np.linalg.norm(self.hessian_memory.jacobian[-1][i, :]) ** alpha
                 )
                 max_test = y_s / np.linalg.norm(s_k) ** 2
@@ -458,13 +461,13 @@ class HessianApproximation:
                 ).T
                 y_s = y_k.T @ s_k
                 H_s = self.bfgs_hessian[i] @ s_k
-                mach_eps = np.finfo(float).eps
+                mach_eps = self.epsilon
                 if (
                     (
                         y_s.T
                         > np.sqrt(mach_eps) * np.linalg.norm(s_k) * np.linalg.norm(y_k)
                     )
-                    and (np.linalg.norm(s_k, np.inf) >= 100 * mach_eps)
+                    and (np.linalg.norm(s_k, np.inf) >= self.epsilon)
                     and np.sum(H_s) != 0
                 ):
                     self.bfgs_hessian[i] = (
