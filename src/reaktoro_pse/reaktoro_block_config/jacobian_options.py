@@ -30,7 +30,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_order",
             ConfigValue(
-                default=4,
+                default=6,
                 domain=int,
                 description="Defines order of numerical jacobian (should be an even number)",
                 doc="""
