@@ -30,7 +30,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_order",
             ConfigValue(
-                default=10,
+                default=2,
                 domain=int,
                 description="Defines order of numerical jacobian (should be an even number)",
                 doc="""
@@ -43,7 +43,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_step",
             ConfigValue(
-                default=1e-5,
+                default=1e-3,
                 domain=float,
                 description="Defines the step to use for numerical descritiazaiton",
                 doc="""This will define how small of a step to use for numerical derivative propagation which takes
@@ -60,7 +60,7 @@ class JacobianOptions:
                 description="Defines how to scale Jacobian matrix",
                 doc="""
                 Defines methods for jacobian scaling:
-                - no_scalingn -- jacobian scale will == 1 for all outputs
+                - no_scaling -- jacobian scale will == 1 for all outputs
                 - variable_scaling -- will use output variable scaling factors
                 - inverse_variable_scaling -- will use inverse of output variable scaling factors
                 - variable_io_scaling -- will sums squared of input scales and output scales
