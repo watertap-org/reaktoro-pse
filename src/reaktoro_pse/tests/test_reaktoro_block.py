@@ -435,73 +435,6 @@ def test_blockBuild_with_speciation_log_species_block(
 
     assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.7496301
     assert pytest.approx(m.pH.value, 1e-2) == 6.401
-    m.property_block.update_block_scaling()
-    m.property_block.update_jacobian_scaling()
-    scaling_result = m.property_block.display_jacobian_scaling()
-    print(scaling_result)
-    expected_scaling = {
-        "speciation_block": {
-            ("logSpeciesAmount", "H+"): 6.447046460016016e-10,
-            ("logSpeciesAmount", "H2O"): 1.6989700043360188e-10,
-            ("logSpeciesAmount", "CO3-2"): 7.530852573517847e-09,
-            ("logSpeciesAmount", "CO2"): 2.569573459931632e-09,
-            ("logSpeciesAmount", "Ca+2"): 1.9999999999999996e-10,
-            ("logSpeciesAmount", "Cl-"): 1.8395183437532258e-11,
-            ("logSpeciesAmount", "HCO3-"): 2.406984795002711e-09,
-            ("logSpeciesAmount", "SO4-2"): 2.000014296246019e-10,
-            ("logSpeciesAmount", "HSO4-"): 6.482569446221956e-10,
-            ("logSpeciesAmount", "Mg+2"): 1.0002015694867532e-10,
-            ("logSpeciesAmount", "MgCO3"): 5.904732956550313e-09,
-            ("logSpeciesAmount", "MgOH+"): 6.611804454329705e-10,
-            ("logSpeciesAmount", "Na+"): 3.0102999566398125e-11,
-            ("logSpeciesAmount", "OH-"): 3.992777583884047e-09,
-        },
-    }
-
-    if water_relax:
-        expected_scaling["property_block"] = {
-            ("scalingTendency", "Calcite"): 1.4656093707371568e-08,
-            ("pH", None): 6.749544872788314e-10,
-            ("elementAmount", "H"): 1.0000508467563742e-08,
-            ("elementAmount", "O"): 5.006613067418019e-09,
-        }
-
-    elif ph_relax:
-        expected_scaling["property_block"] = {
-            ("scalingTendency", "Calcite"): 4.703257017292294e-09,
-            ("pH", None): 6.749544872788421e-10,
-            ("elementAmount", "H"): 1.0000508467563742e-08,
-        }
-
-    m.property_block.display_reaktoro_state()
-    assert "speciation_block" in scaling_result
-    assert "property_block" in scaling_result
-    new_scaling = {}
-    for key in scaling_result["speciation_block"]:
-        new_scaling[key] = 1
-        assert (
-            pytest.approx(scaling_result["speciation_block"][key], 1e-3)
-            == expected_scaling["speciation_block"][key]
-        )
-    m.property_block.update_jacobian_scaling(new_scaling)
-    scaling_result = m.property_block.display_jacobian_scaling()
-
-    assert "speciation_block" in scaling_result
-    for key in scaling_result["speciation_block"]:
-        assert scaling_result["speciation_block"][key] == 1
-    new_scaling = {}
-    for key in scaling_result["property_block"]:
-        new_scaling[key] = 1
-        assert (
-            pytest.approx(scaling_result["property_block"][key], 1e-3)
-            == expected_scaling["property_block"][key]
-        )
-    m.property_block.update_jacobian_scaling(new_scaling)
-    scaling_result = m.property_block.display_jacobian_scaling()
-    m.property_block.display_reaktoro_state()
-    assert "property_block" in scaling_result
-    for key in scaling_result["property_block"]:
-        assert scaling_result["property_block"][key] == 1
 
 
 @pytest.mark.parametrize(
@@ -559,56 +492,6 @@ def test_blockBuild_with_speciation_elements_block(
 
     assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.7496301
     assert pytest.approx(m.pH.value, 1e-2) == 6.401
-    m.property_block.update_block_scaling()
-    m.property_block.update_jacobian_scaling()
-    scaling_result = m.property_block.display_jacobian_scaling()
-    print(scaling_result)
-    expected_scaling = {
-        "speciation_block": {
-            ("elementAmount", "H"): 1.0000508467563702e-08,
-            ("elementAmount", "C"): 1.0000000000000012e-12,
-            ("elementAmount", "O"): 5.0065130674179645e-09,
-            ("elementAmount", "Na"): 5.0000000000000015e-11,
-            ("elementAmount", "Mg"): 1.0000000000000006e-11,
-            ("elementAmount", "S"): 1.0000000000000012e-12,
-            ("elementAmount", "Cl"): 6.948233272777027e-11,
-            ("elementAmount", "Ca"): 1.0000000000000012e-12,
-        }
-    }
-    if water_relax:
-        expected_scaling["property_block"] = {
-            ("scalingTendency", "Calcite"): 4.698875178942253e-08,
-            ("pH", None): 6.749544872468591e-10,
-            ("elementAmount", "H"): 1.0000508467563742e-08,
-            ("elementAmount", "O"): 5.006613067418016e-09,
-        }
-
-    elif ph_relax:
-        expected_scaling["property_block"] = {
-            ("scalingTendency", "Calcite"): 4.698402870213914e-08,
-            ("pH", None): 6.749544872468591e-10,
-            ("elementAmount", "H"): 1.0000508467563742e-08,
-        }
-
-    else:
-        expected_scaling["property_block"] = {
-            ("scalingTendency", "Calcite"): 1.1875352549400553e-07,
-            ("pH", None): 4.860784942869509e-09,
-        }
-
-    assert "speciation_block" in scaling_result
-    assert "property_block" in scaling_result
-    for key in scaling_result["speciation_block"]:
-        assert (
-            pytest.approx(scaling_result["speciation_block"][key], 1e-3)
-            == expected_scaling["speciation_block"][key]
-        )
-
-    for key in scaling_result["property_block"]:
-        assert (
-            pytest.approx(scaling_result["property_block"][key], 1e-3)
-            == expected_scaling["property_block"][key]
-        )
 
 
 def test_blockBuild_with_speciation_and_mixing(

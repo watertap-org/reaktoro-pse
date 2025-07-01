@@ -338,6 +338,8 @@ class ReaktoroJacobianSpec:
         generate matrix for manually propagating derivatives
         Here we need to retain row order, as its same as input into chem properties"""
         self.partial_jac_vals = jacobian_matrix[:, input_index]
+        if input_value == 0:
+            input_value = 0
         jacobian_abs_matrix_fast = self.jac_values + (
             self.partial_jac_vals.reshape(-1, 1)
             * input_value
@@ -361,17 +363,23 @@ class ReaktoroJacobianSpec:
                 ]
             else:
                 values = self.get_state_values(output_obj)
-                if JacType.average:
+                if JacType.average == self.jacobian_type:
                     diff = np.diff(values)
-                    step = np.diff(self.numerical_steps * input_value)
+                    if input_value != 0:
+                        step = np.diff(self.numerical_steps * input_value)
+                    else:
+                        step = np.diff(self.numerical_steps)
+
                     jac_val = np.average(diff / step)
                     if jac_val != jac_val:
                         jac_val = 0
-                elif JacType.center_difference:
+                elif JacType.center_difference == self.jacobian_type:
+                    # print("values", values)
                     jac_val = np.array(values) * self.cdf_multipliers
-                    jac_val = np.sum(jac_val) / (
-                        self.rkt_aqueous_props_der_step * input_value
-                    )
+                    if input_value != 0:
+                        jac_val = np.sum(jac_val) / (self.der_step_size * input_value)
+                    else:
+                        jac_val = np.sum(jac_val) / self.der_step_size
             return jac_val
 
         for output_key, output_obj in self.output_specs.rkt_outputs.items():
