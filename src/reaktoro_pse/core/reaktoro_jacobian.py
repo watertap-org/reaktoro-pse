@@ -234,14 +234,14 @@ class ReaktoroJacobianSpec:
             self.jacobian_type = JacType.average
             assert order % 2 == 0
             self.numerical_steps = np.arange(-order / 2, order / 2 + 1) * step_size
-            self.jac_numerical_steps = np.repeat(
-                self.numerical_steps[np.newaxis, :],
-                len(self.jac_rows.standard_keys),
-                axis=0,
-            )
         if jacobian_type == JacType.center_difference:
             self.jacobian_type = JacType.center_difference
             self.center_diff_order(order)
+        self.jac_numerical_steps = np.repeat(
+            self.numerical_steps[np.newaxis, :],
+            len(self.jac_rows.standard_keys),
+            axis=0,
+        )
         self.set_up_chem_and_aq_states()
 
     def set_up_chem_and_aq_states(self):
