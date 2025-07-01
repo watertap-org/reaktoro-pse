@@ -30,7 +30,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_order",
             ConfigValue(
-                default=10,
+                default=4,
                 domain=int,
                 description="Defines order of numerical jacobian (should be an even number)",
                 doc="""
@@ -60,13 +60,13 @@ class JacobianOptions:
                 description="Defines how to scale Jacobian matrix",
                 doc="""
                 Defines methods for jacobian scaling:
-                - if option is no_scaling, jacobian scale will == 1 for all outputs
-                - if option is 'variable_scaling' will use output variable scaling factors
-                - if option is 'inverse_variable_scaling' will use inverse of output variable scaling factors
-                - if option is 'variable_io_scaling' will sums squared of input scales and output scales
-                - if option is jacobian_matrix_inverse_sum will use inverse of sum of absolute values of jacobian matrix
-                - if option is jacobian_matrix_square_sum will use squared sum of absolute values of jacobian matrix
-                - if user_scaling is not None then uses user provided scaling
+                - no_scalingn -- jacobian scale will == 1 for all outputs
+                - variable_scaling -- will use output variable scaling factors
+                - inverse_variable_scaling -- will use inverse of output variable scaling factors
+                - variable_io_scaling -- will sums squared of input scales and output scales
+                - jacobian_matrix_inverse_sum -- (default) will use inverse of sum of absolute values of jacobian matrix
+                - jacobian_matrix_square_sum -- will use squared sum of absolute values of jacobian matrix
+                - user_scaling -- Use user provided scaling
                 """,
             ),
         )

@@ -91,7 +91,6 @@ class ReaktoroSolverOptions:
                 ),
             )
         if advanced_options:
-
             CONFIG.declare(
                 "open_species_on_property_block",
                 ConfigValue(

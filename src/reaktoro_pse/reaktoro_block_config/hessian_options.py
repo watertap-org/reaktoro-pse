@@ -67,7 +67,7 @@ class HessianOptions:
         CONFIG.declare(
             "bfgs_init_const_hessian_value",
             ConfigValue(
-                default=1e-16,
+                default=1e-32,
                 domain=float,
                 description="Constant Hessian value for BFGS initialization",
                 doc="""Constant Hessian value for BFGS initialization

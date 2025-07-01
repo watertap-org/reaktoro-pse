@@ -44,19 +44,6 @@ def build_scaling_tendency_constraint(rkt_output_object):
     )
 
 
-# log10(user_output_var) == smooth_max(
-#     build_properties[("saturationIndex", rkt_output_object.property_index)].pyomo_var,
-#     -5,
-# )
-# def build_pOH_constraint(rkt_output_object):
-#     user_output_var = rkt_output_object.pyomo_var
-#     build_properties = rkt_output_object.pyomo_build_options.properties
-#     return (
-#         -build_properties[("speciesActivityLn", "OH-")].pyomo_var / log(10)
-#         == user_output_var
-#     )
-
-
 def build_ph_constraint(rkt_output_object):
     user_output_var = rkt_output_object.pyomo_var
     build_properties = rkt_output_object.pyomo_build_options.properties

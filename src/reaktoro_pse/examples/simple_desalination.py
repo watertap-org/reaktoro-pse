@@ -109,6 +109,7 @@ def build_simple_desal(hess_type, parallel_mode=False):
         [
             ("scalingTendency", "Calcite"),
             ("scalingTendency", "Gypsum"),
+            ("scalingTendency", "Brucite"),
         ],
         initialize=1,
     )

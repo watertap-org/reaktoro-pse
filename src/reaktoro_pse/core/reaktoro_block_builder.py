@@ -354,7 +354,6 @@ class ReaktoroBlockBuilder:
                 relaxant_type
             ].get_pyomo_var()
             self.solver.input_specs.rkt_inputs[relaxant_type].auto_scaled = False
-            # if relaxed_var.value == 7:
             if (
                 "OH-" in self.solver.input_specs.rkt_inputs
                 and relaxant_type == "relaxation_OH"
@@ -394,7 +393,6 @@ class ReaktoroBlockBuilder:
             iscale.set_scaling_factor(relaxed_var, 1 / 10)
 
         if "total_hydrogen_link" in self.relaxation_constraint_types:
-            user_val = self.solver.input_specs.user_inputs["pH"].get_pyomo_var()
             sf = (
                 self.get_rkt_scale(
                     self.solver.output_specs.user_outputs[("elementAmount", "H")],
@@ -456,7 +454,6 @@ class ReaktoroBlockBuilder:
         return sf
 
     def get_sf(self, pyo_var, use_default_scaling, return_none=1):
-
         def calc_scale(value):
             if value == 0:
                 return 10 ** (-1 * math.log(abs(1), 10))
@@ -475,7 +472,7 @@ class ReaktoroBlockBuilder:
 
             sf = calc_scale(abs(pyo_var.value))
             max_scale = 1e32
-            min_scale = 1e-8
+            min_scale = 1e-32
             if sf > max_scale:
                 _log.warning(
                     f"Var {pyo_var} scale {sf:e}>{max_scale:e}, applied max scale of {max_scale:e}"
@@ -569,11 +566,9 @@ class ReaktoroBlockBuilder:
                 sf = np.sum(np.array(input_scales) ** -1) ** -1
                 self.solver.jacobian_scaling_values[i] = sf
         elif self.jacobian_scaling_type == JacScalingTypes.jacobian_matrix_square_sum:
-            jac_matrix = self.get_jacobian_matrix()
-            self.solver.jacobian_scaling_values = (
-                np.sum(np.abs(jac_matrix) ** 2, axis=1) ** 0.5
-            ) ** -1
-            self.solver.jacobian_scaling_values = jac_matrix
+            jac_matrix = self.get_jacobian_matrix().copy()
+            scale_factors = (np.sum(np.abs(jac_matrix) ** 2, axis=1) ** 0.5) ** -1
+            self.solver.jacobian_scaling_values = scale_factors
         elif self.jacobian_scaling_type == JacScalingTypes.jacobian_matrix_inverse_sum:
 
             jac_matrix = self.get_jacobian_matrix().copy()
@@ -587,6 +582,7 @@ class ReaktoroBlockBuilder:
         min_scale = self.jacobian_scaling_bounds[0]
         if self.jacobian_scaling_bounds_output_based:
             for i, scale in enumerate(self.solver.jacobian_scaling_values):
+
                 if min_scale is not None and scale < output_scales[i] * min_scale:
                     self.solver.jacobian_scaling_values[i] = (
                         output_scales[i] * min_scale

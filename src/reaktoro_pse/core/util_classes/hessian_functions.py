@@ -331,12 +331,11 @@ class HessianApproximation:
                             _ak = _ak / np.sqrt(sk.T @ _ak)
                             ak.append(_ak.copy())
                             bk.append(b.copy())
-
                 sum_ak_bk = np.zeros(self.bfgs_hessian[i].shape)
+
                 for m in range(len(bk)):
                     sum_ak_bk += bk[m] @ bk[m].T - ak[m] @ ak[m].T
                 self.bfgs_hessian[i] = self.bfgs_hessian[i] + sum_ak_bk
-
         self.update_bfgs_matrix()
 
     def hessian_cbfgs(self):
