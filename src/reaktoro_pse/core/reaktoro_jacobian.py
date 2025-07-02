@@ -339,12 +339,12 @@ class ReaktoroJacobianSpec:
         Here we need to retain row order, as its same as input into chem properties"""
         self.partial_jac_vals = jacobian_matrix[:, input_index]
 
-        jacobian_abs_matrix_fast = self.jac_values + (
+        jacobian_abs_matrix = self.jac_values + (
             self.partial_jac_vals.reshape(-1, 1)
             * input_value
             * self.jac_numerical_steps
         )
-        return jacobian_abs_matrix_fast
+        return jacobian_abs_matrix
 
     def get_jacobian(self, jacobian_matrix, input_object):
         input_index = input_object.get_jacobian_index()
