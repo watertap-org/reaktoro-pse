@@ -18,6 +18,7 @@ from pyomo.environ import (
     Var,
     Objective,
     Constraint,
+    assert_optimal_termination,
     units as pyunits,
 )
 from watertap_solvers import get_solver
@@ -258,8 +259,8 @@ def scale_model(m):
         iscale.set_scaling_factor(m.used_ion_exchange_material[key], 10)
         iscale.constraint_scaling_transform(m.eq_used_ix[key], 10)
     iscale.constraint_scaling_transform(m.eq_selectivity, 10)
-    iscale.set_scaling_factor(m.acid_addition, 1e4)
-    iscale.set_scaling_factor(m.base_addition, 1e4)
+    iscale.set_scaling_factor(m.acid_addition, 1e3)
+    iscale.set_scaling_factor(m.base_addition, 1e3)
     iscale.set_scaling_factor(m.Ca_to_Mg_selectivity, 10)
     iscale.set_scaling_factor(m.feed_charge, 1e-4)
     iscale.set_scaling_factor(m.treated_feed_charge, 1e-4)
@@ -292,7 +293,8 @@ def setup_optimization(m):
     m.base_addition.unfix()
     m.acid_addition.fix()
 
-    m.base_addition.setlb(1e-5)
+    m.base_addition.setlb(1e-4)
+    m.base_addition = 0.01
     m.removal_percent["Mg"].setub(-10)
     m.removal_percent["Ca"].setub(-10)
 
@@ -316,6 +318,7 @@ def solve(m):
     cy_solver = get_cyipopt_watertap_solver(limited_memory=False)
     result = cy_solver.solve(m, tee=True)
     display_results(m)
+    assert_optimal_termination(result)
     return result
 
 

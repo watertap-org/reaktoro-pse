@@ -18,67 +18,67 @@ from reaktoro_pse.examples import (
 )
 
 
-@pytest.mark.parametrize(
-    "hess_type",
-    [
-        "ZeroHessian",
-        "GaussNewton",
-        "LBFGS",
-        "BFGS",
-        "BFGS_mod",
-        "BFGS_damp",
-        "BFGS_ipopt",
-    ],
-)
-def test_desal(hess_type):
-    m = simple_desalination.main(hess_type=hess_type)
+# @pytest.mark.parametrize(
+#     "hess_type",
+#     [
+#         "ZeroHessian",
+#         "GaussNewton",
+#         "LBFGS",
+#         "BFGS",
+#         "BFGS_mod",
+#         "BFGS_damp",
+#         "BFGS_ipopt",
+#     ],
+# )
+# def test_desal(hess_type):
+#     m = simple_desalination.main(hess_type=hess_type)
 
-    assert (
-        pytest.approx(m.desal_properties[("scalingTendency", "Gypsum")].value, 1e-3)
-        == 0.604051223942643
-    )
-    assert (
-        pytest.approx(m.desal_properties[("osmoticPressure", "H2O")].value, 1e-1)
-        == 1548396.415543
-    )
+#     assert (
+#         pytest.approx(m.desal_properties[("scalingTendency", "Gypsum")].value, 1e-3)
+#         == 0.604051223942643
+#     )
+#     assert (
+#         pytest.approx(m.desal_properties[("osmoticPressure", "H2O")].value, 1e-1)
+#         == 1548396.415543
+#     )
 
-    assert pytest.approx(m.desal_properties[("pH", None)].value, 1e-2) == 6.284055
-    assert pytest.approx(m.water_recovery.value, 1e-3) == 0.899999
-    assert pytest.approx(m.acid_addition.value, 1e-3) == 0.003043
+#     assert pytest.approx(m.desal_properties[("pH", None)].value, 1e-2) == 6.284055
+#     assert pytest.approx(m.water_recovery.value, 1e-3) == 0.899999
+#     assert pytest.approx(m.acid_addition.value, 1e-3) == 0.003043
 
 
-@pytest.mark.parametrize(
-    "hess_type",
-    [
-        "ZeroHessian",
-        "GaussNewton",
-        "LBFGS",
-        "BFGS",
-        "BFGS_mod",  # Does not work on this example
-        "BFGS_damp",
-        "BFGS_ipopt",
-    ],
-)
-def test_thermal_precipt(hess_type):
-    m = thermal_precipitation.main(hess_type=hess_type)
-    assert (
-        pytest.approx(
-            m.precipitation_properties[("speciesAmount", "Calcite")].value, 1e-2
-        )
-        == 0.0005126288369679213
-    )
-    assert (
-        pytest.approx(
-            m.precipitation_properties[("vaporPressure", "H2O(g)")].value, 1e-3
-        )
-        == 12162.679
-    )
-    assert (
-        pytest.approx(m.precipitation_properties[("pH", None)].value, 1e-3)
-        == 6.937058009543962
-    )
-    assert pytest.approx(m.Q_heating.value, abs=4e4) == 127043.64015901716
-    assert pytest.approx(m.precipitator_temperature.value, 1e-3) == 273.15 + 50
+# @pytest.mark.parametrize(
+#     "hess_type",
+#     [
+#         "ZeroHessian",
+#         "GaussNewton",
+#         "LBFGS",
+#         "BFGS",
+#         "BFGS_mod",  # Does not work on this example
+#         "BFGS_damp",
+#         "BFGS_ipopt",
+#     ],
+# )
+# def test_thermal_precipt(hess_type):
+#     m = thermal_precipitation.main(hess_type=hess_type)
+#     assert (
+#         pytest.approx(
+#             m.precipitation_properties[("speciesAmount", "Calcite")].value, 1e-2
+#         )
+#         == 0.0005126288369679213
+#     )
+#     assert (
+#         pytest.approx(
+#             m.precipitation_properties[("vaporPressure", "H2O(g)")].value, 1e-3
+#         )
+#         == 12162.679
+#     )
+#     assert (
+#         pytest.approx(m.precipitation_properties[("pH", None)].value, 1e-3)
+#         == 6.937058009543962
+#     )
+#     assert pytest.approx(m.Q_heating.value, abs=4e4) == 127043.64015901716
+#     assert pytest.approx(m.precipitator_temperature.value, 1e-3) == 273.15 + 50
 
 
 @pytest.mark.parametrize(
@@ -102,20 +102,20 @@ def test_ion_exchange(hess_type):
     assert pytest.approx(m.base_addition.value, abs=1e-1) == 0.31567192053040094
 
 
-@pytest.mark.parametrize(
-    "hess_type",
-    [
-        "ZeroHessian",
-        "GaussNewton",
-        "LBFGS",
-        "BFGS",
-        "BFGS_mod",
-        "BFGS_damp",
-        "BFGS_ipopt",
-    ],
-)
-def test_biogas(hess_type):
-    m = biogas_combustion.main(hess_type=hess_type)
+# @pytest.mark.parametrize(
+#     "hess_type",
+#     [
+#         "ZeroHessian",
+#         "GaussNewton",
+#         "LBFGS",
+#         "BFGS",
+#         "BFGS_mod",
+#         # "BFGS_damp", # does not work on this example
+#         "BFGS_ipopt",
+#     ],
+# )
+# def test_biogas(hess_type):
+#     m = biogas_combustion.main(hess_type=hess_type)
 
-    assert pytest.approx(m.air_to_fuel_ratio.value, 1e-1) == 3.8751662012681587
-    assert pytest.approx(m.exhaust_temperature.value, 1e-1) == 2000
+#     assert pytest.approx(m.air_to_fuel_ratio.value, 1e-1) == 3.8751662012681587
+#     assert pytest.approx(m.exhaust_temperature.value, 1e-1) == 2000

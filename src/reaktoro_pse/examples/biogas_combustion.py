@@ -18,8 +18,8 @@ from pyomo.environ import (
     Var,
     Constraint,
     units as pyunits,
+    assert_optimal_termination,
 )
-from watertap_solvers import get_solver
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
@@ -206,6 +206,7 @@ def solve(m):
     cy_solver = get_cyipopt_watertap_solver()
     result = cy_solver.solve(m, tee=True)
     display_results(m)
+    assert_optimal_termination(result)
     return result
 
 

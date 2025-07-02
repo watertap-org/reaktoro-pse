@@ -9,7 +9,6 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-from reaktoro_pse.parallel_tools import reaktoro_block_manager
 from reaktoro_pse.reaktoro_block import ReaktoroBlock
 from reaktoro_pse.core.util_classes.cyipopt_solver import (
     get_cyipopt_watertap_solver,
@@ -19,10 +18,10 @@ from pyomo.environ import (
     Var,
     Objective,
     Constraint,
+    assert_optimal_termination,
     units as pyunits,
 )
 
-from watertap_solvers import get_solver
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
@@ -31,8 +30,6 @@ from reaktoro_pse.parallel_tools.reaktoro_block_manager import (
     ReaktoroBlockManager,
 )
 
-from idaes.core.util.model_statistics import degrees_of_freedom
-import reaktoro as rkt
 
 __author__ = "Alexander V. Dudchenko"
 
@@ -192,7 +189,6 @@ def initialize(m):
     m.eq_desal_properties.initialize()
 
     solve(m)
-    # m.eq_desal_properties.display_reaktoro_state()
 
 
 def setup_optimization(m):
@@ -215,7 +211,7 @@ def solve(m):
     cy_solver = get_cyipopt_watertap_solver()
     result = cy_solver.solve(m, tee=True)
     display_results(m)
-    # m.eq_desal_properties.display_reaktoro_state()
+    assert_optimal_termination(result)
     return result
 
 
