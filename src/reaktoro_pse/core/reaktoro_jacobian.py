@@ -407,26 +407,32 @@ class ReaktoroJacobianSpec:
                 )
                 * self.der_step_size
             )
-            self.cdf_multipliers = np.array([-1 / 2, 1 / 2])
+            self.cdf_multipliers = np.array([-1 / 2, 1 / 2], dtype=float)
         if order == 4:
             self.numerical_steps = np.array([-2, -1, 1, 2]) * self.der_step_size
-            self.cdf_multipliers = np.array([1 / 12, -2 / 3, 2 / 3, -1 / 12])
+            self.cdf_multipliers = np.array(
+                [1 / 12, -2 / 3, 2 / 3, -1 / 12], dtype=float
+            )
         if order == 6:
             self.numerical_steps = np.array([-3, -2, -1, 1, 2, 3]) * self.der_step_size
             self.cdf_multipliers = np.array(
-                [-1 / 60, 3 / 20, -3 / 4, 3 / 4, -3 / 20, 1 / 60]
+                [-1 / 60, 3 / 20, -3 / 4, 3 / 4, -3 / 20, 1 / 60], dtype=float
             )
         if order == 8:
             self.numerical_steps = (
                 np.array([-4, -3, -2, -1, 1, 2, 3, 4]) * self.der_step_size
             )
             self.cdf_multipliers = np.array(
-                [1 / 280, -4 / 105, 1 / 5, -4 / 5, 4 / 5, -1 / 5, 4 / 105, -1 / 280]
+                [1 / 280, -4 / 105, 1 / 5, -4 / 5, 4 / 5, -1 / 5, 4 / 105, -1 / 280],
+                dtype=float,
             )
         if order == 10:
             self.numerical_steps = (
                 np.array([-5, -4, -3, -2, -1, 1, 2, 3, 4, 5]) * self.der_step_size
             )
             self.cdf_multipliers = (
-                np.array([-2, 25, -150, 600, -2100, 2100, -600, 150, -25, 2]) / 2520
+                np.array(
+                    [-2, 25, -150, 600, -2100, 2100, -600, 150, -25, 2], dtype=float
+                )
+                / 2520
             )
