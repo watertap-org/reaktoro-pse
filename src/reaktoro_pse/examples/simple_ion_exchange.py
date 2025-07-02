@@ -292,7 +292,7 @@ def setup_optimization(m):
     m.base_addition.unfix()
     m.acid_addition.fix()
 
-    m.base_addition.setlb(0.1e-5)
+    m.base_addition.setlb(1e-5)
     m.removal_percent["Mg"].setub(-10)
     m.removal_percent["Ca"].setub(-10)
 

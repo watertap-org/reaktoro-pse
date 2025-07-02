@@ -455,6 +455,146 @@ class ConvertedPropTypes:
         )
         return output
 
+    def _scalingTendency(self, property_index):
+        """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
+        output = PropOptions()
+        ref_temp = 25  # degC
+        ref_pressure = 1  # atm
+        spec = self.aqueous_props.saturationSpecies().get(property_index)
+        thermo_model = spec.standardThermoModel()
+        pr = spec.props(ref_temp, "C", ref_pressure, "atm")
+        specie_volume = float(pr.V0)  # returns auto diff/not usable with pyomo
+
+        # get data from thermo prop
+        jsp = thermo_model.params().dumpJson()
+        jsp_dict = json.loads(jsp)
+        if jsp_dict[0].get("PhreeqcLgK") is not None:
+            output.register_option("logk_type", "Analytical")
+            output.register_option("logk_paramters", jsp_dict[0]["PhreeqcLgK"])
+        elif jsp_dict[0].get("VantHoff") is not None:
+            output.register_option("logk_type", "VantHoff")
+            output.register_option("logk_paramters", jsp_dict[0]["VantHoff"])
+        else:
+            raise NotImplemented(f"reaction type {jsp_dict} not supported")
+        output.register_option("gas_constant", rkt.universalGasConstant)
+        volume_reactants = 0
+        for s, mol in spec.reaction().reactants():
+            spec = self.state.system.species().get(s.name())
+            thermo_model = spec.standardThermoModel()
+            _pr = spec.props(ref_temp, "C", ref_pressure, "atm")
+            volume_reactants += float(_pr.V0) * abs(mol)
+            output.register_property(PropTypes.chem_prop, "speciesActivityLn", s.name())
+            output.properties[("speciesActivityLn", s.name())].stoichiometric_coeff = (
+                abs(mol)
+            )  # create on demand to track coefficients
+
+        output.register_option("delta_V", float(specie_volume - (volume_reactants)))
+        output.register_property(PropTypes.chem_prop, "temperature")
+        output.register_property(PropTypes.chem_prop, "pressure")
+        output.register_build_function(
+            propFuncs.build_direct_scaling_tendency_constraint
+        )
+
+        def calc_scaling_tendency(x):
+            options = x.build_options.options
+            tempvar = x["temperature", None].value
+            presvar = x["pressure", None].value
+            if options["logk_type"] == "Analytical":
+                A_params = options["logk_paramters"]
+                log_k = [A_params["A1"]]
+                # temp dependence for phreeqc
+                if A_params["A2"] != 0:
+                    log_k.append(A_params["A2"] * tempvar)
+                if A_params["A3"] != 0:
+                    log_k.append(A_params["A3"] * tempvar**-1)
+                if A_params["A4"] != 0:
+                    log_k.append(A_params["A4"] * math.log10(tempvar))
+                if A_params["A5"] != 0:
+                    log_k.append(A_params["A5"] * tempvar**-2)
+                if A_params["A6"] != 0:
+                    log_k.append(A_params["A6"] * tempvar**2)
+
+            if options["logk_type"] == "VantHoff":
+                vfparams = options["logk_paramters"]
+                log_k = [
+                    vfparams["lgKr"]
+                    - vfparams["dHr"]
+                    / options["gas_constant"]
+                    * (1 / tempvar - 1 / vfparams["Tr"])
+                ]
+            # pressure dependenance
+            log_k.append(
+                -(
+                    options["delta_V"]
+                    * (presvar - 101325)
+                    / (math.log(10) * options["gas_constant"] * tempvar)
+                )
+            )
+            activities = []
+            for key, obj in x.items():
+                if "speciesActivityLn" in key:
+                    activities.append(
+                        obj.value * obj.stoichiometric_coeff / math.log(10)
+                    )
+            return 10 ** (
+                sum(activities)
+                + sum(
+                    log_k
+                )  # this is postive here and in log10 fom, so we add instead of subtract
+            )
+
+        def calc_scaling_tendency_derivative(x):
+            options = x.build_options.options
+            tempvar = x["temperature", None].derivative
+            presvar = x["pressure", None].derivative
+            if options["logk_type"] == "Analytical":
+                A_params = options["logk_paramters"]
+                log_k = [A_params["A1"]]
+                # temp dependence for phreeqc
+                if A_params["A2"] != 0:
+                    log_k.append(A_params["A2"] * tempvar)
+                if A_params["A3"] != 0:
+                    log_k.append(A_params["A3"] * tempvar**-1)
+                if A_params["A4"] != 0:
+                    log_k.append(A_params["A4"] * math.log10(tempvar))
+                if A_params["A5"] != 0:
+                    log_k.append(A_params["A5"] * tempvar**-2)
+                if A_params["A6"] != 0:
+                    log_k.append(A_params["A6"] * tempvar**2)
+
+            if options["logk_type"] == "VantHoff":
+                vfparams = options["logk_paramters"]
+                log_k = [
+                    vfparams["lgKr"]
+                    - vfparams["dHr"]
+                    / options["gas_constant"]
+                    * (1 / tempvar - 1 / vfparams["Tr"])
+                ]
+            # pressure dependenance
+            log_k.append(
+                -(
+                    options["delta_V"]
+                    * (presvar - 101325)
+                    / (math.log(10) * options["gas_constant"] * tempvar)
+                )
+            )
+            activities = []
+            for key, obj in x.items():
+                if "speciesActivityLn" in key:
+                    activities.append(
+                        obj.derivative * obj.stoichiometric_coeff / math.log(10)
+                    )
+            return 10 ** (
+                sum(activities)
+                + sum(
+                    log_k
+                )  # this is postive here and in log10 fom, so we add instead of subtract
+            )
+
+        output.calculate_value = calc_scaling_tendency
+        output.calculate_derivative_conversion = calc_scaling_tendency_derivative
+        return output
+
     def logSpeciesAmount(self, property_index):
         """build log species amount"""
         output = PropOptions()
@@ -482,10 +622,10 @@ class ConvertedPropTypes:
             property_index="H+",
         )
         output.calculate_value = (
-            lambda x: -1 * x["speciesActivityLn", "H+"].value / math.log(10)
+            lambda x: -1 * x["speciesActivityLn", "H+"].value / 2.302585092994046
         )
         output.calculate_derivative_conversion = (
-            lambda x: x["speciesActivityLn", "H+"].derivative * -1 / math.log(10)
+            lambda x: x["speciesActivityLn", "H+"].derivative * -1 / 2.302585092994046
         )
 
         return output

@@ -127,7 +127,7 @@ def build_direct_scaling_tendency_constraint(rkt_output_object):
     user_output_var = rkt_output_object.pyomo_var
     build_properties = rkt_output_object.pyomo_build_options.properties
     build_options = rkt_output_object.pyomo_build_options.options
-    # TODO: Needs to add temperature unit verificaiton and pressure unit verification
+    # TODO: Needs to add temperature unit verification and pressure unit verification
     temperature_var = build_properties[("temperature", None)].pyomo_var
     if build_options["logk_type"] == "Analytical":
         A_params = build_options["logk_paramters"]

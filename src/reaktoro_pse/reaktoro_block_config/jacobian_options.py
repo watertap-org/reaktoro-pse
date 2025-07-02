@@ -13,7 +13,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_type",
             ConfigValue(
-                default=JacType.center_difference,
+                default=JacType.average,
                 domain=IsInstance((str, JacType)),
                 description="Defines method for numerical jacobian approximations",
                 doc="""
