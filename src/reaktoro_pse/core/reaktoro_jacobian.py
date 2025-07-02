@@ -338,8 +338,7 @@ class ReaktoroJacobianSpec:
         generate matrix for manually propagating derivatives
         Here we need to retain row order, as its same as input into chem properties"""
         self.partial_jac_vals = jacobian_matrix[:, input_index]
-        if input_value == 0:
-            input_value = 0
+
         jacobian_abs_matrix_fast = self.jac_values + (
             self.partial_jac_vals.reshape(-1, 1)
             * input_value
@@ -356,25 +355,24 @@ class ReaktoroJacobianSpec:
         self.update_states(jacobian_abs_matrix)
         output_jacobian = []
 
-        def get_jacobian(output_obj):
+        def get_jac(output_obj):
             if output_obj.jacobian_type == JacType.exact:
                 jac_val = self.partial_jac_vals[
                     self.jac_idx_ref[output_obj.jacobian_index]
                 ]
             else:
                 values = self.get_state_values(output_obj)
+                diff = np.diff(values)
                 if JacType.average == self.jacobian_type:
                     diff = np.diff(values)
                     if input_value != 0:
                         step = np.diff(self.numerical_steps * input_value)
                     else:
                         step = np.diff(self.numerical_steps)
-
                     jac_val = np.average(diff / step)
                     if jac_val != jac_val:
                         jac_val = 0
                 elif JacType.center_difference == self.jacobian_type:
-                    # print("values", values)
                     jac_val = np.array(values) * self.cdf_multipliers
                     if input_value != 0:
                         jac_val = np.sum(jac_val) / (self.der_step_size * input_value)
@@ -385,16 +383,15 @@ class ReaktoroJacobianSpec:
         for output_key, output_obj in self.output_specs.rkt_outputs.items():
             if output_obj.jacobian_type == JacType.calculated:
                 for idx, calc_obj in output_obj.calculation_options.properties.items():
-                    calc_obj.set_derivative(get_jacobian(calc_obj))
+                    calc_obj.set_derivative(get_jac(calc_obj))
                 jac_val = output_obj.get_calculated_jacobian_value()
-
             else:
-                jac_val = get_jacobian(output_obj)
+                jac_val = get_jac(output_obj)
             output_jacobian.append(jac_val)
         return output_jacobian
 
     def center_diff_order(self, order):
-        """paramterizes center different taylor series
+        """parametrizes center different taylor series
         refer to https://en.wikipedia.org/wiki/Finite_difference_coefficient"""
 
         if order == 2:

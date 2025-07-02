@@ -13,7 +13,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_type",
             ConfigValue(
-                default=JacType.average,
+                default=JacType.center_difference,
                 domain=IsInstance((str, JacType)),
                 description="Defines method for numerical jacobian approximations",
                 doc="""
@@ -30,7 +30,7 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_order",
             ConfigValue(
-                default=4,
+                default=10,
                 domain=int,
                 description="Defines order of numerical jacobian (should be an even number)",
                 doc="""
