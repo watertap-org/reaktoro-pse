@@ -77,7 +77,7 @@ class HessianOptions:
         CONFIG.declare(
             "bfgs_hessian_memory",
             ConfigValue(
-                default=12,
+                default=6,
                 domain=int,
                 description="Memory size for BFGS Hessian approximation",
                 doc="""Memory size for BFGS Hessian approximation

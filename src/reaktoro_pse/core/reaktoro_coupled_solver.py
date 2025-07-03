@@ -109,6 +109,7 @@ class ReaktoroCoupledSolver:
             self.property_solver.bfgs_init_const_hessian_value
         )
         self.bfgs_hessian_memory = self.property_solver.bfgs_hessian_memory
+        self.bfgs_epsilon = self.property_solver.bfgs_epsilon
 
     def modify_key(self, index, key):
         new_index = [index]
