@@ -87,9 +87,10 @@ class HessianApproximation:
         hessian_type=None,
         bfgs_init_min_hessian_value=1e-32,
         bfgs_init_max_hessian_value=1e8,
-        bfgs_init_const_hessian_value=1e-16,
-        bfgs_initialization_type=HessTypes.scalar1,
+        bfgs_init_const_hessian_value=1e-32,
+        bfgs_initialization_type=HessTypes.GaussNewton,
         bfgs_hessian_memory=3,
+        bfgs_epsilon=1e-12,  # same as ipopt!
     ):
         self.hessian_memory = HessianMemory(memory=bfgs_hessian_memory)
         if hessian_type is None:
@@ -101,7 +102,7 @@ class HessianApproximation:
         self.bfgs_hessian = None
         self.old_inputs = None
         self.s = None
-        self.epsilon = 1e-12  # same as ipopt!   # np.finfo(float).eps
+        self.epsilon = bfgs_epsilon  # same as ipopt!   # np.finfo(float).eps
         self.init_min_hessian_value = bfgs_init_min_hessian_value
         self.init_max_hessian_value = bfgs_init_max_hessian_value
         self.init_const_hessian_value = bfgs_init_const_hessian_value

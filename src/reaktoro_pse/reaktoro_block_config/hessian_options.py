@@ -47,7 +47,7 @@ class HessianOptions:
         CONFIG.declare(
             "bfgs_init_min_hessian_value",
             ConfigValue(
-                default=1e-32,
+                default=1e-64,
                 domain=float,
                 description="Minimum Hessian value for BFGS initialization",
                 doc="""Minimum Hessian value for BFGS initialization
@@ -77,10 +77,22 @@ class HessianOptions:
         CONFIG.declare(
             "bfgs_hessian_memory",
             ConfigValue(
-                default=10,
+                default=12,
                 domain=int,
                 description="Memory size for BFGS Hessian approximation",
                 doc="""Memory size for BFGS Hessian approximation
+                    """,
+            ),
+        )
+        CONFIG.declare(
+            "bfgs_epsilon",
+            ConfigValue(
+                default=1e-12,
+                domain=float,
+                description="Epsilon value for BFGS Hessian approximation updates",
+                doc="""This is used to define when an update for hesisan is accepted, 
+                in general should be several orders of magnitude larger then machine precision.
+                IPOPT uses 1e-12, so we use the same value here.
                     """,
             ),
         )

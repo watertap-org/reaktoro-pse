@@ -108,6 +108,7 @@ class ReaktoroSolver:
         export_object.bfgs_init_max_hessian_value = self.bfgs_init_max_hessian_value
         export_object.bfgs_init_const_hessian_value = self.bfgs_init_const_hessian_value
         export_object.bfgs_hessian_memory = self.bfgs_hessian_memory
+        export_object.bfgs_epsilon = self.bfgs_epsilon
         export_object.block_name = self.block_name
         return export_object
 
@@ -127,6 +128,7 @@ class ReaktoroSolver:
             export_object.bfgs_init_max_hessian_value,
             export_object.bfgs_init_const_hessian_value,
             export_object.bfgs_hessian_memory,
+            export_object.bfgs_epsilon,
         )
 
     def equilibrate_state(self):
@@ -150,6 +152,7 @@ class ReaktoroSolver:
         bfgs_init_max_hessian_value=1e8,
         bfgs_init_const_hessian_value=1e-16,
         bfgs_hessian_memory=3,
+        bfgs_epsilon=1e-12,
     ):
         """configuration for reaktro solver
 
@@ -174,6 +177,7 @@ class ReaktoroSolver:
         self.bfgs_init_max_hessian_value = bfgs_init_max_hessian_value
         self.bfgs_init_const_hessian_value = bfgs_init_const_hessian_value
         self.bfgs_hessian_memory = bfgs_hessian_memory
+        self.bfgs_epsilon = bfgs_epsilon
         if self.input_specs.assert_charge_neutrality:
             self.conditions.charge(0)
 

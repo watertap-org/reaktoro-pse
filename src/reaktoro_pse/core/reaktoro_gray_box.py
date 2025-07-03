@@ -45,6 +45,7 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
         bfgs_init_max_hessian_value=1e8,
         bfgs_init_const_hessian_value=1e-16,
         bfgs_hessian_memory=3,
+        bfgs_epsilon=1e-12,
     ):
         # assign a Reaktoro state object to instance
         self.reaktoro_solver = reaktoro_solver
@@ -57,6 +58,7 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
             bfgs_init_min_hessian_value = reaktoro_solver.bfgs_init_min_hessian_value
             bfgs_init_max_hessian_value = reaktoro_solver.bfgs_init_max_hessian_value
             bfgs_initialization_type = reaktoro_solver.bfgs_initialization_type
+            bfgs_epsilon = reaktoro_solver.bfgs_epsilon
         else:
             hess_type = hessian_type
         if inputs is None:
@@ -86,6 +88,7 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
                 bfgs_init_min_hessian_value=bfgs_init_min_hessian_value,
                 bfgs_init_max_hessian_value=bfgs_init_max_hessian_value,
                 bfgs_initialization_type=bfgs_initialization_type,
+                bfgs_epsilon=bfgs_epsilon,
             )
             setattr(self, "evaluate_hessian_outputs", self._evaluate_hessian_outputs)
 

@@ -1188,6 +1188,7 @@ class ReaktoroBlockData(ProcessBlockData):
             bfgs_init_max_hessian_value=self.config.hessian_options.bfgs_init_max_hessian_value,
             bfgs_init_const_hessian_value=self.config.hessian_options.bfgs_init_const_hessian_value,
             bfgs_hessian_memory=self.config.hessian_options.bfgs_hessian_memory,
+            bfgs_epsilon=self.config.hessian_options.bfgs_epsilon,
         )
 
     def build_gray_box(self, block, speciation_block=False):
