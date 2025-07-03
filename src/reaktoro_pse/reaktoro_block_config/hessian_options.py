@@ -33,13 +33,13 @@ class HessianOptions:
         CONFIG.declare(
             "bfgs_initialization_type",
             ConfigValue(
-                default=HessTypes.scalar2,
+                default=HessTypes.GaussNewton,
                 domain=IsInstance((str, HessTypes)),
                 description="Hessian initialzation type for BFGS",
                 doc="""Scalar type for initialization BFGS hessian
+                - GaussNewton - Gauss-Newton Hessian approximation (Jacobian^T * Jacobian)
                 - scalar1 - sTy/sTs
                 - scalar2 - yTy/sTy
-
                 where s is change in step, and y is change in gradient
                     """,
             ),
@@ -77,7 +77,7 @@ class HessianOptions:
         CONFIG.declare(
             "bfgs_hessian_memory",
             ConfigValue(
-                default=6,
+                default=10,
                 domain=int,
                 description="Memory size for BFGS Hessian approximation",
                 doc="""Memory size for BFGS Hessian approximation

@@ -60,12 +60,12 @@ class JacobianOptions:
                 description="Defines how to scale Jacobian matrix",
                 doc="""
                 Defines methods for jacobian scaling:
-                - no_scaling -- jacobian scale will == 1 for all outputs
-                - variable_scaling -- will use output variable scaling factors
-                - inverse_variable_scaling -- will use inverse of output variable scaling factors
-                - variable_io_scaling -- will sums squared of input scales and output scales
-                - jacobian_matrix_inverse_sum -- (default) will use inverse of sum of absolute values of jacobian matrix
-                - jacobian_matrix_square_sum -- will use squared sum of absolute values of jacobian matrix
+                - no_scaling -- jacobian scale == 1 for all outputs
+                - variable_scaling -- use output variable scaling factors
+                - inverse_variable_scaling -- use inverse of output variable scaling factors
+                - variable_io_scaling -- sum squared of input scales and output scales
+                - jacobian_matrix_inverse_sum -- (default) use inverse of sum of absolute values of jacobian matrix
+                - jacobian_matrix_square_sum -- use squared sum of absolute values of jacobian matrix
                 - user_scaling -- Use user provided scaling
                 """,
             ),

@@ -33,6 +33,8 @@ class HessTypes:
     scalar2 = "scalar2"
     scalar3 = "scalar3"
     scalar4 = "scalar4"
+    scalar_gaussnewton = "GaussNewton"
+    constant = "constant"
 
 
 class HessianMemory:
@@ -99,7 +101,7 @@ class HessianApproximation:
         self.bfgs_hessian = None
         self.old_inputs = None
         self.s = None
-        self.epsilon = 1e-12  # 100 * np.finfo(float).eps  # 1e-12
+        self.epsilon = 1e-12  # same as ipopt!   # np.finfo(float).eps
         self.init_min_hessian_value = bfgs_init_min_hessian_value
         self.init_max_hessian_value = bfgs_init_max_hessian_value
         self.init_const_hessian_value = bfgs_init_const_hessian_value
@@ -128,7 +130,7 @@ class HessianApproximation:
                 sigma[test] *= sigma_signs[test]
         sigma[zeros] = 0
         # for i in sigma:
-        #     print(np.min(i[i != 0]), np.max(i[i != 0]))
+        # print(np.min(i[i != 0]), np.max(i[i != 0]))
         return sigma
 
     def get_initial_hessian(self, old_step, new_step, old_jacobian, new_jacobian):
@@ -137,64 +139,54 @@ class HessianApproximation:
             bfgs_hessian.append(np.identity(len(new_step)))
         bfgs_hessian = np.array(bfgs_hessian)
 
-        s = np.array([new_step]) - old_step
+        s = (np.array([new_step]) - old_step).T
         for i in range(new_jacobian.shape[0]):
-            y = np.array([new_jacobian[i, :] - old_jacobian[i, :]])
+            y = np.array([new_jacobian[i, :] - old_jacobian[i, :]]).T
             if np.sum(y) != 0 and np.sum(s) != 0:
-                sigma = np.zeros(bfgs_hessian[i].shape)
                 if self.bfgs_initialization_type == HessTypes.scalar1:
                     sTy = s.T @ y
                     sTs = s.T @ s
-                    sigma[sTs != 0] = sTy[sTs != 0] / sTs[sTs != 0]
+                    if sTs == 0:
+                        sigma = self.init_const_hessian_value
+                    else:
+                        sigma = sTy / sTs
                 elif self.bfgs_initialization_type == HessTypes.scalar2:
                     sTy = s.T @ y
                     yTy = y.T @ y
-                    sigma[sTy != 0] = yTy[sTy != 0] / sTy[sTy != 0]
-                bfgs_hessian[i] *= sigma
+                    if sTy == 0:
+                        sigma = self.init_const_hessian_value
+                    else:
+                        sigma = yTy / sTy
+                elif self.bfgs_initialization_type == HessTypes.scalar3:
+                    sTy = s.T @ y
+                    yTy = y.T @ y
+                    sTs = s.T @ s
+                    if sTs == 0:
+                        sigma = self.init_const_hessian_value
+                    else:
+                        sigma = sTy / sTs / 2
+                        if sTy != 0:
+                            sigma += (yTy / sTy) / 2
+
+                elif self.bfgs_initialization_type == HessTypes.scalar4:
+                    yTy = y.T @ y
+                    sTs = s.T @ s
+                    if sTs == 0:
+                        sigma = self.init_const_hessian_value
+                    else:
+                        sigma = sTy / sTs
+                    if sTy != 0:
+                        sigma *= yTy / sTy
+                    sigma_sign = np.sign(sigma)
+                    sigma = np.sqrt(np.abs(sigma))
+                    sigma *= sigma_sign
+                elif self.bfgs_initialization_type == HessTypes.scalar_gaussnewton:
+                    sigma = np.outer(new_jacobian[i, :].T, new_jacobian[i, :])
             else:
                 sigma = self.init_const_hessian_value
-                bfgs_hessian[i] *= sigma
+            bfgs_hessian[i] *= sigma
         bfgs_hessian = self.apply_sigma_bounds(bfgs_hessian)
         return bfgs_hessian
-
-    # def get_initial_hessian(self, old_step, new_step, old_jacobian, new_jacobian):
-    #     bfgs_hessian = []
-    #     for i in range(new_jacobian.shape[0]):
-    #         bfgs_hessian.append(np.identity(len(new_step)))
-    #     bfgs_hessian = np.array(bfgs_hessian)
-
-    #     s = (np.array([new_step]) - old_step).T
-    #     for i in range(new_jacobian.shape[0]):
-    #         y = np.array([new_jacobian[i, :] - old_jacobian[i, :]]).T
-    #         if np.sum(y) != 0 and np.sum(s) != 0:
-    #             if self.bfgs_initialization_type == HessTypes.scalar1:
-    #                 sTy = s.T @ y
-    #                 sTs = s.T @ s
-    #                 sigma = sTy / sTs
-    #             elif self.bfgs_initialization_type == HessTypes.scalar2:
-    #                 sTy = s.T @ y
-    #                 yTy = y.T @ y
-    #                 sigma = yTy / sTy
-    #             elif self.bfgs_initialization_type == HessTypes.scalar3:
-    #                 sTy = s.T @ y
-    #                 yTy = y.T @ y
-    #                 sTs = s.T @ s
-    #                 sigma = sTy / sTs / 2
-    #                 sigma += (yTy / sTy) / 2
-
-    #             elif self.bfgs_initialization_type == HessTypes.scalar4:
-    #                 yTy = y.T @ y
-    #                 sTs = s.T @ s
-    #                 sigma = sTy / sTs
-    #                 sigma *= yTy / sTy
-    #                 sigma_sign = np.sign(sigma)
-    #                 sigma = np.sqrt(np.abs(sigma))
-    #                 sigma *= sigma_sign
-    #         else:
-    #             sigma = self.init_const_hessian_value
-    #         bfgs_hessian[i] *= sigma
-    #     bfgs_hessian = self.apply_sigma_bounds(bfgs_hessian)
-    #     return bfgs_hessian
 
     def create_bfgs_matrix(self):
         self.hessian_memory.memorize(self.inputs, self.jacobian_matrix)
@@ -236,7 +228,7 @@ class HessianApproximation:
             h_sum += self._outputs_dual_multipliers[i] * self.bfgs_hessian[i]
         self.hessian_matrix = h_sum.copy()
 
-    def hessian_gauss_newton_version(self, sparse_jac, threshold=1e-16):
+    def hessian_gauss_newton_version(self, sparse_jac, threshold=1e-8):
         """standard gauss newton hessian approximation"""
         hess = np.zeros((len(self.inputs), len(self.inputs)))
 
@@ -514,6 +506,7 @@ class HessianApproximation:
             raise NotImplementedError(
                 f"Hessian type {self.hessian_matrix_type} not implemented"
             )
+
         if isinstance(self.hessian_matrix, coo_matrix):
             return self.hessian_matrix
         else:

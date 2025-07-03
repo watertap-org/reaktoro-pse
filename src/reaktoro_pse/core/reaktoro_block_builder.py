@@ -567,7 +567,8 @@ class ReaktoroBlockBuilder:
                 self.solver.jacobian_scaling_values[i] = sf
         elif self.jacobian_scaling_type == JacScalingTypes.jacobian_matrix_square_sum:
             jac_matrix = self.get_jacobian_matrix().copy()
-            scale_factors = (np.sum(np.abs(jac_matrix) ** 2, axis=1) ** 0.5) ** -1
+            scale_factors = np.sum(np.abs(jac_matrix) ** 2, axis=1) ** 0.5
+            scale_factors[scale_factors != 0] = scale_factors[scale_factors != 0] ** -1
             self.solver.jacobian_scaling_values = scale_factors
         elif self.jacobian_scaling_type == JacScalingTypes.jacobian_matrix_inverse_sum:
 
@@ -582,7 +583,6 @@ class ReaktoroBlockBuilder:
         min_scale = self.jacobian_scaling_bounds[0]
         if self.jacobian_scaling_bounds_output_based:
             for i, scale in enumerate(self.solver.jacobian_scaling_values):
-
                 if min_scale is not None and scale < output_scales[i] * min_scale:
                     self.solver.jacobian_scaling_values[i] = (
                         output_scales[i] * min_scale
