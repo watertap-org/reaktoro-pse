@@ -32,8 +32,6 @@ from reaktoro_pse.core.util_classes.cyipopt_solver import (
 from idaes.core.util.model_statistics import degrees_of_freedom
 
 
-
-
 def build_comp(blk):
     blk.temp = Var(initialize=293.15, units=pyunits.K)
     blk.temp.fix()

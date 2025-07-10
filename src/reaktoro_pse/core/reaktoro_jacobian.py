@@ -378,11 +378,6 @@ class ReaktoroJacobianSpec:
                         and self.input_multipliers[input_index]["good_steps"] > 0
                     ):
                         self.input_multipliers[input_index]["mc"] *= 10
-                        print(
-                            "Warning: Jacobian is zero",
-                            input_index,
-                            self.input_multipliers[input_index],
-                        )
                     jac_val = 0
                     self.input_multipliers[input_index]["good_steps"] = 0
                 elif JacType.average == self.jacobian_type:
@@ -416,13 +411,12 @@ class ReaktoroJacobianSpec:
                             * self.input_multipliers[input_index]["mc"]
                         )
                     self.input_multipliers[input_index]["good_steps"] += 1
-                # derate multiplier if had succesfull step
+                # derate multiplier if had successful step
                 if (
                     len(diff[diff == 0]) == 0
                     and self.input_multipliers[input_index]["mc"] > 1
                     and self.input_multipliers[input_index]["good_steps"] > 25
                 ):
-                    print("derated", input_index, self.input_multipliers[input_index])
                     self.input_multipliers[input_index]["mc"] /= 10
                     if self.input_multipliers[input_index]["mc"] < 1:
                         self.input_multipliers[input_index]["mc"] = 1

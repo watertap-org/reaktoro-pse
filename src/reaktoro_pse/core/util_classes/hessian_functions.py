@@ -512,7 +512,7 @@ class HessianApproximation:
             if isinstance(self.hessian_matrix, coo_matrix):
                 return self.hessian_matrix
             else:
-                
+
                 low_triangular_hessian = _hand_tril(np.array(self.hessian_matrix))
                 return low_triangular_hessian
         except Exception as e:
@@ -524,6 +524,7 @@ class HessianApproximation:
                 f"Jacobian: {self.jacobian_matrix}, "
                 f"Dual multipliers: {self._outputs_dual_multipliers}"
             )
+
 
 def _hand_tril(jm):
     assert jm.shape[0] == jm.shape[1]
