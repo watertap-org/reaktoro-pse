@@ -485,35 +485,45 @@ class HessianApproximation:
         self.outputs = np.array(output_values)
         self.jacobian_matrix = np.array(jacobian)
         self._outputs_dual_multipliers = dual_multipliers
-        if self.hessian_matrix_type == HessTypes.ZeroHessian:
-            self.sparse_diagonal(len(self.inputs), 0)
-        elif self.hessian_matrix_type == HessTypes.sparse_16:
-            self.sparse_diagonal(len(self.inputs), 1e-16)
-        elif self.hessian_matrix_type == HessTypes.GaussNewton:
-            self.hessian_gauss_newton_version(sparse_jac=False)
-        elif self.hessian_matrix_type == HessTypes.BFGS:
-            self.hessian_bfgs()
-        elif self.hessian_matrix_type == HessTypes.CBFGS:
-            self.hessian_cbfgs()
-        elif self.hessian_matrix_type == HessTypes.BFGS_mod:
-            self.hessian_modified_bfgs()
-        elif self.hessian_matrix_type == HessTypes.BFGS_damp:
-            self.hessian_damped_bfgs()
-        elif self.hessian_matrix_type == HessTypes.BFGS_ipopt:
-            self.hessian_ipopt_bfgs_modification()
-        elif self.hessian_matrix_type == HessTypes.LBFGS:
-            self.hessian_lbfgs()
-        else:
-            raise NotImplementedError(
-                f"Hessian type {self.hessian_matrix_type} not implemented"
+        try:
+            if self.hessian_matrix_type == HessTypes.ZeroHessian:
+                self.sparse_diagonal(len(self.inputs), 0)
+            elif self.hessian_matrix_type == HessTypes.sparse_16:
+                self.sparse_diagonal(len(self.inputs), 1e-16)
+            elif self.hessian_matrix_type == HessTypes.GaussNewton:
+                self.hessian_gauss_newton_version(sparse_jac=False)
+            elif self.hessian_matrix_type == HessTypes.BFGS:
+                self.hessian_bfgs()
+            elif self.hessian_matrix_type == HessTypes.CBFGS:
+                self.hessian_cbfgs()
+            elif self.hessian_matrix_type == HessTypes.BFGS_mod:
+                self.hessian_modified_bfgs()
+            elif self.hessian_matrix_type == HessTypes.BFGS_damp:
+                self.hessian_damped_bfgs()
+            elif self.hessian_matrix_type == HessTypes.BFGS_ipopt:
+                self.hessian_ipopt_bfgs_modification()
+            elif self.hessian_matrix_type == HessTypes.LBFGS:
+                self.hessian_lbfgs()
+            else:
+                raise NotImplementedError(
+                    f"Hessian type {self.hessian_matrix_type} not implemented"
+                )
+
+            if isinstance(self.hessian_matrix, coo_matrix):
+                return self.hessian_matrix
+            else:
+                
+                low_triangular_hessian = _hand_tril(np.array(self.hessian_matrix))
+                return low_triangular_hessian
+        except Exception as e:
+            print(
+                f"Error in Hessian approximation: {e}. "
+                f"Hessian type: {self.hessian_matrix_type}, "
+                f"Inputs: {self.inputs}, "
+                f"Outputs: {self.outputs}, "
+                f"Jacobian: {self.jacobian_matrix}, "
+                f"Dual multipliers: {self._outputs_dual_multipliers}"
             )
-
-        if isinstance(self.hessian_matrix, coo_matrix):
-            return self.hessian_matrix
-        else:
-            low_triangular_hessian = _hand_tril(np.array(self.hessian_matrix))
-            return low_triangular_hessian
-
 
 def _hand_tril(jm):
     assert jm.shape[0] == jm.shape[1]

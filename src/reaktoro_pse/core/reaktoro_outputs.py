@@ -323,7 +323,7 @@ class PyomoProperties:
         )
         return required_props
 
-    def alkalinityAsCaCO3(self, property_index=None):
+    def alkalinityAsCaCO3Direct(self, property_index=None):
         """build alkalinity and convert it to CaCO3 basis"""
         required_props = PropOptions()
         required_props.register_property(PropTypes.aqueous_prop, "alkalinity")
@@ -445,14 +445,27 @@ class ConvertedPropTypes:
             property_name="saturationIndex",
             property_index=property_index,
         )
-        output.calculate_value = lambda x: 10 ** (
-            x["saturationIndex", property_index].value
-        )
-        output.calculate_derivative_conversion = (
-            lambda x: x["saturationIndex", property_index].derivative
-            * (10 ** x["saturationIndex", property_index].value)
-            * math.log(10)
-        )
+
+        def calc_sat_value(x):
+            try:
+                return 10 ** (x["saturationIndex", property_index].value)
+            except OverflowError:
+                print("overflow error in scalingTendency calc_sat_value")
+                return 1e100
+
+        def calc_sat_dir(x):
+            try:
+                return (
+                    x["saturationIndex", property_index].derivative
+                    * (10 ** x["saturationIndex", property_index].value)
+                    * math.log(10)
+                )
+            except OverflowError:
+                print("overflow error in scalingTendency calc_sat_dir")
+                return 1e100
+
+        output.calculate_value = calc_sat_value
+        output.calculate_derivative_conversion = calc_sat_dir
         return output
 
     def logSpeciesAmount(self, property_index):

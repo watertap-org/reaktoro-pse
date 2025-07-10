@@ -197,7 +197,7 @@ class ReaktoroJacobianSpec:
         self.jac_idx_ref = {
             key: idx for idx, key in enumerate(self.jac_rows.standard_keys)
         }
-
+        self.input_multipliers = {}
         self.inexact_jacobian = False
         self.set_jacobian_type()
         self.configure_numerical_jacobian()
@@ -333,7 +333,9 @@ class ReaktoroJacobianSpec:
             value = self.jac_rows.compute_value(prop, key)
             self.jac_values[jacIdx] = value
 
-    def process_jacobian_matrix(self, jacobian_matrix, input_index, input_value):
+    def process_jacobian_matrix(
+        self, jacobian_matrix, input_index, input_value, multiplier=1
+    ):
         """this function is used to pull out a specific column from the jacobian and also
         generate matrix for manually propagating derivatives
         Here we need to retain row order, as its same as input into chem properties"""
@@ -343,14 +345,20 @@ class ReaktoroJacobianSpec:
             self.partial_jac_vals.reshape(-1, 1)
             * input_value
             * self.jac_numerical_steps
+            * multiplier
         )
         return jacobian_abs_matrix
 
     def get_jacobian(self, jacobian_matrix, input_object):
         input_index = input_object.get_jacobian_index()
         input_value = input_object.get_temp_value()
+        if input_index not in self.input_multipliers:
+            self.input_multipliers[input_index] = {"mc": 1, "good_steps": 0}
         jacobian_abs_matrix = self.process_jacobian_matrix(
-            jacobian_matrix, input_index, input_value
+            jacobian_matrix,
+            input_index,
+            input_value,
+            self.input_multipliers[input_index]["mc"],
         )
         self.update_states(jacobian_abs_matrix)
         output_jacobian = []
@@ -363,21 +371,62 @@ class ReaktoroJacobianSpec:
             else:
                 values = self.get_state_values(output_obj)
                 diff = np.diff(values)
-                if JacType.average == self.jacobian_type:
+                if len(diff[diff == 0]) > 0:
+                    if (
+                        self.input_multipliers[input_index]["mc"] < 1000
+                        and len(diff[diff == 0]) != len(diff)
+                        and self.input_multipliers[input_index]["good_steps"] > 0
+                    ):
+                        self.input_multipliers[input_index]["mc"] *= 10
+                        print(
+                            "Warning: Jacobian is zero",
+                            input_index,
+                            self.input_multipliers[input_index],
+                        )
+                    jac_val = 0
+                    self.input_multipliers[input_index]["good_steps"] = 0
+                elif JacType.average == self.jacobian_type:
                     diff = np.diff(values)
                     if input_value != 0:
-                        step = np.diff(self.numerical_steps * input_value)
+                        step = np.diff(
+                            self.numerical_steps
+                            * input_value
+                            * self.input_multipliers[input_index]["mc"]
+                        )
                     else:
-                        step = np.diff(self.numerical_steps)
-                    jac_val = np.average(diff / step)
+                        step = np.diff(
+                            self.numerical_steps
+                            * self.input_multipliers[input_index]["mc"]
+                        )
+                    jac_val = np.average(diff[diff != 0] / step[diff != 0])
                     if jac_val != jac_val:
                         jac_val = 0
+                    self.input_multipliers[input_index]["good_steps"] += 1
                 elif JacType.center_difference == self.jacobian_type:
                     jac_val = np.array(values) * self.cdf_multipliers
                     if input_value != 0:
-                        jac_val = np.sum(jac_val) / (self.der_step_size * input_value)
+                        jac_val = np.sum(jac_val) / (
+                            self.der_step_size
+                            * input_value
+                            * self.input_multipliers[input_index]["mc"]
+                        )
                     else:
-                        jac_val = np.sum(jac_val) / self.der_step_size
+                        jac_val = np.sum(jac_val) / (
+                            self.der_step_size
+                            * self.input_multipliers[input_index]["mc"]
+                        )
+                    self.input_multipliers[input_index]["good_steps"] += 1
+                # derate multiplier if had succesfull step
+                if (
+                    len(diff[diff == 0]) == 0
+                    and self.input_multipliers[input_index]["mc"] > 1
+                    and self.input_multipliers[input_index]["good_steps"] > 25
+                ):
+                    print("derated", input_index, self.input_multipliers[input_index])
+                    self.input_multipliers[input_index]["mc"] /= 10
+                    if self.input_multipliers[input_index]["mc"] < 1:
+                        self.input_multipliers[input_index]["mc"] = 1
+
             return jac_val
 
         for output_key, output_obj in self.output_specs.rkt_outputs.items():

@@ -21,7 +21,6 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits,
 )
-from watertap_solvers import get_solver
 
 from pyomo.contrib.pynumero.interfaces.external_grey_box import (
     ExternalGreyBoxModel,
@@ -33,7 +32,6 @@ from reaktoro_pse.core.util_classes.cyipopt_solver import (
 from idaes.core.util.model_statistics import degrees_of_freedom
 
 
-import idaes.core.util.scaling as iscale
 
 
 def build_comp(blk):
