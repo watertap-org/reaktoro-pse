@@ -352,8 +352,8 @@ class ReaktoroJacobianSpec:
         return self.der_step_multipliers[(input_name, output_index)]
 
     def update_der_step_multiplier(self, diff, input_name, output_index):
-        min_val = 1e-6
-        max_val = 1e5
+        min_val = 1e-4
+        max_val = 1e4
         # increase step size if diff to small
         if diff < min_val:
             self.der_step_multipliers[(input_name, output_index)] *= 10
@@ -381,16 +381,19 @@ class ReaktoroJacobianSpec:
     def get_jacobian(self, jacobian_matrix, input_object):
         input_index = input_object.get_jacobian_index()
         input_value = input_object.get_temp_value()
-        if RktInputTypes.pH == input_object.var_name:
-            step_size = self.der_step_size[RktInputTypes.pH]
-        elif RktInputTypes.temperature == input_object.var_name:
-            step_size = self.der_step_size[RktInputTypes.temperature]
-        elif RktInputTypes.pressure == input_object.var_name:
-            step_size = self.der_step_size[RktInputTypes.pressure]
-        elif RktInputTypes.enthalpy == input_object.var_name:
-            step_size = self.der_step_size[RktInputTypes.enthalpy]
+        if isinstance(self.der_step_size, float):
+            step_size = self.der_step_size
         else:
-            step_size = self.der_step_size[RktInputTypes.species]
+            if RktInputTypes.pH == input_object.var_name:
+                step_size = self.der_step_size[RktInputTypes.pH]
+            elif RktInputTypes.temperature == input_object.var_name:
+                step_size = self.der_step_size[RktInputTypes.temperature]
+            elif RktInputTypes.pressure == input_object.var_name:
+                step_size = self.der_step_size[RktInputTypes.pressure]
+            elif RktInputTypes.enthalpy == input_object.var_name:
+                step_size = self.der_step_size[RktInputTypes.enthalpy]
+            else:
+                step_size = self.der_step_size[RktInputTypes.species]
 
         self.partial_jac_vals = jacobian_matrix[:, input_index]
         output_jacobian = []
