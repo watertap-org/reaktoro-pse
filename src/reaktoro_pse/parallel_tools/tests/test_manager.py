@@ -59,7 +59,6 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species, hess_typ
         jacobian_options={
             "numerical_type": "average",
             "numerical_order": 2,
-            "numerical_step": 1e-8,
         },
         database="PhreeqcDatabase",
         database_file="pitzer.dat",

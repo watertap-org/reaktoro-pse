@@ -352,8 +352,8 @@ class ReaktoroJacobianSpec:
         return self.der_step_multipliers[(input_name, output_index)]
 
     def update_der_step_multiplier(self, diff, input_name, output_index):
-        min_val = 1e-5
-        max_val = 1e4
+        min_val = 1e-6
+        max_val = 1e5
         # increase step size if diff to small
         if diff < min_val:
             self.der_step_multipliers[(input_name, output_index)] *= 10
@@ -393,11 +393,6 @@ class ReaktoroJacobianSpec:
             step_size = self.der_step_size[RktInputTypes.species]
 
         self.partial_jac_vals = jacobian_matrix[:, input_index]
-        # jacobian_abs_matrix = self.process_jacobian_matrix(
-        #     input_value,
-        #     step_size,
-        # )
-        # self.update_states(jacobian_abs_matrix)
         output_jacobian = []
 
         def get_jac(output_obj):
@@ -406,7 +401,7 @@ class ReaktoroJacobianSpec:
                     self.jac_idx_ref[output_obj.jacobian_index]
                 ]
             else:
-                steps = 3
+                steps = 10
                 for i in range(steps):
                     local_step_size = step_size * self.get_multiplier(
                         input_object.var_name,
