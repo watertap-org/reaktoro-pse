@@ -24,6 +24,7 @@ _log = idaeslog.getLogger(__name__)
 
 __author__ = "Alexander V. Dudchenko, Paul Vecchiarelli, Ben Knueven"
 
+import time
 
 # class to setup jacobian for reaktoro
 
@@ -197,7 +198,7 @@ class ReaktoroJacobianSpec:
         self.jac_idx_ref = {
             key: idx for idx, key in enumerate(self.jac_rows.standard_keys)
         }
-        self.input_multipliers = {}
+        self.der_step_multipliers = {}
         self.inexact_jacobian = False
         self.set_jacobian_type()
         self.configure_numerical_jacobian()
@@ -233,7 +234,7 @@ class ReaktoroJacobianSpec:
         if jacobian_type == JacType.average:
             self.jacobian_type = JacType.average
             assert order % 2 == 0
-            self.numerical_steps = np.arange(-order / 2, order / 2 + 1) * step_size
+            self.numerical_steps = np.arange(-order / 2, order / 2 + 1)
         if jacobian_type == JacType.center_difference:
             self.jacobian_type = JacType.center_difference
             self.center_diff_order(order)
@@ -333,34 +334,70 @@ class ReaktoroJacobianSpec:
             value = self.jac_rows.compute_value(prop, key)
             self.jac_values[jacIdx] = value
 
-    def process_jacobian_matrix(
-        self, jacobian_matrix, input_index, input_value, multiplier=1
-    ):
+    def process_jacobian_matrix(self, input_value, step_size):
         """this function is used to pull out a specific column from the jacobian and also
         generate matrix for manually propagating derivatives
         Here we need to retain row order, as its same as input into chem properties"""
-        self.partial_jac_vals = jacobian_matrix[:, input_index]
-
         jacobian_abs_matrix = self.jac_values + (
             self.partial_jac_vals.reshape(-1, 1)
             * input_value
+            * step_size
             * self.jac_numerical_steps
-            * multiplier
         )
         return jacobian_abs_matrix
+
+    def get_multiplier(self, input_name, output_index):
+        if (input_name, output_index) not in self.der_step_multipliers:
+            self.der_step_multipliers[(input_name, output_index)] = 1
+        return self.der_step_multipliers[(input_name, output_index)]
+
+    def update_der_step_multiplier(self, diff, input_name, output_index):
+        min_val = 1e-5
+        max_val = 1e4
+        # increase step size if diff to small
+        if diff < min_val:
+            self.der_step_multipliers[(input_name, output_index)] *= 10
+            return True
+        # if we decreased step size, make sure diff does not grow much larger
+        elif (
+            diff > min_val * 100
+            and self.der_step_multipliers[(input_name, output_index)] > 1
+        ):
+            self.der_step_multipliers[(input_name, output_index)] /= 10
+            return True
+        # decrease step size if diff is too large
+        elif diff > max_val:
+            self.der_step_multipliers[(input_name, output_index)] /= 10
+            return True
+        # increase step size if diff starts to get too small
+        elif (
+            diff < max_val / 100
+            and self.der_step_multipliers[(input_name, output_index)] < 1
+        ):
+            self.der_step_multipliers[(input_name, output_index)] *= 10
+            return True
+        return False
 
     def get_jacobian(self, jacobian_matrix, input_object):
         input_index = input_object.get_jacobian_index()
         input_value = input_object.get_temp_value()
-        if input_index not in self.input_multipliers:
-            self.input_multipliers[input_index] = {"mc": 1, "good_steps": 0}
-        jacobian_abs_matrix = self.process_jacobian_matrix(
-            jacobian_matrix,
-            input_index,
-            input_value,
-            self.input_multipliers[input_index]["mc"],
-        )
-        self.update_states(jacobian_abs_matrix)
+        if RktInputTypes.pH == input_object.var_name:
+            step_size = self.der_step_size[RktInputTypes.pH]
+        elif RktInputTypes.temperature == input_object.var_name:
+            step_size = self.der_step_size[RktInputTypes.temperature]
+        elif RktInputTypes.pressure == input_object.var_name:
+            step_size = self.der_step_size[RktInputTypes.pressure]
+        elif RktInputTypes.enthalpy == input_object.var_name:
+            step_size = self.der_step_size[RktInputTypes.enthalpy]
+        else:
+            step_size = self.der_step_size[RktInputTypes.species]
+
+        self.partial_jac_vals = jacobian_matrix[:, input_index]
+        # jacobian_abs_matrix = self.process_jacobian_matrix(
+        #     input_value,
+        #     step_size,
+        # )
+        # self.update_states(jacobian_abs_matrix)
         output_jacobian = []
 
         def get_jac(output_obj):
@@ -369,57 +406,46 @@ class ReaktoroJacobianSpec:
                     self.jac_idx_ref[output_obj.jacobian_index]
                 ]
             else:
-                values = self.get_state_values(output_obj)
-                diff = np.diff(values)
-                if len(diff[diff == 0]) > 0:
-                    if (
-                        self.input_multipliers[input_index]["mc"] < 1000
-                        and len(diff[diff == 0]) != len(diff)
-                        and self.input_multipliers[input_index]["good_steps"] > 0
-                    ):
-                        self.input_multipliers[input_index]["mc"] *= 10
-                    jac_val = 0
-                    self.input_multipliers[input_index]["good_steps"] = 0
-                elif JacType.average == self.jacobian_type:
+                steps = 3
+                for i in range(steps):
+                    local_step_size = step_size * self.get_multiplier(
+                        input_object.var_name,
+                        output_obj.jacobian_index,
+                    )
+                    jacobian_abs_matrix = self.process_jacobian_matrix(
+                        input_value,
+                        local_step_size,
+                    )
+                    self.update_states(jacobian_abs_matrix)
+                    values = self.get_state_values(output_obj)
+
                     diff = np.diff(values)
+                    norm_diff = np.abs(np.max(diff) / np.max(values))
+                    resolve = self.update_der_step_multiplier(
+                        norm_diff,
+                        input_object.var_name,
+                        output_obj.jacobian_index,
+                    )
+                    if resolve is False:
+                        break
+                if len(diff[diff == 0]) > 0:
+                    jac_val = 0
+                elif JacType.average == self.jacobian_type:
                     if input_value != 0:
                         step = np.diff(
-                            self.numerical_steps
-                            * input_value
-                            * self.input_multipliers[input_index]["mc"]
+                            self.numerical_steps * local_step_size * input_value
                         )
                     else:
-                        step = np.diff(
-                            self.numerical_steps
-                            * self.input_multipliers[input_index]["mc"]
-                        )
+                        step = np.diff(self.numerical_steps * local_step_size)
                     jac_val = np.average(diff[diff != 0] / step[diff != 0])
                     if jac_val != jac_val:
                         jac_val = 0
-                    self.input_multipliers[input_index]["good_steps"] += 1
                 elif JacType.center_difference == self.jacobian_type:
                     jac_val = np.array(values) * self.cdf_multipliers
                     if input_value != 0:
-                        jac_val = np.sum(jac_val) / (
-                            self.der_step_size
-                            * input_value
-                            * self.input_multipliers[input_index]["mc"]
-                        )
+                        jac_val = np.sum(jac_val) / (input_value * local_step_size)
                     else:
-                        jac_val = np.sum(jac_val) / (
-                            self.der_step_size
-                            * self.input_multipliers[input_index]["mc"]
-                        )
-                    self.input_multipliers[input_index]["good_steps"] += 1
-                # derate multiplier if had successful step
-                if (
-                    len(diff[diff == 0]) == 0
-                    and self.input_multipliers[input_index]["mc"] > 1
-                    and self.input_multipliers[input_index]["good_steps"] > 25
-                ):
-                    self.input_multipliers[input_index]["mc"] /= 10
-                    if self.input_multipliers[input_index]["mc"] < 1:
-                        self.input_multipliers[input_index]["mc"] = 1
+                        jac_val = np.sum(jac_val) / (local_step_size)
 
             return jac_val
 
@@ -438,38 +464,31 @@ class ReaktoroJacobianSpec:
         refer to https://en.wikipedia.org/wiki/Finite_difference_coefficient"""
 
         if order == 2:
-            self.numerical_steps = (
-                np.array(
-                    [
-                        -1,
-                        1,
-                    ]
-                )
-                * self.der_step_size
+            self.numerical_steps = np.array(
+                [
+                    -1,
+                    1,
+                ]
             )
             self.cdf_multipliers = np.array([-1 / 2, 1 / 2], dtype=float)
         if order == 4:
-            self.numerical_steps = np.array([-2, -1, 1, 2]) * self.der_step_size
+            self.numerical_steps = np.array([-2, -1, 1, 2])
             self.cdf_multipliers = np.array(
                 [1 / 12, -2 / 3, 2 / 3, -1 / 12], dtype=float
             )
         if order == 6:
-            self.numerical_steps = np.array([-3, -2, -1, 1, 2, 3]) * self.der_step_size
+            self.numerical_steps = np.array([-3, -2, -1, 1, 2, 3])
             self.cdf_multipliers = np.array(
                 [-1 / 60, 3 / 20, -3 / 4, 3 / 4, -3 / 20, 1 / 60], dtype=float
             )
         if order == 8:
-            self.numerical_steps = (
-                np.array([-4, -3, -2, -1, 1, 2, 3, 4]) * self.der_step_size
-            )
+            self.numerical_steps = np.array([-4, -3, -2, -1, 1, 2, 3, 4])
             self.cdf_multipliers = np.array(
                 [1 / 280, -4 / 105, 1 / 5, -4 / 5, 4 / 5, -1 / 5, 4 / 105, -1 / 280],
                 dtype=float,
             )
         if order == 10:
-            self.numerical_steps = (
-                np.array([-5, -4, -3, -2, -1, 1, 2, 3, 4, 5]) * self.der_step_size
-            )
+            self.numerical_steps = np.array([-5, -4, -3, -2, -1, 1, 2, 3, 4, 5])
             self.cdf_multipliers = (
                 np.array(
                     [-2, 25, -150, 600, -2100, 2100, -600, 150, -25, 2], dtype=float

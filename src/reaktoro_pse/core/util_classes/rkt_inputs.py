@@ -27,6 +27,7 @@ class RktInputTypes:
     temperature = "temperature"
     enthalpy = "enthalpy"
     pressure = "pressure"
+    species = "species"
     dimensionless = "dimensionless"
     mass_units = ["kg", "mg"]
     system_state = "system_state"

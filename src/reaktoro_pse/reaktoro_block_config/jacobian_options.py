@@ -2,6 +2,7 @@ from pyomo.common.config import ConfigValue, IsInstance, ConfigDict
 from reaktoro_pse.core.reaktoro_jacobian import JacType
 from reaktoro_pse.core.reaktoro_block_builder import JacScalingTypes
 from reaktoro_pse.core.util_classes.hessian_functions import HessTypes
+from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 
 
 class JacobianOptions:
@@ -43,12 +44,18 @@ class JacobianOptions:
         CONFIG.declare(
             "numerical_step",
             ConfigValue(
-                default=1e-4,
-                domain=float,
-                description="Defines the step to use for numerical descritiazaiton",
+                default={
+                    RktInputTypes.pH: 1e-3,
+                    RktInputTypes.temperature: 1e-5,  # normaly in kelvin,  take 0.01 k steps
+                    RktInputTypes.pressure: 1e-6,  # normaly in pascal,  take 0.1 Pa steps
+                    RktInputTypes.enthalpy: 1e-5,  # normaly in joules,  take 0.01 J steps
+                    RktInputTypes.species: 1e-3,
+                },
+                domain=dict,
+                description="Defines the step to use for numerical descritiazaiton based on input type",
                 doc="""This will define how small of a step to use for numerical derivative propagation which takes
                 the absolute chemical property and multiplies it by chemical property derivative multiplied by step 
-                    chemical_property_step=chemical_property_absolute_value*chemical_property_derivative*step
+                    chemical_property_step=chemical_input*chemical_property_derivative*step
                 """,
             ),
         )

@@ -37,24 +37,44 @@ _log = idaeslog.getLogger(__name__)
 
 
 class ReaktoroCoupledSolver:
+    """Couples speciation and property reaktoro solvers into a single solver.
+    This in general mimics regular Reaktoro solver but couples the
+    speciation solver with a property solver."""
+
     def __init__(self, speciation_solvers):
+        """
+        Args:
+            speciation_solvers: single or list of speciation solvers to couple with property solver
+        """
+        if not isinstance(speciation_solvers, list):
+            speciation_solvers = [speciation_solvers]
         self.speciation_solvers = speciation_solvers
         self.get_master_inputs()
         self.get_speciation_outputs()
 
     def register_property_solver(self, property_solver):
+        """
+        Register a property solver to the coupled solver.
+        Args:
+            property_solver: a ReaktoroPropertySolver instance to couple with speciation solvers
+        """
         self.property_solver = property_solver
         self.prop_inputs_idx = []
         self.prop_jac_idx = []
+        # used to store property indexes
         self.prop_jac_propagation_idx = np.zeros(len(self.output_key_order), dtype=int)
+        # used to store property keys for propagation
         self.prop_jac_propagation_keys = np.empty(
             len(self.output_key_order), dtype=object
         )
+        # get user inputs into property block, we will track these manually in the
+        # coupled solver
         for key, obj in self.property_solver.input_specs.user_inputs.items():
             if obj.io_type != "specie" and obj.io_type != "element":
                 new_key = self.modify_key("prop", key)
                 self.input_specs.user_inputs[new_key] = obj
                 self.master_mapping[new_key] = key
+        # get all inputs.
         for idx, key in enumerate(
             self.property_solver.input_specs.rkt_inputs.rkt_input_list
         ):
@@ -97,6 +117,8 @@ class ReaktoroCoupledSolver:
                 self.property_solver.input_specs.user_inputs[key]
             )
             self.master_mapping[new_key] = key
+        # register hessian options for proerty solver, these will be used
+        # as master options for our graybox
         self.hessian_type = self.property_solver.hessian_type
         self.bfgs_initialization_type = self.property_solver.bfgs_initialization_type
         self.bfgs_init_min_hessian_value = (
@@ -112,6 +134,7 @@ class ReaktoroCoupledSolver:
         self.bfgs_epsilon = self.property_solver.bfgs_epsilon
 
     def modify_key(self, index, key):
+        """utility for generating single tuple key"""
         new_index = [index]
         if isinstance(key, str):
             new_index.append(key)
@@ -121,6 +144,7 @@ class ReaktoroCoupledSolver:
         return tuple(new_index)
 
     def update_input_list(self, new_key):
+        # update input list for master inputs
         if new_key not in self.input_specs.rkt_inputs.rkt_input_list:
             self.input_specs.rkt_inputs.rkt_input_list.append(new_key)
 
@@ -187,6 +211,7 @@ class ReaktoroCoupledSolver:
     def equilibrate_state(
         self,
     ):
+        # intialzies all states
         for solver in self.speciation_solvers:
             solver.equilibrate_state()
         self.prop_block_not_equilibrated = True
@@ -207,7 +232,7 @@ class ReaktoroCoupledSolver:
         self.prop_block_not_equilibrated = False
 
     def propagate_speciation_outputs(self):
-
+        """Propagate outputs from speciation solvers to the inputs for main prop block."""
         for output, obj in self.outputs.items():
             sum_element = 0
             for i in self.speciation_solvers:
@@ -215,6 +240,7 @@ class ReaktoroCoupledSolver:
             self.outputs[output].set_value(sum_element)
 
     def compute_combined_jacobian(self, speciation_jacs, property_jac):
+        """manually propagate speciation jacobians to property jacobian"""
         self.jacobian_matrix = np.zeros(
             (
                 len(self.output_specs.rkt_outputs),
@@ -234,6 +260,11 @@ class ReaktoroCoupledSolver:
         self.jacobian_matrix[:, end_idx:] = sub_prop_jac
 
     def solve_reaktoro_block(self, params=None, presolve=False):
+        """
+        Solve the coupled Reaktoro block.
+        Args:
+            params: dictionary of parameters to update the inputs, if None, use current inputs
+            presolve: boolean flag to indicate if presolve should be used"""
         if params is None:
             use_temp = False
         else:
@@ -251,10 +282,6 @@ class ReaktoroCoupledSolver:
         )
 
         self.compute_combined_jacobian(jacs, jac)
-        # print(params)
-        # print(jac)
-        # print("Jacobian:", self.jacobian)
-        # print("Outputs:", outputs)
         return self.jacobian_matrix, outputs
 
     def update_inputs(self, params):
