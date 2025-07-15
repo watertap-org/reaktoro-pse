@@ -45,17 +45,43 @@ class JacobianOptions:
             "numerical_step",
             ConfigValue(
                 default={
-                    RktInputTypes.pH: 1e-3,
-                    RktInputTypes.temperature: 1e-5,  # normaly in kelvin,  take 0.01 k steps
-                    RktInputTypes.pressure: 1e-6,  # normaly in pascal,  take 0.1 Pa steps
-                    RktInputTypes.enthalpy: 1e-5,  # normaly in joules,  take 0.01 J steps
-                    RktInputTypes.species: 1e-3,
+                    RktInputTypes.pH: (None, 1e-3, None),
+                    RktInputTypes.temperature: (
+                        None,
+                        1e-3,
+                        None,
+                    ),
+                    RktInputTypes.pressure: (
+                        None,
+                        1e-3,
+                        None,
+                    ),
+                    RktInputTypes.enthalpy: (
+                        None,
+                        1e-3,
+                        None,
+                    ),
+                    RktInputTypes.species: (None, 1e-3, None),
                 },
-                domain=dict,
-                description="Defines the step to use for numerical descritiazaiton based on input type",
+                domain=IsInstance((dict, float)),
+                description="Defines the step to use for numerical descritiazaiton based on input type, if None, automatically found",
                 doc="""This will define how small of a step to use for numerical derivative propagation which takes
-                the absolute chemical property and multiplies it by chemical property derivative multiplied by step 
+                the absolute chemical property and multiplies it by chemical property derivative multiplied by step size. 
                     chemical_property_step=chemical_input*chemical_property_derivative*step
+
+                This optionally specifies minimum and maximum step size to use for automatic step sizing, if None is provided or single step size
+                then automatic step sizing will not be applied. To provide min and max specify a tuple (default step size , min step size, max step size).
+                """,
+            ),
+        )
+        CONFIG.declare(
+            "target_derivative_precision",
+            ConfigValue(
+                default=1e-10,
+                domain=float,
+                description="Defines target precision for numerical derivative",
+                doc="""
+                This sets target for derivative precision when computing numerical derivatives if user does not specify a step size
                 """,
             ),
         )

@@ -105,8 +105,8 @@ def build_simple_desal(hess_type, parallel_mode=False):
     m.desal_scaling = Var(
         [
             ("scalingTendency", "Calcite"),
-            ("scalingTendency", "Gypsum"),
-            ("scalingTendency", "Brucite"),
+            # ("scalingTendency", "Gypsum"),
+            # ("scalingTendency", "Brucite"),
         ],
         initialize=1,
     )
@@ -194,7 +194,7 @@ def initialize(m):
 def setup_optimization(m):
     m.objective = Objective(expr=(1 - m.water_recovery) * 10 + m.acid_addition)
     m.desal_properties[("scalingTendency", "Calcite")].setub(1)
-    m.desal_properties[("scalingTendency", "Gypsum")].setub(1)
+    # m.desal_properties[("scalingTendency", "Gypsum")].setub(1)
     m.water_recovery.unfix()
     m.acid_addition.unfix()
 

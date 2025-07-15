@@ -9,6 +9,7 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
+from statistics import variance
 import reaktoro as rkt
 
 import numpy as np
@@ -179,7 +180,7 @@ class JacboianRows:
 
 class ReaktoroJacobianExport:
     def __init__(self):
-        self.der_step_size = None
+        self.numerical_step = None
         self.jacobian_type = None
         self.numerical_order = None
 
@@ -206,9 +207,10 @@ class ReaktoroJacobianSpec:
 
     def export_config(self):
         export_object = ReaktoroJacobianExport()
-        export_object.der_step_size = self.der_step_size
+        export_object.der_step_size = self.numerical_step
         export_object.jacobian_type = self.jacobian_type
         export_object.numerical_order = self.numerical_order
+        export_object.target_derivative_precision = self.target_derivative_precision
         return export_object
 
     def load_from_export_object(self, export_object):
@@ -216,10 +218,15 @@ class ReaktoroJacobianSpec:
             jacobian_type=export_object.jacobian_type,
             order=export_object.numerical_order,
             step_size=export_object.der_step_size,
+            target_derivative_precision=export_object.target_derivative_precision,
         )
 
     def configure_numerical_jacobian(
-        self, jacobian_type="average", order=4, step_size=1e-8
+        self,
+        jacobian_type="average",
+        order=4,
+        step_size=1e-8,
+        target_derivative_precision=1e4,
     ):
         """Configure numerical derivate options
 
@@ -228,9 +235,10 @@ class ReaktoroJacobianSpec:
         order -- order of derivative
         step_size -- numerical step size for approximating derivative
         """
-        self.der_step_size = step_size
+        self.numerical_step = step_size
         self.jacobian_type = JacType.average
         self.numerical_order = order
+        self.target_derivative_precision = target_derivative_precision
         if jacobian_type == JacType.average:
             self.jacobian_type = JacType.average
             assert order % 2 == 0
@@ -346,104 +354,162 @@ class ReaktoroJacobianSpec:
         )
         return jacobian_abs_matrix
 
-    def get_multiplier(self, input_name, output_index):
+    def get_multiplier(self, input_name, output_index, default=1):
+        """get multiplier for specific input and output index"""
         if (input_name, output_index) not in self.der_step_multipliers:
-            self.der_step_multipliers[(input_name, output_index)] = 1
+            self.der_step_multipliers[(input_name, output_index)] = default
         return self.der_step_multipliers[(input_name, output_index)]
 
-    def update_der_step_multiplier(self, diff, input_name, output_index):
-        min_val = 1e-4
-        max_val = 1e4
-        # increase step size if diff to small
-        if diff < min_val:
-            self.der_step_multipliers[(input_name, output_index)] *= 10
-            return True
-        # if we decreased step size, make sure diff does not grow much larger
-        elif (
-            diff > min_val * 100
-            and self.der_step_multipliers[(input_name, output_index)] > 1
-        ):
-            self.der_step_multipliers[(input_name, output_index)] /= 10
-            return True
-        # decrease step size if diff is too large
-        elif diff > max_val:
-            self.der_step_multipliers[(input_name, output_index)] /= 10
-            return True
-        # increase step size if diff starts to get too small
-        elif (
-            diff < max_val / 100
-            and self.der_step_multipliers[(input_name, output_index)] < 1
-        ):
-            self.der_step_multipliers[(input_name, output_index)] *= 10
-            return True
-        return False
+    def set_multiplier(self, input_name, output_index, value):
+        """set multiplier for specific input and output index"""
+        self.der_step_multipliers[(input_name, output_index)] = value
+        return self.der_step_multipliers[(input_name, output_index)]
+
+    def get_step_sizing(self, obj):
+
+        if isinstance(obj, tuple):
+            return obj[0], obj[1], obj[2]
+        elif isinstance(obj, float):
+            return obj, None, None
+        else:
+            raise TypeError(
+                f"Step sizing should be either float or tuple (default_step, min_step, max_step), got {type(obj)}"
+            )
 
     def get_jacobian(self, jacobian_matrix, input_object):
         input_index = input_object.get_jacobian_index()
         input_value = input_object.get_temp_value()
-        if isinstance(self.der_step_size, float):
-            step_size = self.der_step_size
-        else:
+        if isinstance(self.numerical_step, (float, tuple)):
+            step_size, max_step, min_step = self.get_step_sizing(self.numerical_step)
+        elif isinstance(self.numerical_step, dict):
             if RktInputTypes.pH == input_object.var_name:
-                step_size = self.der_step_size[RktInputTypes.pH]
+                step_size, max_step, min_step = self.get_step_sizing(
+                    self.numerical_step[RktInputTypes.pH]
+                )
             elif RktInputTypes.temperature == input_object.var_name:
-                step_size = self.der_step_size[RktInputTypes.temperature]
+                step_size, max_step, min_step = self.get_step_sizing(
+                    self.numerical_step[RktInputTypes.temperature]
+                )
             elif RktInputTypes.pressure == input_object.var_name:
-                step_size = self.der_step_size[RktInputTypes.pressure]
+                step_size, max_step, min_step = self.get_step_sizing(
+                    self.numerical_step[RktInputTypes.pressure]
+                )
             elif RktInputTypes.enthalpy == input_object.var_name:
-                step_size = self.der_step_size[RktInputTypes.enthalpy]
+                step_size, max_step, min_step = self.get_step_sizing(
+                    self.numerical_step[RktInputTypes.enthalpy]
+                )
             else:
-                step_size = self.der_step_size[RktInputTypes.species]
-
+                step_size, max_step, min_step = self.get_step_sizing(
+                    self.numerical_step[RktInputTypes.species]
+                )
+        else:
+            raise TypeError(
+                f"Numerical step should be either float or dict, got {type(self.numerical_step)}"
+            )
         self.partial_jac_vals = jacobian_matrix[:, input_index]
         output_jacobian = []
+
+        def get_derivative(input_value, step_size, output_obj):
+            jacobian_abs_matrix = self.process_jacobian_matrix(
+                input_value,
+                step_size,
+            )
+            self.update_states(jacobian_abs_matrix)
+            values = np.array(self.get_state_values(output_obj))
+
+            diff = np.diff(values)
+
+            if diff[diff == 0].size > 0:
+                # print("zero der", step_size, diff_2 / np.max(np.abs(diff)))
+                return diff[diff == 0].size, 0, 1e100
+            elif JacType.average == self.jacobian_type:
+                # print("non zero der", step_size, diff_2 / np.max(np.abs(diff)))
+                if input_value != 0:
+                    step = np.diff(self.numerical_steps * step_size * input_value)
+                else:
+                    step = np.diff(self.numerical_steps * step_size)
+                dir_value = np.average(diff[diff != 0] / step[diff != 0])
+            elif JacType.center_difference == self.jacobian_type:
+                dir_value = np.array(values) * self.cdf_multipliers
+                if input_value != 0:
+                    dir_value = np.sum(dir_value) / (input_value * step_size)
+                else:
+                    dir_value = np.sum(dir_value) / (step_size)
+            diff_2 = diff / np.diff(self.numerical_steps * step_size * input_value)
+
+            variance = np.std(np.abs(diff_2)) / np.max(np.abs(diff_2))
+
+            return diff[diff == 0].size, dir_value, variance
 
         def get_jac(output_obj):
             if output_obj.jacobian_type == JacType.exact:
                 jac_val = self.partial_jac_vals[
                     self.jac_idx_ref[output_obj.jacobian_index]
                 ]
-            else:
-                steps = 10
-                for i in range(steps):
-                    local_step_size = step_size * self.get_multiplier(
-                        input_object.var_name,
-                        output_obj.jacobian_index,
-                    )
-                    jacobian_abs_matrix = self.process_jacobian_matrix(
-                        input_value,
-                        local_step_size,
-                    )
-                    self.update_states(jacobian_abs_matrix)
-                    values = self.get_state_values(output_obj)
+            elif step_size is None:
+                multiplier = self.get_multiplier(
+                    input_object.var_name, output_obj.jacobian_index, -4
+                )
+                jac_vals = []
+                variances = []
+                multipliers = []
+                target_variance = self.target_derivative_precision
+                rate_term = 0.01
 
-                    diff = np.diff(values)
-                    norm_diff = np.abs(np.max(diff) / np.max(values))
-                    resolve = self.update_der_step_multiplier(
-                        norm_diff,
-                        input_object.var_name,
-                        output_obj.jacobian_index,
+                def update_local_state(local_step_size):
+                    zero_test, jac_val, variance = get_derivative(
+                        input_value, local_step_size, output_obj
                     )
-                    if resolve is False:
+                    variances.append(variance)
+                    jac_vals.append(jac_val)
+                    multipliers.append(multiplier)
+                    return jac_val
+
+                steps = np.array([1.0, 0.0, -1.0])
+                hit_bounds = False
+                for i in range(100):
+                    local_step_size = 10 ** (multiplier + steps)
+                    if max_step is not None and local_step_size[1] > max_step:
+                        local_step_size = max_step
+                        jac_val = update_local_state(local_step_size)
+                        multiplier = np.log10(local_step_size)
+                        variance = variances[-1]
+                        hit_bounds = True
                         break
-                if len(diff[diff == 0]) > 0:
-                    jac_val = 0
-                elif JacType.average == self.jacobian_type:
-                    if input_value != 0:
-                        step = np.diff(
-                            self.numerical_steps * local_step_size * input_value
-                        )
-                    else:
-                        step = np.diff(self.numerical_steps * local_step_size)
-                    jac_val = np.average(diff[diff != 0] / step[diff != 0])
-                    if jac_val != jac_val:
-                        jac_val = 0
-                elif JacType.center_difference == self.jacobian_type:
-                    jac_val = np.array(values) * self.cdf_multipliers
-                    if input_value != 0:
-                        jac_val = np.sum(jac_val) / (input_value * local_step_size)
-                    else:
-                        jac_val = np.sum(jac_val) / (local_step_size)
+
+                    elif min_step is not None and local_step_size[1] < min_step:
+                        local_step_size = min_step
+                        jac_val = update_local_state(local_step_size)
+                        variance = variances[-1]
+                        multiplier = np.log10(local_step_size)
+                        hit_bounds = True
+                        break
+
+                    jac_vals = []
+                    variances = []
+                    multipliers = []
+                    for step in local_step_size:
+                        jac_val = update_local_state(step)
+
+                    min_var = np.argmin(np.abs(np.array(variances) - target_variance))
+                    if min_var == 1:
+                        jac_val = jac_vals[min_var]
+                        variance = variances[min_var]
+                        break
+                    elif hit_bounds:
+                        jac_val = jac_vals[1]
+                        variance = variances[1]
+                        break
+                    elif min_var == 0:
+                        multiplier += rate_term
+                    elif min_var == 2:
+                        multiplier -= rate_term
+
+                self.set_multiplier(
+                    input_object.var_name, output_obj.jacobian_index, multiplier
+                )
+            else:
+                _, jac_val, _ = get_derivative(input_value, step_size, output_obj)
 
             return jac_val
 
