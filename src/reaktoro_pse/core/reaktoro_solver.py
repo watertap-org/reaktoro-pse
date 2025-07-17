@@ -229,7 +229,6 @@ class ReaktoroSolver:
     def get_outputs(self):
         output_arr = []
         for key, obj in self.output_specs.rkt_outputs.items():
-
             val = self.output_specs.evaluate_property(obj, update_values_in_object=True)
             output_arr.append(val)
         return output_arr

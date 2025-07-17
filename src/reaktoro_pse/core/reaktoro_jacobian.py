@@ -508,6 +508,9 @@ class ReaktoroJacobianSpec:
                 self.set_multiplier(
                     input_object.var_name, output_obj.jacobian_index, multiplier
                 )
+                # print(
+                #     f"Updated multiplier for {input_object.var_name}, {output_obj.jacobian_index}: {multiplier}"
+                # )
             else:
                 _, jac_val, _ = get_derivative(input_value, step_size, output_obj)
 

@@ -167,9 +167,9 @@ def build_simple_ix(
         chemistry_modifier={"NaOH": m.base_addition, "HCl": m.acid_addition},
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
-        reaktoro_solve_options={
-            "solver_tolerance": 1e-12,
-        },
+        # reaktoro_solve_options={
+        #     "solver_tolerance": 1e-12,
+        # },
         # we do not need to re-speciate.
         exact_speciation=True,
         build_speciation_block=False,

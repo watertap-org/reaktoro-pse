@@ -20,7 +20,7 @@ class ReaktoroSolverOptions:
         CONFIG.declare(
             "epsilon",
             ConfigValue(
-                default=1e-64,
+                default=1e-32,
                 domain=float,
                 description="epsilon for Reaktoro solver",
                 doc="""Defines what is considered to be 0 for ion composition""",

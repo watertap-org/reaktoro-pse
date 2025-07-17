@@ -124,6 +124,7 @@ def test_blockBuild_with_wateqf_data_base(build_rkt_state_with_species):
             "pressure": m.pressure,
             "pH": m.pH,
         },
+        reaktoro_solve_options={"solver_tolerance": 1e-12, "epsilon": 1e-64},
         database="PhreeqcDatabase",
         database_file="wateq4f.dat",
         chemistry_modifier=m.CaO,

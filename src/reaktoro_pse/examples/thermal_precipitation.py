@@ -294,8 +294,6 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         reaktoro_block_manager=m.parallel_block_manager,
         assert_charge_neutrality_on_property_block=True,
         hessian_options=hess_options,
-        # enable_pH_relaxation_on_property_block=False,  # If True, this can cause issues with pH
-        # enable_solvent_relaxation_on_property_block=False,  # If True, this can cause issues with pH
     )
 
     m.eq_treated_properties = ReaktoroBlock(
