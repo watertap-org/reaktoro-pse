@@ -950,16 +950,15 @@ class ReaktoroBlockData(ProcessBlockData):
                     )
                     if self.config.external_speciation_reaktoro_blocks is not None:
                         for spc in self.config.external_speciation_reaktoro_blocks:
-                            if spc != block:
-                                self.speciation_block_data.append(
-                                    {
-                                        "state": spc.rkt_state,
-                                        "inputs": spc.rkt_inputs,
-                                        "outputs": spc.rkt_outputs,
-                                        "jacobian": spc.rkt_jacobian,
-                                        "solver": spc.rkt_solver,
-                                    }
-                                )
+                            self.speciation_block_data.append(
+                                {
+                                    "state": spc.rkt_state,
+                                    "inputs": spc.rkt_inputs,
+                                    "outputs": spc.rkt_outputs,
+                                    "jacobian": spc.rkt_jacobian,
+                                    "solver": spc.rkt_solver,
+                                }
+                            )
             else:
                 self.coupled_solver.register_property_solver(block.rkt_solver)
                 solver = self.coupled_solver
