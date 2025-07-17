@@ -96,11 +96,9 @@ class AggregateSolverState:
     def register_output(self, block_index, output_key):
         self.outputs.append((block_index, output_key))
         self.output_blk_indexes.append(block_index)
-
-        if len(self.output_blk_indexes) > 1:
-            self.jacobian_matrix = np.zeros((len(self.outputs), len(self.inputs)))
-            self.output_matrix = np.zeros(len(self.outputs))
-            self.get_windows(block_index)
+        self.jacobian_matrix = np.zeros((len(self.outputs), len(self.inputs)))
+        self.output_matrix = np.zeros(len(self.outputs))
+        self.get_windows(block_index)
 
     def get_windows(self, block_idx):
         _, output_unique_sets = np.unique(self.output_blk_indexes, return_inverse=True)
@@ -285,7 +283,6 @@ class ReaktoroBlockManagerData(ProcessBlockData):
 
         if speciation_block is not None:
             blk.frozen_state = {}
-            # blk.config["main_config"] = blk.get_configs()
 
             for i, spc_blk in enumerate(speciation_block):
                 setattr(blk, f"spc_blk_{i}", ReaktoroBlockData())
