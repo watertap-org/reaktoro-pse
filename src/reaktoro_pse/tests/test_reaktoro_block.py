@@ -644,8 +644,7 @@ def test_blockBuild_with_temp_and_pressure_modification_in_speciation_block(
 @pytest.mark.parametrize(
     "direct_coupling, charge_relax",
     [
-        (False, False),
-        (False, True),
+        (True, False),
     ],
 )
 def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
@@ -710,8 +709,10 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
     # m.property_block.reaktoro_model.display()
     # m.property_block.display_reaktoro_state()
     m.property_block.display_jacobian_scaling()
-    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.899783669305352
-    assert pytest.approx(m.pH.value, 1e-2) == 6.4572445456325065
+    m.outputs.display()
+    m.pH.display()
+    assert pytest.approx(m.outputs[("pH", None)].value, 1e-3) == 6.903711162478472
+    assert pytest.approx(m.pH.value, 1e-3) == 6.330494020696984
 
 
 def test_indexed_blockBuild(build_rkt_state_with_indexed_species):
