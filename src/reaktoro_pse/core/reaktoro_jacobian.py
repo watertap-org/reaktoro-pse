@@ -467,7 +467,7 @@ class ReaktoroJacobianSpec:
 
                 steps = np.array([1.0, 0.0, -1.0])
                 hit_bounds = False
-                for i in range(50):
+                for i in range(30):
                     local_step_size = 10 ** (multiplier + steps)
                     if max_step is not None and local_step_size[1] > max_step:
                         local_step_size = max_step
