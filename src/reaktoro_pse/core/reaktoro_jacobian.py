@@ -210,7 +210,6 @@ class ReaktoroJacobianSpec:
         export_object.der_step_size = self.numerical_step
         export_object.jacobian_type = self.jacobian_type
         export_object.numerical_order = self.numerical_order
-        export_object.target_derivative_precision = self.target_derivative_precision
         return export_object
 
     def load_from_export_object(self, export_object):
@@ -218,7 +217,6 @@ class ReaktoroJacobianSpec:
             jacobian_type=export_object.jacobian_type,
             order=export_object.numerical_order,
             step_size=export_object.der_step_size,
-            target_derivative_precision=export_object.target_derivative_precision,
         )
 
     def configure_numerical_jacobian(
@@ -226,7 +224,6 @@ class ReaktoroJacobianSpec:
         jacobian_type="average",
         order=4,
         step_size=1e-8,
-        target_derivative_precision=1e4,
     ):
         """Configure numerical derivate options
 
@@ -238,7 +235,6 @@ class ReaktoroJacobianSpec:
         self.numerical_step = step_size
         self.jacobian_type = JacType.average
         self.numerical_order = order
-        self.target_derivative_precision = target_derivative_precision
         if jacobian_type == JacType.average:
             self.jacobian_type = JacType.average
             assert order % 2 == 0
@@ -408,22 +404,20 @@ class ReaktoroJacobianSpec:
             )
         self.partial_jac_vals = jacobian_matrix[:, input_index]
         output_jacobian = []
+        jacobian_abs_matrix = self.process_jacobian_matrix(
+            input_value,
+            step_size,
+        )
+        self.update_states(jacobian_abs_matrix)
 
         def get_derivative(input_value, step_size, output_obj):
-            jacobian_abs_matrix = self.process_jacobian_matrix(
-                input_value,
-                step_size,
-            )
-            self.update_states(jacobian_abs_matrix)
+            """function to get numerical derivative for output object"""
             values = np.array(self.get_state_values(output_obj))
-
             diff = np.diff(values)
 
             if diff[diff == 0].size > 0:
-                # print("zero der", step_size, diff_2 / np.max(np.abs(diff)))
-                return diff[diff == 0].size, 0, 1e100
+                return 0
             elif JacType.average == self.jacobian_type:
-                # print("non zero der", step_size, diff_2 / np.max(np.abs(diff)))
                 if input_value != 0:
                     step = np.diff(self.numerical_steps * step_size * input_value)
                 else:
@@ -435,94 +429,27 @@ class ReaktoroJacobianSpec:
                     dir_value = np.sum(dir_value) / (input_value * step_size)
                 else:
                     dir_value = np.sum(dir_value) / (step_size)
-            diff_2 = diff / np.diff(self.numerical_steps * step_size * input_value)
 
-            variance = np.std(np.abs(diff_2)) / np.max(np.abs(diff_2))
+            return dir_value
 
-            return diff[diff == 0].size, dir_value, variance
-
-        def get_jac(output_obj):
+        def get_jac(output_obj, input_value, step_size):
+            """function to get exact or numerical jacobian value for output object"""
             if output_obj.jacobian_type == JacType.exact:
                 jac_val = self.partial_jac_vals[
                     self.jac_idx_ref[output_obj.jacobian_index]
                 ]
-            elif step_size is None:
-                multiplier = self.get_multiplier(
-                    input_object.var_name, output_obj.jacobian_index, -4
-                )
-                jac_vals = []
-                variances = []
-                multipliers = []
-                target_variance = self.target_derivative_precision
-                rate_term = 0.1
-
-                def update_local_state(local_step_size):
-                    zero_test, jac_val, variance = get_derivative(
-                        input_value, local_step_size, output_obj
-                    )
-                    variances.append(variance)
-                    jac_vals.append(jac_val)
-                    multipliers.append(multiplier)
-                    return jac_val
-
-                steps = np.array([1.0, 0.0, -1.0])
-                hit_bounds = False
-                for i in range(30):
-                    local_step_size = 10 ** (multiplier + steps)
-                    if max_step is not None and local_step_size[1] > max_step:
-                        local_step_size = max_step
-                        jac_val = update_local_state(local_step_size)
-                        multiplier = np.log10(local_step_size)
-                        variance = variances[-1]
-                        hit_bounds = True
-                        break
-
-                    elif min_step is not None and local_step_size[1] < min_step:
-                        local_step_size = min_step
-                        jac_val = update_local_state(local_step_size)
-                        variance = variances[-1]
-                        multiplier = np.log10(local_step_size)
-                        hit_bounds = True
-                        break
-
-                    jac_vals = []
-                    variances = []
-                    multipliers = []
-                    for step in local_step_size:
-                        jac_val = update_local_state(step)
-
-                    min_var = np.argmin(np.abs(np.array(variances) - target_variance))
-                    if min_var == 1:
-                        jac_val = jac_vals[min_var]
-                        variance = variances[min_var]
-                        break
-                    elif hit_bounds:
-                        jac_val = jac_vals[1]
-                        variance = variances[1]
-                        break
-                    elif min_var == 0:
-                        multiplier += rate_term
-                    elif min_var == 2:
-                        multiplier -= rate_term
-
-                self.set_multiplier(
-                    input_object.var_name, output_obj.jacobian_index, multiplier
-                )
-                # print(
-                #     f"Updated multiplier for {input_object.var_name}, {output_obj.jacobian_index}: {multiplier}"
-                # )
             else:
-                _, jac_val, _ = get_derivative(input_value, step_size, output_obj)
+                jac_val = get_derivative(input_value, step_size, output_obj)
 
             return jac_val
 
         for output_key, output_obj in self.output_specs.rkt_outputs.items():
             if output_obj.jacobian_type == JacType.calculated:
                 for idx, calc_obj in output_obj.calculation_options.properties.items():
-                    calc_obj.set_derivative(get_jac(calc_obj))
+                    calc_obj.set_derivative(get_jac(calc_obj, input_value, step_size))
                 jac_val = output_obj.get_calculated_jacobian_value()
             else:
-                jac_val = get_jac(output_obj)
+                jac_val = get_jac(output_obj, input_value, step_size)
             output_jacobian.append(jac_val)
         return output_jacobian
 
