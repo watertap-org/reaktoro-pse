@@ -162,13 +162,6 @@ class RktInput:
     def set_upper_bound(self, value):
         self.upper_bound = value
 
-    def get_log_conversion_factor(self):
-        """returns conversion factor for log10 conversion"""
-        if self.log10_input:
-            return 1 / (self.value * math.log(10))
-        else:
-            return 1
-
     def get_value(self, update_temp=False, apply_conversion=False):
         self.update_values(update_temp)
         if apply_conversion and self.conversion_value is not None:
@@ -183,11 +176,9 @@ class RktInput:
             return self.pyomo_var
         else:
 
-            return (
-                pyunits.convert(
-                    self.pyomo_var / (self.conversion_value * self.conversion_unit),
-                    to_units=self.required_unit,
-                ),
+            return pyunits.convert(
+                self.pyomo_var / (self.conversion_value * self.conversion_unit),
+                to_units=self.required_unit,
             )
 
     def set_unit_conversion(self, value, unit):

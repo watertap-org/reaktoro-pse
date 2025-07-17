@@ -483,12 +483,6 @@ class ReaktoroBlockData(ProcessBlockData):
             else:
                 return input_option
 
-        def get_modified_state(initial_state, modified_state):
-            if building_prop_block_after_speciation():
-                return modified_state
-            else:
-                return initial_state
-
         def get_prop_state(initial_state, modified_state, variable):
             if getattr(modified_state, variable) is None:
                 return initial_state
@@ -517,12 +511,7 @@ class ReaktoroBlockData(ProcessBlockData):
         for phase in RktInputTypes.supported_phases:
             options = getattr(self.config, phase)
             if building_prop_block_after_speciation():
-                if self.config.speciation_output_type == "elements":
-                    # if we are building property block after speciation, we need to use elements
-                    # as composition, since speciation block outputs elements
-                    composition_is_elements = True
-                else:
-                    composition_is_elements = False
+                composition_is_elements = False
             else:
                 composition_is_elements = options.composition_is_elements
             block.rkt_state.set_input_options(
@@ -578,20 +567,11 @@ class ReaktoroBlockData(ProcessBlockData):
             # speciation block we don't have extremely high ion concentration
             # these value swill be overwritten during initialization anyway
 
-            if self.config.speciation_output_type == "elements":
-                for element, obj in self.speciation_block.outputs.items():
-                    if "H" in element:
-                        obj.set_value(110)
-                    if "O" in element:
-                        obj.set_value(55)
-                    else:
-                        obj.set_value(0.01)
-            elif self.config.speciation_output_type == "species":
-                for ion, obj in self.speciation_block.outputs.items():
-                    if self.config.aqueous_phase.fixed_solvent_specie in ion:
-                        obj.set_value(obj.value * 10)
-                    else:
-                        obj.set_value(obj.value / 1000)
+            for ion, obj in self.speciation_block.outputs.items():
+                if self.config.aqueous_phase.fixed_solvent_specie in ion:
+                    obj.set_value(obj.value * 10)
+                else:
+                    obj.set_value(obj.value / 1000)
 
             if aqueous_input_composition is not {}:
                 aqueous_input_composition = self.speciation_block.outputs
@@ -724,7 +704,6 @@ class ReaktoroBlockData(ProcessBlockData):
                 block.rkt_inputs.register_chemistry_modifiers(
                     self.config.chemistry_modifier,
                     index=chemistry_modifier_indexed,
-                    log10_basis=self.config.chemistry_modifier_log10_basis,
                 )
             block.rkt_inputs.register_open_species(
                 self.config.reaktoro_solve_options.open_species_on_property_block
@@ -799,24 +778,11 @@ class ReaktoroBlockData(ProcessBlockData):
             raise ValueError("Outputs must be provided!")
         if speciation_block:
             # when speciating we only want species amounts as output
-
-            if self.config.speciation_output_type == "elements":
-                block.rkt_outputs.register_output(
-                    "elementAmount",
-                    get_all_indexes=True,
-                    ignore_indexes=self.config.speciation_block_exclude_species,
-                )
-
-            elif self.config.speciation_output_type == "species":
-                block.rkt_outputs.register_output(
-                    "speciesAmount",
-                    get_all_indexes=True,
-                    ignore_indexes=self.config.speciation_block_exclude_species,
-                )
-            else:
-                raise ValueError(
-                    "speciation_output_type must be either 'elements' or 'species'"
-                )
+            block.rkt_outputs.register_output(
+                "speciesAmount",
+                get_all_indexes=True,
+                ignore_indexes=self.config.speciation_block_exclude_species,
+            )
 
         else:
 
@@ -945,7 +911,7 @@ class ReaktoroBlockData(ProcessBlockData):
         if self.direct_coupling_mode:
             if speciation_block:
                 if (
-                    hasattr(self, "rkt_solver") == False
+                    hasattr(block, "rkt_solver") == False
                     and self.config.external_speciation_reaktoro_blocks is not None
                 ):
                     working_block = self.config.external_speciation_reaktoro_blocks[0]
@@ -955,7 +921,10 @@ class ReaktoroBlockData(ProcessBlockData):
                     block.rkt_jacobian = working_block.rkt_jacobian
                     block.rkt_solver = working_block.rkt_solver
                     self.config.external_speciation_reaktoro_blocks.pop(0)
-                else:
+                elif (
+                    hasattr(block, "rkt_solver") == False
+                    and self.config.external_speciation_reaktoro_blocks is None
+                ):
                     raise ValueError(
                         "Direct coupling mode is enabled, but no speciation block is provided."
                     )

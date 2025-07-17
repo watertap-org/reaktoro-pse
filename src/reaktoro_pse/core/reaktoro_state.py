@@ -767,7 +767,7 @@ class ReaktoroState:
                                 self.state.set(
                                     species,
                                     self.inputs[species].get_value(
-                                        apply_conversion=True, delog=True
+                                        apply_conversion=True,
                                     ),
                                     "mol",
                                 )
@@ -775,7 +775,7 @@ class ReaktoroState:
                                 self.state.set(
                                     species,
                                     self.inputs[species].get_value(
-                                        apply_conversion=False, delog=True
+                                        apply_conversion=False,
                                     ),
                                     self.inputs[species].main_unit,
                                 )

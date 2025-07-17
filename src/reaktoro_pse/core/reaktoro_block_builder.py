@@ -54,6 +54,12 @@ class JacScalingTypes:
 
 class ReaktoroBlockBuilder:
     def __init__(self, block, reaktoro_solver, build_on_init=True):
+        """build reaktoro block builder
+        Args:
+            block: pyomo block to build reaktoro model on
+            reaktoro_solver: ReaktoroSolver or ReaktoroCoupledSolver object
+            build_on_init: if True will build reaktoro block right away, otherwise will require explicit call to build_reaktoro_block
+        """
         self.block = block
         # TODO: add check to make sure block is a pyomo block, or model
         self.solver = reaktoro_solver
@@ -97,7 +103,6 @@ class ReaktoroBlockBuilder:
             self.get_jacobian_matrix_function = get_jacobian_matrix_function
         self.build_input_constraints()
         self.build_output_constraints()
-        self.build_relaxation_constraints()
         self.solver.get_jacobian_scaling = self.get_jacobian_scaling
 
     def configure_jacobian_scaling(
@@ -141,18 +146,8 @@ class ReaktoroBlockBuilder:
         self.update_jacobian_scale_every_solve = update_jacobian_scale_every_solve
         self.jacobian_scaling_bounds_output_based = jacobian_scaling_bounds_output_based
 
-    def configure_relaxation_constraints(self, constraint_types=None):
-        """configure relaxation constraints"""
-
-        if constraint_types is not None:
-            for key, items in constraint_types.items():
-                if key not in self.relaxation_constraint_types:
-                    self.relaxation_constraint_types[key] = {}
-
-                self.relaxation_constraint_types[key].update(items)
-
     def build_input_constraints(self):
-
+        """build input constraints for reaktoro model"""
         if self.solver.input_specs.dissolve_species_in_rkt:
 
             @self.block.Constraint(self.solver.input_specs.rkt_inputs.rkt_input_list)
@@ -218,6 +213,7 @@ class ReaktoroBlockBuilder:
         return pyo_obj
 
     def build_output_vars(self):
+        """build output variables for reaktoro model"""
         new_output_vars = {}
 
         for key, obj in self.solver.output_specs.user_outputs.items():
@@ -263,6 +259,10 @@ class ReaktoroBlockBuilder:
                 )
 
     def initialize(self, presolve_during_initialization=False):
+        """initialize reaktoro block
+        Args:
+            presolve_during_initialization: if True will call presolve before initialization
+        """
         self.initialize_input_variables_and_constraints()
         if self.reaktoro_initialize_function is None:
             self.solver.equilibrate_state()
@@ -277,10 +277,13 @@ class ReaktoroBlockBuilder:
         _log.info(f"Initialized rkt block")
 
     def get_rkt_scale(self, rkt_input_output, use_default_scaling=True):
+        """util function to get scaling for reaktoro vars"""
         sf = self.get_sf(rkt_input_output.get_pyomo_var(), use_default_scaling)
         return sf
 
     def get_sf(self, pyo_var, use_default_scaling, return_none=1):
+        """get scaling factor for pyomo variable"""
+
         def calc_scale(value):
             if value == 0:
                 return 10 ** (-1 * math.log(abs(1), 10))
@@ -353,10 +356,10 @@ class ReaktoroBlockBuilder:
             )
 
     def initialize_output_variables_and_constraints(self):
-        # update jacobian scaling
         self.set_output_vars_and_scale(True)
 
     def set_jacobian_scaling(self):
+        """function to calculate jacobian scaling values"""
         output_scales = [
             1 / iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
             for _, obj in self.solver.output_specs.rkt_outputs.items()
@@ -437,14 +440,22 @@ class ReaktoroBlockBuilder:
             return self.solver.jacobian_matrix
 
     def get_jacobian_scaling(self):
+        """get jacobian scaling values from reaktoro solver
+        generally used parallel manager"""
         if self.update_jacobian_scale_every_solve:
             self.set_jacobian_scaling()
         return self.solver.jacobian_scaling_values
 
     def get_input_scaling(self):
+        """utility function for getting input scaling values from solver
+        generally used parallel manager"""
         return self.solver.input_scaling_values
 
     def set_user_jacobian_scaling(self, user_scaling=None):
+        """apply user scaling to jacobian scaling values
+        Args:
+            user_scaling: dict with keys as output names and values as scaling factors
+        """
 
         if user_scaling is None:
             user_scaling = self.user_scaling
@@ -454,6 +465,7 @@ class ReaktoroBlockBuilder:
                 self.solver.jacobian_scaling_values[i] = scale
 
     def display_jacobian_scaling(self):
+        """display jacobian scaling values for each output variable"""
         jac_scale = {}
         for i, (key, obj) in enumerate(self.solver.output_specs.rkt_outputs.items()):
             scale = self.solver.jacobian_scaling_values[i]
@@ -492,6 +504,7 @@ class ReaktoroBlockBuilder:
                 self.solver.input_scaling_values.append(sf)
 
     def display_state(self):
+        """display reaktoro state"""
         if self.display_reaktoro_state_function is None:
             self.solver.display_state()
         else:

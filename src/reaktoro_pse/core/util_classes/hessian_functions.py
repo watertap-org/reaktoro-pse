@@ -82,6 +82,8 @@ class HessianMemory:
 
 
 class HessianApproximation:
+    """general classs for hessian approximation methods"""
+
     def __init__(
         self,
         hessian_type=None,
@@ -92,6 +94,16 @@ class HessianApproximation:
         bfgs_hessian_memory=3,
         bfgs_epsilon=1e-12,  # same as ipopt!
     ):
+        """initialize hessian approximation class
+        Args:
+            hessian_type: type of hessian approximation to use
+            bfgs_init_min_hessian_value: minimum value for hessian diagonal elements
+            bfgs_init_max_hessian_value: maximum value for hessian diagonal elements
+            bfgs_init_const_hessian_value: constant value for hessian diagonal elements
+            bfgs_initialization_type: type of initialization for BFGS hessian
+            bfgs_hessian_memory: memory size for BFGS hessian approximation
+            bfgs_epsilon: epsilon value for numerical stability in BFGS updates
+        """
         self.hessian_memory = HessianMemory(memory=bfgs_hessian_memory)
         if hessian_type is None:
             self.hessian_matrix_type = HessTypes.ZeroHessian
@@ -110,6 +122,7 @@ class HessianApproximation:
         self.bfgs_initialization_type = bfgs_initialization_type
 
     def apply_sigma_bounds(self, sigma, abs_test=True):
+        """methods for bounding the sigma values in BFGS initialization"""
         sigma_signs = np.sign(sigma)
         zeros = sigma == 0
         if self.init_min_hessian_value > 0:
@@ -130,11 +143,10 @@ class HessianApproximation:
             if abs_test:
                 sigma[test] *= sigma_signs[test]
         sigma[zeros] = 0
-        # for i in sigma:
-        # print(np.min(i[i != 0]), np.max(i[i != 0]))
         return sigma
 
     def get_initial_hessian(self, old_step, new_step, old_jacobian, new_jacobian):
+        """grab initial hessian matrix based on the old and new steps and jacobian matrices for BFGS initialization"""
         bfgs_hessian = []
         for i in range(new_jacobian.shape[0]):
             bfgs_hessian.append(np.identity(len(new_step)))
@@ -190,6 +202,8 @@ class HessianApproximation:
         return bfgs_hessian
 
     def create_bfgs_matrix(self):
+        """create and amanage BFGS matrix
+        - initialize matrix if detected that all duals are zero or no matrix exists"""
         self.hessian_memory.memorize(self.inputs, self.jacobian_matrix)
 
         if self.bfgs_hessian is None:
@@ -215,6 +229,9 @@ class HessianApproximation:
         self.iters += 1
 
     def check_step(self):
+        """check if the step is valid for BFGS update or if hessian memory is too small
+        - if the step is zero, return False
+        """
         if len(self.hessian_memory.inputs) < 2:
             return False
         self.s = self.hessian_memory.inputs[-2] - self.hessian_memory.inputs[-1]
@@ -224,6 +241,7 @@ class HessianApproximation:
             return False
 
     def update_bfgs_matrix(self):
+        """update matrix with dual multipliers"""
         h_sum = np.zeros((len(self.inputs), len(self.inputs)))
         for i in range(self.hessian_memory.jacobian[-1].shape[0]):
             h_sum += self._outputs_dual_multipliers[i] * self.bfgs_hessian[i]

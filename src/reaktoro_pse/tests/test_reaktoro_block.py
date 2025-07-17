@@ -307,47 +307,6 @@ def test_blockBuild_with_speciation_block(
         assert scaling_result["property_block"][key] == 1
 
 
-def test_blockBuild_with_speciation_elements_block(
-    build_rkt_state_with_species,
-):
-    m = build_rkt_state_with_species
-    m.CaO = Var(["CaO"], initialize=0.001, units=pyunits.mol / pyunits.s)
-    m.CaO.fix()
-
-    m.property_block = ReaktoroBlock(
-        aqueous_phase={
-            "composition": m.composition,
-            "convert_to_rkt_species": True,
-        },
-        system_state={
-            "temperature": m.temp,
-            "pressure": m.pressure,
-            "pH": m.pH,
-        },
-        database="PhreeqcDatabase",
-        database_file="pitzer.dat",
-        chemistry_modifier=m.CaO,
-        outputs=m.outputs,
-        build_speciation_block=True,
-        speciation_output_type="elements",
-        direct_speciation_to_property_block_coupling=False,
-    )
-    m.property_block.initialize()
-    cy_solver = get_cyipopt_watertap_solver(limited_memory=False)
-    cy_solver.options["max_iter"] = 50
-    m.pH.unfix()
-    m.property_block.speciation_block.reaktoro_model.outputs.display()
-    new_scaling = m.property_block.display_jacobian_scaling()
-    m.property_block.display_jacobian_scaling()
-    m.outputs[("scalingTendency", "Calcite")].fix(5)
-    assert degrees_of_freedom(m) == 0
-    result = cy_solver.solve(m, tee=True)
-    assert_optimal_termination(result)
-
-    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.7496301
-    assert pytest.approx(m.pH.value, 1e-2) == 6.401
-
-
 def test_blockBuild_with_speciation_and_mixing(
     build_rkt_state_with_species_and_mixing,
 ):
@@ -633,56 +592,3 @@ def test_indexed_blockBuild_with_speciation_block(
     m.display()
     assert pytest.approx(m.CaO[(0, "CaO")].value, 1e-3) == 0.01732553618254949
     assert pytest.approx(m.CaO[(1, "CaO")].value, 1e-3) == 0.011351679127420139
-
-
-def test_indexed_blockBuild_with_speciation_and_relaxation_block(
-    build_rkt_state_with_indexed_species,
-):
-    m = build_rkt_state_with_indexed_species
-    m.CaO = Var([0, 1], ["CaO"], initialize=0.01, units=pyunits.mol / pyunits.s)
-    m.CaO.fix()
-    m.outputs.display()
-    m.property_block = ReaktoroBlock(
-        [0, 1],
-        aqueous_phase={
-            "composition": m.composition,
-            "convert_to_rkt_species": True,
-        },
-        system_state={
-            "temperature": m.temp,
-            "pressure": m.pressure,
-            "pH": m.pH,
-        },
-        chemistry_modifier=m.CaO,
-        database="PhreeqcDatabase",
-        database_file="pitzer.dat",
-        outputs=m.outputs,
-        build_speciation_block=True,
-        enable_pH_relaxation_on_property_block=True,
-        enable_solvent_relaxation_on_property_block=True,
-        assert_charge_neutrality_on_property_block=False,
-        direct_speciation_to_property_block_coupling=False,
-    )
-    for blk in m.property_block:
-        m.property_block[blk].initialize()
-    m.property_block.display()
-    cy_solver = get_cyipopt_watertap_solver()
-    cy_solver.options["max_iter"] = 20
-    m.CaO.unfix()
-    m.outputs[(0, "pH", None)].fix(11.5)
-    m.outputs[(1, "pH", None)].fix(10)
-    result = cy_solver.solve(m, tee=True)
-    assert_optimal_termination(result)
-    m.display()
-    assert pytest.approx(m.CaO[(0, "CaO")].value, 1e-3) == 0.01732553618254949
-    assert pytest.approx(m.CaO[(1, "CaO")].value, 1e-3) == 0.011351679127420139
-    assert (
-        pytest.approx(m.property_block[0].relaxation_H2O.value, 1e-3)
-        == 49.99237778905057
-    )
-    assert pytest.approx(m.property_block[0].relaxation_pH.value, 1e-3) == 11.5
-    assert (
-        pytest.approx(m.property_block[1].relaxation_H2O.value, 1e-3)
-        == 20.006060396417787
-    )
-    assert pytest.approx(m.property_block[1].relaxation_pH.value, 1e-3) == 10

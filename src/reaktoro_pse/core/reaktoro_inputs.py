@@ -51,7 +51,6 @@ class ReaktoroInputExport:
             self.rkt_chemical_inputs[key].input_type = obj.input_type
             self.rkt_chemical_inputs[key].io_type = obj.io_type
             self.rkt_chemical_inputs[key].value = obj.value
-            self.rkt_chemical_inputs[key].log10_input = obj.log10_input
             self.rkt_chemical_inputs[key].converted_value = obj.converted_value
 
         self.rkt_chemical_inputs.registered_phases = chem_inputs.registered_phases
@@ -114,7 +113,6 @@ class ReaktoroInputSpec:
         self.rkt_chemical_inputs[chemical] = RktInput(
             var_name=chemical, pyomo_var=pyomo_var
         )
-        self.rkt_chemical_inputs[chemical].log10_input = log10_basis
         mw, mw_unit = self.get_modifier_mw(self.chemical_to_elements[chemical])
         self.state.verify_unit(self.rkt_chemical_inputs[chemical], mw, mw_unit)
 
@@ -317,10 +315,7 @@ class ReaktoroInputSpec:
             self.write_speciesAmount_constraint(specs_object, specie, input_name)
             self.rkt_inputs[input_name] = self.state.inputs[input_name]
             self.rkt_inputs[input_name].set_rkt_input_name(input_name)
-            if self.state.inputs[input_name].log10_input:
-                self.rkt_inputs[input_name].set_lower_bound(None)
-            else:
-                self.rkt_inputs[input_name].set_lower_bound(0)
+            self.rkt_inputs[input_name].set_lower_bound(0)
             self.rkt_inputs[input_name].io_type = "specie"
             self.rkt_inputs.rkt_input_list.append(input_name)
         if self.exact_speciation == False or self.fixed_solvent_type != {}:
@@ -449,20 +444,15 @@ class ReaktoroInputSpec:
             self.rkt_inputs[specie] = self.state.inputs[specie]
             self.rkt_inputs[specie].set_rkt_index(idx)
             self.rkt_inputs[specie].set_rkt_input_name(input_name)
-            if self.rkt_inputs[specie].log10_input:
-                self.rkt_inputs[specie].set_lower_bound(None)
-            else:
-                self.rkt_inputs[specie].set_lower_bound(0)
+            self.rkt_inputs[specie].set_lower_bound(0)
 
             self.rkt_inputs[specie].io_type = "specie"
         elif specie in self.rkt_chemical_inputs:
             self.rkt_inputs[specie] = self.rkt_chemical_inputs[specie]
             self.rkt_inputs[specie].set_rkt_index(idx)
             self.rkt_inputs[specie].set_rkt_input_name(input_name)
-            if self.rkt_inputs[specie].log10_input:
-                self.rkt_inputs[specie].set_lower_bound(None)
-            else:
-                self.rkt_inputs[specie].set_lower_bound(0)
+
+            self.rkt_inputs[specie].set_lower_bound(0)
 
             self.rkt_inputs[specie].io_type = "chemical_specie"
         # elif specie in self.rkt_inputs:
@@ -528,7 +518,6 @@ class ReaktoroInputSpec:
             (
                 cv[0],
                 self.rkt_inputs[cv[1]].get_rkt_index(),
-                self.rkt_inputs[cv[1]].log10_input,  # trying manual conversions
             )
             for cv in self.constraint_dict[element]
         ]
@@ -536,11 +525,8 @@ class ReaktoroInputSpec:
         def _constraint_fn(props, w):
             """constraint function to sum up all species"""
             sum_species = []
-            for mol, idx, log10 in species_list:
-                if log10:
-                    sum_species.append(mol * 10 ** w[idx])
-                else:
-                    sum_species.append(mol * w[idx])
+            for mol, idx in species_list:
+                sum_species.append(mol * w[idx])
             return props.elementAmount(element) - sum(sum_species)
 
         spec_object.openTo(element)
