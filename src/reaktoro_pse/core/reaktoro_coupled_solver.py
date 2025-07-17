@@ -78,15 +78,19 @@ class ReaktoroCoupledSolver:
         for idx, key in enumerate(
             self.property_solver.input_specs.rkt_inputs.rkt_input_list
         ):
-
             if key in self.property_solver.input_specs.rkt_inputs:
                 obj = self.property_solver.input_specs.rkt_inputs[key]
-                if obj.io_type != "specie" and obj.io_type != "element":
+                if (
+                    obj.io_type != "specie"
+                    and obj.io_type != "element"
+                    or obj.dummy_var_key == None
+                ):
                     new_key = self.modify_key("prop", key)
                     self.input_specs.rkt_inputs[new_key] = obj
                     self.master_mapping[new_key] = key
                     self.update_input_list(new_key)
                     self.prop_jac_idx.append(idx)
+                # elif obj.dummy_var_key == None:
                 else:
                     self.prop_jac_propagation_idx[
                         self.output_key_order[obj.dummy_var_key]

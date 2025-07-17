@@ -24,17 +24,6 @@ class PhaseInput:
             ),
         )
         phase_input.declare(
-            "composition_log10_basis",
-            ConfigValue(
-                default=False,
-                domain=bool,
-                description="Defines if provided composition is in log10 basis",
-                doc="""Defines if provided composition is in log10 basis,
-                use this if we are using inputs in log10 basis into reaktoro
-                instead of absolute values """,
-            ),
-        )
-        phase_input.declare(
             "composition_indexed",
             ConfigValue(
                 default=True,

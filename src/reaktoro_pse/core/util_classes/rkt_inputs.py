@@ -92,7 +92,6 @@ class RktInput:
         self.input_type = None
         self.io_type = None  # input or output
         self.auto_scaled = False
-        self.log10_input = False
         self.dummy_var = None
         self.dummy_var_key = None
         if pyomo_var is not None:
@@ -125,12 +124,6 @@ class RktInput:
 
     def set_input_type(self, input_type):
         self.input_type = input_type
-
-    def delog10_input(self, value, delog=True):
-        if self.log10_input and delog:
-            return 10**value
-        else:
-            return value
 
     def update_values(self, update_temp=False):
         if self.pyomo_var is not None:
@@ -176,26 +169,25 @@ class RktInput:
         else:
             return 1
 
-    def get_value(self, update_temp=False, delog=False, apply_conversion=False):
+    def get_value(self, update_temp=False, apply_conversion=False):
         self.update_values(update_temp)
         if apply_conversion and self.conversion_value is not None:
             _value = self.converted_value
         else:
             _value = self.value
 
-        return self.delog10_input(_value, delog=delog)
+        return _value
 
-    def get_pyomo_with_required_units(self, delog=False):
+    def get_pyomo_with_required_units(self):
         if self.conversion_value == None:
-            return self.delog10_input(self.pyomo_var, delog=delog)
+            return self.pyomo_var
         else:
 
-            return self.delog10_input(
+            return (
                 pyunits.convert(
                     self.pyomo_var / (self.conversion_value * self.conversion_unit),
                     to_units=self.required_unit,
                 ),
-                delog=delog,
             )
 
     def set_unit_conversion(self, value, unit):

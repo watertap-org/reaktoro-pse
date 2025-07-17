@@ -446,24 +446,6 @@ class ConvertedPropTypes:
         output.calculate_derivative_conversion = calc_sat_dir
         return output
 
-    def logSpeciesAmount(self, property_index):
-        """build log species amount"""
-        output = PropOptions()
-        output.register_property(
-            property_type=PropTypes.chem_prop,
-            property_name="speciesAmount",
-            property_index=property_index,
-        )
-        output.calculate_value = lambda x: math.log10(
-            x["speciesAmount", property_index].value
-        )
-        output.calculate_derivative_conversion = (
-            lambda x: x["speciesAmount", property_index].derivative
-            * 1
-            / (x["speciesAmount", property_index].value * math.log(10))
-        )
-        return output
-
     def pH(self, property_index):
         """build log species amount"""
         output = PropOptions()

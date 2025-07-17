@@ -290,7 +290,6 @@ class ReaktoroStateExport:
             self.inputs[key].input_type = obj.input_type
             self.inputs[key].value = obj.value
             self.inputs[key].converted_value = obj.converted_value
-            self.inputs[key].log10_input = obj.log10_input
             self.inputs[key].dummy_var_key = obj.dummy_var_key
         self.inputs.registered_phases = inputs.registered_phases
         self.inputs.all_species = inputs.all_species
@@ -375,9 +374,7 @@ class ReaktoroState:
         )
         self.inputs.set_composition_is_elements(phase_type, composition_is_elements)
 
-    def register_aqueous_inputs(
-        self, composition, composition_index=None, log10_basis=False
-    ):
+    def register_aqueous_inputs(self, composition, composition_index=None):
         """registers inputs
 
         Keyword arguments:
@@ -389,7 +386,7 @@ class ReaktoroState:
         pH_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[pH_index])
         """
         self.register_inputs(
-            composition, composition_index, RktInputTypes.aqueous_phase, log10_basis
+            composition, composition_index, RktInputTypes.aqueous_phase
         )
 
     def register_relaxation_var(self, name, var):
@@ -397,7 +394,7 @@ class ReaktoroState:
         self.inputs[name] = var
         self.inputs[name].set_input_type("relaxation")
 
-    def register_inputs(self, composition, composition_index, phase, log10_basis):
+    def register_inputs(self, composition, composition_index, phase):
         """generic input registration method,
         unpacks composition (assumes its a dict or indexed var)
         if user provides index then extract values only for that index and
@@ -410,7 +407,6 @@ class ReaktoroState:
                     specie = props[-1]
                 self.inputs[specie] = pyo_obj
                 self.inputs[specie].set_input_type(phase)
-                self.inputs[specie].log10_input = log10_basis
         self._inputs_not_processed = True  # flag that inputs ver modified
 
     def register_species_to_exclude(self, species):
@@ -424,9 +420,17 @@ class ReaktoroState:
             else:
                 raise TypeError(f"{species} is not supported, must be str or list")
 
-    def register_gas_inputs(
-        self, composition, composition_index=None, log10_basis=False
-    ):
+    def register_gas_inputs(self, composition, composition_index=None):
+        """registers inputs
+
+        Keyword arguments:
+        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
+        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
+        """
+        # unfold input for composition
+        self.register_inputs(composition, composition_index, RktInputTypes.gas_phase)
+
+    def register_mineral_inputs(self, composition, composition_index=None):
         """registers inputs
 
         Keyword arguments:
@@ -435,12 +439,20 @@ class ReaktoroState:
         """
         # unfold input for composition
         self.register_inputs(
-            composition, composition_index, RktInputTypes.gas_phase, log10_basis
+            composition, composition_index, RktInputTypes.mineral_phase
         )
 
-    def register_mineral_inputs(
-        self, composition, composition_index=None, log10_basis=False
-    ):
+    def register_liquid_inputs(self, composition, composition_index=None):
+        """registers inputs
+
+        Keyword arguments:
+        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
+        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
+        """
+        # unfold input for composition
+        self.register_inputs(composition, composition_index, RktInputTypes.liquid_phase)
+
+    def register_condensed_inputs(self, composition, composition_index=None):
         """registers inputs
 
         Keyword arguments:
@@ -449,12 +461,10 @@ class ReaktoroState:
         """
         # unfold input for composition
         self.register_inputs(
-            composition, composition_index, RktInputTypes.mineral_phase, log10_basis
+            composition, composition_index, RktInputTypes.condensed_phase
         )
 
-    def register_liquid_inputs(
-        self, composition, composition_index=None, log10_basis=False
-    ):
+    def register_solid_inputs(self, composition, composition_index=None):
         """registers inputs
 
         Keyword arguments:
@@ -463,40 +473,12 @@ class ReaktoroState:
         """
         # unfold input for composition
         self.register_inputs(
-            composition, composition_index, RktInputTypes.liquid_phase, log10_basis
+            composition,
+            composition_index,
+            RktInputTypes.solid_phase,
         )
 
-    def register_condensed_inputs(
-        self, composition, composition_index=None, log10_basis=False
-    ):
-        """registers inputs
-
-        Keyword arguments:
-        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
-        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
-        """
-        # unfold input for composition
-        self.register_inputs(
-            composition, composition_index, RktInputTypes.condensed_phase, log10_basis
-        )
-
-    def register_solid_inputs(
-        self, composition, composition_index=None, log10_basis=False
-    ):
-        """registers inputs
-
-        Keyword arguments:
-        composition -- dictionary or pyomo indexed block that contains apparent or elemental specie composition
-        composition_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[(composition_index,specie)])
-        """
-        # unfold input for composition
-        self.register_inputs(
-            composition, composition_index, RktInputTypes.solid_phase, log10_basis
-        )
-
-    def register_ion_exchange_inputs(
-        self, composition, composition_index=None, log10_basis=False
-    ):
+    def register_ion_exchange_inputs(self, composition, composition_index=None):
         """registers inputs
 
         Keyword arguments:
@@ -508,7 +490,6 @@ class ReaktoroState:
             composition,
             composition_index,
             RktInputTypes.ion_exchange_phase,
-            log10_basis,
         )
 
     def verify_specie_units(self):

@@ -116,8 +116,11 @@ def build_simple_ix(
         hess_options = {}
     else:
         hess_options = {"hessian_type": hess_type}
-    # We will build a block to charge neutralize the feed and adjust apparent species
-    # to achieve this and then build a separate block to do ion exchange calculation
+
+    # we wil first configure a reaktoro block to solve for charge balanced feed, this will
+    # then be coupled directly with our ion exchange block which includes ion exchange addition
+    # note how on speciation block we do not build a gray box model, and on property block we include it in
+    # external_speciation_reaktoro_blocks
     m.eq_speciation_block = ReaktoroBlock(
         system_state={
             "temperature": m.feed_temperature,
@@ -130,13 +133,13 @@ def build_simple_ix(
             "activity_model": rkt.ActivityModelPitzer(),
         },
         outputs={
-            ("charge", None): m.feed_charge,
             "speciesAmount": True,
         },
         dissolve_species_in_reaktoro=True,
-        assert_charge_neutrality=False,
+        assert_charge_neutrality=True,
         build_speciation_block=False,
         hessian_options=hess_options,
+        build_graybox_model=False,
     )
 
     # build the IX block
@@ -144,13 +147,8 @@ def build_simple_ix(
     # Note how we do not privde feed pH any more, as it will be estimated
     # from our specitated and charge balanced block aad adjusted due to addition of resin - which will
     # impact both charge balance and final pH of solution
-
-    m.eq_speciation_block.display_reaktoro_state()
-    m.eq_speciation_block.outputs.display()
     m.eq_ix_properties = ReaktoroBlock(
         aqueous_phase={
-            "composition": m.eq_speciation_block.outputs,
-            "convert_to_rkt_species": False,  # already exact
             "activity_model": rkt.ActivityModelPitzer(),
         },
         ion_exchange_phase={
@@ -167,15 +165,12 @@ def build_simple_ix(
         chemistry_modifier={"NaOH": m.base_addition, "HCl": m.acid_addition},
         dissolve_species_in_reaktoro=True,
         assert_charge_neutrality=False,
-        # reaktoro_solve_options={
-        #     "solver_tolerance": 1e-12,
-        # },
-        # we do not need to re-speciate.
         exact_speciation=True,
         build_speciation_block=False,
-        enable_pH_relaxation_on_property_block=True,
-        H_scale_multiplier=1e4,
         hessian_options=hess_options,
+        external_speciation_reaktoro_blocks=[
+            m.eq_speciation_block
+        ],  #  method for specifying external speciation configuration
     )
     m.eq_ix_properties.display_reaktoro_state()
     # assert False
@@ -267,17 +262,10 @@ def scale_model(m):
 
 
 def initialize(m):
-    m.eq_speciation_block.initialize()
+    # m.eq_speciation_block.initialize()
     m.eq_ix_properties.initialize()
     m.eq_ix_properties.display_jacobian_scaling()
     m.eq_ix_properties.display_reaktoro_state()
-    for key in m.treated_composition:
-        calculate_variable_from_constraint(
-            m.treated_composition[key], m.eq_treated_comp[key]
-        )
-    # Unfix our feed Cl and fix charge to zero so we can charge neutralize the feed
-    m.feed_composition["Cl"].unfix()
-    m.feed_charge.fix(0)
     solve(m)
 
 
