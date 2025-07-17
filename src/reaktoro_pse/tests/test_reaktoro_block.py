@@ -241,9 +241,11 @@ def test_blockBuild_solids_gas(build_rkt_state_with_species):
     )
 
 
-def test_blockBuild_with_speciation_block(
-    build_rkt_state_with_species,
-):
+@pytest.mark.parametrize(
+    "coupling_type",
+    [True, False],
+)
+def test_blockBuild_with_speciation_block(build_rkt_state_with_species, coupling_type):
     m = build_rkt_state_with_species
     m.CaO = Var(["CaO"], initialize=0.001, units=pyunits.mol / pyunits.s)
     m.CaO.fix()
@@ -262,6 +264,7 @@ def test_blockBuild_with_speciation_block(
         database_file="pitzer.dat",
         chemistry_modifier=m.CaO,
         outputs=m.outputs,
+        direct_speciation_to_property_block_coupling=coupling_type,
         build_speciation_block=True,
     )
     m.property_block.initialize()
@@ -283,13 +286,22 @@ def test_blockBuild_with_speciation_block(
     scaling_result = m.property_block.display_jacobian_scaling()
     print(scaling_result)
 
-    expected_scaling = {
-        "property_block": {
-            ("scalingTendency", "Calcite"): 4.82129138572e-08,
-            ("pH", None): 2.5891024643706047e-09,
+    if coupling_type:
+        assert "speciation_block" not in scaling_result
+        expected_scaling = {
+            "property_block": {
+                ("scalingTendency", "Calcite"): 4.82129138572e-08,
+                ("pH", None): 2.5891024643706047e-09,
+            }
         }
-    }
-    assert "speciation_block" not in scaling_result
+    else:
+        assert "speciation_block" in scaling_result
+        expected_scaling = {
+            "property_block": {
+                ("scalingTendency", "Calcite"): 1.1744491024225277e-07,
+                ("pH", None): 4.860733480562415e-09,
+            }
+        }
     assert "property_block" in scaling_result
 
     new_scaling = {}
