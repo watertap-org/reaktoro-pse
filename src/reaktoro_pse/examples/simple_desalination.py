@@ -105,8 +105,7 @@ def build_simple_desal(hess_type, parallel_mode=False):
     m.desal_scaling = Var(
         [
             ("scalingTendency", "Calcite"),
-            # ("scalingTendency", "Gypsum"),
-            # ("scalingTendency", "Brucite"),
+            ("scalingTendency", "Gypsum"),
         ],
         initialize=1,
     )

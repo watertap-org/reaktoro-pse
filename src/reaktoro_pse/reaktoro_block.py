@@ -1140,6 +1140,7 @@ class ReaktoroBlockData(ProcessBlockData):
             jacobian_type=self.config.jacobian_options.numerical_type,
             order=self.config.jacobian_options.numerical_order,
             step_size=self.config.jacobian_options.numerical_step,
+            target_derivative_precision=self.config.jacobian_options.target_derivative_precision,
         )
 
     def build_rkt_solver(self, block, speciation_block=False):

@@ -32,7 +32,7 @@ def build_standard_state(build_rkt_state_with_species):
     return rkt_outputs
 
 
-def test_pyomo_properties(build_standard_state):
+def test_custom_properties(build_standard_state):
     """just test that there are no errors during build"""
     rkt_outputs = build_standard_state
     props = PyomoProperties(
@@ -40,11 +40,9 @@ def test_pyomo_properties(build_standard_state):
         rkt_outputs.supported_properties[PropTypes.chem_prop],
         rkt_outputs.supported_properties[PropTypes.aqueous_prop],
     )
-    props.scalingTendencySaturationIndex("Calcite")
-    props.scalingTendencyDirect("Calcite")
-    props.osmoticPressure("H2O")
-    props.pHDirect()
-    props.vaporPressure("H2O")
+    props.scalingTendencyPyomo("Calcite")
+    props.osmoticPressurePyomo("H2O")
+    props.vaporPressurePyomo("H2O")
 
 
 def test_output_setup(build_standard_state):
@@ -141,56 +139,48 @@ def test_output_pickle(build_standard_state, build_rkt_state_with_species):
 
 def test_pyomo_constraints(build_standard_state):
     rkt_outputs = build_standard_state
-    rkt_outputs.register_output("osmoticPressure", "H2O")
-    assert ("osmoticPressure", "H2O") in rkt_outputs.user_outputs
+    rkt_outputs.register_output("osmoticPressurePyomo", "H2O")
+    assert ("osmoticPressurePyomo", "H2O") in rkt_outputs.user_outputs
     assert ("osmoticPressure", "H2O") not in rkt_outputs.rkt_outputs
     assert ("speciesStandardVolume", "H2O") in rkt_outputs.rkt_outputs
     assert ("speciesActivityLn", "H2O") in rkt_outputs.rkt_outputs
     assert ("temperature", None) in rkt_outputs.rkt_outputs
     assert (
-        rkt_outputs.user_outputs[("osmoticPressure", "H2O")].property_type
+        rkt_outputs.user_outputs[("osmoticPressurePyomo", "H2O")].property_type
         == PropTypes.pyomo_built_prop
     )
     assert (
-        rkt_outputs.user_outputs[("osmoticPressure", "H2O")]
+        rkt_outputs.user_outputs[("osmoticPressurePyomo", "H2O")]
         .pyomo_build_options.properties[("speciesStandardVolume", "H2O")]
         .property_type
         == PropTypes.chem_prop
     )
 
-    rkt_outputs.register_output("pHDirect")
+    rkt_outputs.register_output("vaporPressurePyomo", "H2O")
 
-    assert ("pHDirect", None) in rkt_outputs.user_outputs
+    assert ("vaporPressurePyomo", "H2O") in rkt_outputs.user_outputs
 
-    rkt_outputs.register_output("scalingTendencyDirect", "Calcite")
-    assert ("scalingTendencyDirect", "Calcite") in rkt_outputs.user_outputs
+    rkt_outputs.register_output("scalingTendencyPyomo", "Calcite")
+    assert ("scalingTendencyPyomo", "Calcite") in rkt_outputs.user_outputs
     assert ("scalingTendency", "Calcite") not in rkt_outputs.rkt_outputs
     assert (
-        rkt_outputs.user_outputs[("scalingTendencyDirect", "Calcite")].property_type
-        == PropTypes.pyomo_built_prop
-    )
-
-    rkt_outputs.register_output("scalingTendencyDirect", "Calcite")
-    assert ("scalingTendencyDirect", "Calcite") in rkt_outputs.user_outputs
-    assert ("scalingTendency", "Calcite") not in rkt_outputs.rkt_outputs
-    assert (
-        rkt_outputs.user_outputs[("scalingTendencyDirect", "Calcite")].property_type
+        rkt_outputs.user_outputs[("scalingTendencyPyomo", "Calcite")].property_type
         == PropTypes.pyomo_built_prop
     )
     assert (
         rkt_outputs.user_outputs[
-            ("scalingTendencyDirect", "Calcite")
+            ("scalingTendencyPyomo", "Calcite")
         ].pyomo_build_options.options["logk_type"]
         == "Analytical"
     )
     assert (
-        rkt_outputs.user_outputs[("scalingTendencyDirect", "Calcite")]
+        rkt_outputs.user_outputs[("scalingTendencyPyomo", "Calcite")]
         .pyomo_build_options.properties[("speciesActivityLn", "Ca+2")]
         .stoichiometric_coeff
         == 1
     )
     assert (
-        rkt_outputs.user_outputs[("scalingTendencyDirect", "Calcite")]
+        rkt_outputs.user_outputs[("scalingTendencyPyomo", "Calcite")]
         .pyomo_build_options.properties[("speciesActivityLn", "CO3-2")]
         .stoichiometric_coeff
         == 1

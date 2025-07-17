@@ -31,7 +31,7 @@ def test_water_vapor_comp():
 def test_water_removal_comp():
     result = water_removal_comparison.main(False, False)
     expected_result = {
-        "Calcite": 0.2697638824647954,
+        "Calcite": 0.25142049795489263,
         "pH": 0.08756483809897087,
         "Osmotic pressure": 0.045095730902661786,
     }
@@ -56,12 +56,12 @@ def test_acid_base_comp():
     result = acid_base_addition_comparison.main(False, False)
     print(result)
     hcl_result = {
-        "Calcite": 0.6159176945253274,
+        "Calcite": 0.5976297918466753,
         "pH": 0.007230990243316364,
         "Osmotic pressure": 0.05902701717931409,
     }
     naoh_result = {
-        "Calcite": 0.7957449866927796,
+        "Calcite": 0.7774901776376242,
         "pH": 0.016994006109543942,
         "Osmotic pressure": 0.05628415918558991,
     }
@@ -75,7 +75,7 @@ def test_mix_comp():
     result = solution_mixing_comparison.main(False, False)
     print(result)
     expected_result = {
-        "Calcite": 0.7082675995254939,
+        "Calcite": 0.6899966986598822,
         "pH": 0.00587538473081846,
         "Osmotic pressure": 0.05964941573467817,
     }

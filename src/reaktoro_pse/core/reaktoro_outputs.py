@@ -213,38 +213,10 @@ class PyomoProperties:
         self.chem_props = chem_props
         self.aqueous_props = aqueous_props
 
-    def scalingTendencySaturationIndex(self, property_index):
-        """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
-        required_props = PropOptions()
-        required_props.register_property(
-            PropTypes.aqueous_prop, "saturationIndex", property_index
-        )
-        required_props.register_build_function(
-            propFuncs.build_scaling_tendency_constraint
-        )
-        return required_props
-
-    def chargeDirect(self, property_index):
-        """build pyomo constraint for charge calculations directly form chem props"""
-        required_props = PropOptions()
-        required_props.register_property(PropTypes.chem_prop, "charge", property_index)
-        species = []
-        for specie in self.state.state.system().species():
-            name, charge = specie.name(), specie.charge()
-            if charge != 0:
-                species.append((name, charge))
-                required_props.register_property(
-                    PropTypes.chem_prop, "speciesAmount", name
-                )
-        required_props.register_option("species", species)
-        required_props.register_build_function(propFuncs.build_direct_charge)
-        return required_props
-
-    def scalingTendencyDirect(self, property_index):
+    def scalingTendencyPyomo(self, property_index):
         """build pyomo constraint for scaling index calculations directly form chem props
         #TODO: Need to add check for database being used as only PhreeqC is really supported at the
         moment"""
-        print("building sc direct")
         required_props = PropOptions()
         ref_temp = 25  # degC
         ref_pressure = 1  # atm
@@ -266,19 +238,21 @@ class PyomoProperties:
             raise NotImplemented(f"reaction type {jsp_dict} not supported")
         required_props.register_option("gas_constant", rkt.universalGasConstant)
         volume_reactants = 0
+        system_species = [s.name() for s in self.state.state.system().species()]
         for s, mol in spec.reaction().reactants():
-            spec = self.state.system.species().get(s.name())
-            thermo_model = spec.standardThermoModel()
-            _pr = spec.props(ref_temp, "C", ref_pressure, "atm")
-            volume_reactants += float(_pr.V0) * abs(mol)
-            required_props.register_property(
-                PropTypes.chem_prop, "speciesActivityLn", s.name()
-            )
-            required_props.properties[
-                ("speciesActivityLn", s.name())
-            ].stoichiometric_coeff = abs(
-                mol
-            )  # create on demand to track coefficients
+            if s.name() in system_species:
+                spec = self.state.system.species().get(s.name())
+                thermo_model = spec.standardThermoModel()
+                _pr = spec.props(ref_temp, "C", ref_pressure, "atm")
+                volume_reactants += float(_pr.V0) * abs(mol)
+                required_props.register_property(
+                    PropTypes.chem_prop, "speciesActivityLn", s.name()
+                )
+                required_props.properties[
+                    ("speciesActivityLn", s.name())
+                ].stoichiometric_coeff = abs(
+                    mol
+                )  # create on demand to track coefficients
 
         required_props.register_option(
             "delta_V", float(specie_volume - (volume_reactants))
@@ -290,8 +264,8 @@ class PyomoProperties:
         )
         return required_props
 
-    def osmoticPressure(self, property_index):
-        """build osmoric pressure constraint, as its not available from reaktoro"""
+    def osmoticPressurePyomo(self, property_index):
+        """build osmotic pressure constraint, as its not available from reaktoro"""
         # reference  https://help.syscad.net/PHREEQC_Reverse_Osmosis
         required_props = PropOptions()
         required_props.register_property(
@@ -305,14 +279,7 @@ class PyomoProperties:
         required_props.register_option("gas_constant", rkt.universalGasConstant)
         return required_props
 
-    def pHDirect(self, property_index=None):
-        """build direct pH caclautions from chem props"""
-        required_props = PropOptions()
-        required_props.register_property(PropTypes.chem_prop, "speciesActivityLn", "H+")
-        required_props.register_build_function(propFuncs.build_ph_constraint)
-        return required_props
-
-    def vaporPressure(self, property_index=None):
+    def vaporPressurePyomo(self, property_index=None):
         """build direct pH caclautions from chem props"""
         required_props = PropOptions()
         required_props.register_property(
@@ -323,38 +290,75 @@ class PyomoProperties:
         )
         return required_props
 
-    def alkalinityAsCaCO3Direct(self, property_index=None):
-        """build alkalinity and convert it to CaCO3 basis"""
-        required_props = PropOptions()
-        required_props.register_property(PropTypes.aqueous_prop, "alkalinity")
-        required_props.register_build_function(
-            propFuncs.build_alkalinity_as_caco3_constraint
-        )
-        return required_props
-
-    def elementAmount(self, property_index):
-        """build element amount"""
-        required_props = PropOptions()
-        for mol, spc in self.state.element_to_species[property_index]:
-            required_props.register_property(
-                property_type=PropTypes.chem_prop,
-                property_name="speciesAmount",
-                property_index=spc,
-            )
-        required_props.register_option(
-            "element_sum",
-            [(mol, spc) for mol, spc in self.state.element_to_species[property_index]],
-        )
-
-        required_props.register_build_function(propFuncs.build_element_sum_constraint)
-        return required_props
-
 
 class ConvertedPropTypes:
     def __init__(self, reaktor_state, chem_props, aqueous_props):
         self.state = reaktor_state
         self.chem_props = chem_props
         self.aqueous_props = aqueous_props
+
+    def vaporPressure(self, property_index=None):
+        """build vapor pressure"""
+        output = PropOptions()
+        output.register_property(
+            PropTypes.chem_prop, "speciesActivityLn", property_index
+        )
+        output.calculate_value = (
+            lambda x: math.exp(x["speciesActivityLn", property_index].value) * 101325
+        )
+
+        output.calculate_derivative_conversion = (
+            lambda x: math.exp(x["speciesActivityLn", property_index].value)
+            * 101325
+            * x["speciesActivityLn", property_index].derivative
+        )
+
+        return output
+
+    def osmoticPressure(self, property_index=None):
+        """build osmotic pressure"""
+        output = PropOptions()
+        output.register_property(
+            PropTypes.chem_prop, "speciesStandardVolume", property_index
+        )
+        output.register_property(
+            PropTypes.chem_prop, "speciesActivityLn", property_index
+        )
+        output.register_property(PropTypes.chem_prop, "temperature")
+        output.register_option("gas_constant", rkt.universalGasConstant)
+
+        def calc_pressure(x):
+            build_options = output.options
+            return (
+                -x[("speciesActivityLn", property_index)].value
+                * build_options["gas_constant"]
+                * x[("temperature", None)].value
+                / x[("speciesStandardVolume", property_index)].value
+            )
+
+        def der_calc_pressure(x):
+            build_options = output.options
+            return sum(
+                [
+                    -x[("speciesActivityLn", property_index)].derivative
+                    * build_options["gas_constant"]
+                    * x[("temperature", None)].value
+                    / x[("speciesStandardVolume", property_index)].value,
+                    -x[("speciesActivityLn", property_index)].value
+                    * build_options["gas_constant"]
+                    * x[("temperature", None)].derivative
+                    / x[("speciesStandardVolume", property_index)].value,
+                    x[("speciesActivityLn", property_index)].value
+                    * build_options["gas_constant"]
+                    * x[("temperature", None)].value
+                    / (x[("speciesStandardVolume", property_index)].value ** 2)
+                    * x[("speciesStandardVolume", property_index)].derivative,
+                ]
+            )
+
+        output.calculate_value = calc_pressure
+        output.calculate_derivative_conversion = der_calc_pressure
+        return output
 
     def elementAmount(self, property_index):
         """build element amount"""
@@ -372,32 +376,6 @@ class ConvertedPropTypes:
         output.calculate_derivative_conversion = lambda x: sum(
             mol * x["speciesAmount", spc].derivative
             for mol, spc in self.state.element_to_species[property_index]
-        )
-        return output
-
-    def logcharge(self, property_index):
-        """build element amount"""
-        output = PropOptions()
-        species = []
-        for specie in self.state.state.system().species():
-            name, charge = specie.name(), specie.charge()
-            if charge != 0:
-                species.append((charge, name))
-                output.register_property(
-                    property_type=PropTypes.chem_prop,
-                    property_name="speciesAmount",
-                    property_index=name,
-                )
-        output.calculate_value = lambda x: math.log10(
-            abs(sum(charge * x["speciesAmount", spc].value for charge, spc in species))
-        )
-        output.calculate_derivative_conversion = lambda x: sum(
-            charge * x["speciesAmount", spc].derivative for charge, spc in species
-        ) / (
-            math.log(10)
-            * abs(
-                sum(charge * x["speciesAmount", spc].value for charge, spc in species)
-            )
         )
         return output
 
@@ -437,7 +415,7 @@ class ConvertedPropTypes:
         )
         return output
 
-    def scalingTendency(self, property_index):
+    def scalingTendencySaturationIndex(self, property_index):
         """build scaling tendency - RKT has saturationIndex but no scalingIndex"""
         output = PropOptions()
         output.register_property(
@@ -495,12 +473,211 @@ class ConvertedPropTypes:
             property_index="H+",
         )
         output.calculate_value = (
-            lambda x: -1 * x["speciesActivityLn", "H+"].value / 2.302585092994046
+            lambda x: -1 * x["speciesActivityLn", "H+"].value / math.log(10)
         )
         output.calculate_derivative_conversion = (
-            lambda x: x["speciesActivityLn", "H+"].derivative * -1 / 2.302585092994046
+            lambda x: x["speciesActivityLn", "H+"].derivative * -1 / math.log(10)
         )
 
+        return output
+
+    def scalingTendency(self, property_index):
+        """build pyomo constraint for scaling index calculations directly form chem props
+        #TODO: Need to add check for database being used as only PhreeqC is really supported at the
+        moment"""
+        # print("building sc direct")
+        output = PropOptions()
+        ref_temp = 25  # degC
+        ref_pressure = 1  # atm
+        spec = self.aqueous_props.saturationSpecies().get(property_index)
+        thermo_model = spec.standardThermoModel()
+        pr = spec.props(ref_temp, "C", ref_pressure, "atm")
+        specie_volume = float(pr.V0)  # returns auto diff/not usable with pyomo
+
+        # get data from thermo prop
+        jsp = thermo_model.params().dumpJson()
+        jsp_dict = json.loads(jsp)
+        not_implemented = False
+        if isinstance(jsp_dict, list):
+            if jsp_dict[0].get("PhreeqcLgK", None) is not None:
+                output.register_option("logk_type", "Analytical")
+                output.register_option("logk_paramters", jsp_dict[0]["PhreeqcLgK"])
+            elif jsp_dict[0].get("VantHoff", None) is not None:
+                output.register_option("logk_type", "VantHoff")
+                output.register_option("logk_paramters", jsp_dict[0]["VantHoff"])
+            else:
+                not_implemented = True
+        else:
+            not_implemented = True
+        if not_implemented:
+
+            print(
+                f"Exact derivatives for scaling tendencity with params of {jsp_dict} not implemented, returning numerical scalingTendencySaturationIndex instead"
+            )
+            return self.scalingTendencySaturationIndex(property_index)
+        output.register_option("gas_constant", rkt.universalGasConstant)
+        volume_reactants = 0
+        system_species = [s.name() for s in self.state.state.system().species()]
+        for s, mol in spec.reaction().reactants():
+            if s.name() in system_species:
+                spec = self.state.system.species().get(s.name())
+                thermo_model = spec.standardThermoModel()
+                _pr = spec.props(ref_temp, "C", ref_pressure, "atm")
+                volume_reactants += float(_pr.V0) * abs(mol)
+                output.register_property(
+                    PropTypes.chem_prop, "speciesActivityLn", s.name()
+                )
+                output.properties[
+                    ("speciesActivityLn", s.name())
+                ].stoichiometric_coeff = abs(
+                    mol
+                )  # create on demand to track coefficients
+
+        output.register_option("delta_V", float(specie_volume - (volume_reactants)))
+        output.register_property(PropTypes.chem_prop, "temperature")
+        output.register_property(PropTypes.chem_prop, "pressure")
+
+        def calc_scaling_tendency(x):
+            build_options = output.options
+            temperature_value = x["temperature", None].value
+            if build_options["logk_type"] == "Analytical":
+                A_params = build_options["logk_paramters"]
+                log_k = [A_params["A1"]]
+                # temp dependence for phreeqc
+                if A_params["A2"] != 0:
+                    log_k.append(A_params["A2"] * temperature_value)
+                if A_params["A3"] != 0:
+                    log_k.append(A_params["A3"] * temperature_value**-1)
+                if A_params["A4"] != 0:
+                    log_k.append(A_params["A4"] * math.log10(temperature_value))
+                if A_params["A5"] != 0:
+                    log_k.append(A_params["A5"] * temperature_value**-2)
+                if A_params["A6"] != 0:
+                    log_k.append(A_params["A6"] * temperature_value**2)
+
+            if build_options["logk_type"] == "VantHoff":
+                vfparams = build_options["logk_paramters"]
+                log_k = [
+                    vfparams["lgKr"]
+                    - vfparams["dHr"]
+                    / build_options["gas_constant"]
+                    * (1 / temperature_value - 1 / vfparams["Tr"])
+                ]
+            # pressure dependence
+            log_k.append(
+                -(
+                    build_options["delta_V"]
+                    * (x[("pressure", None)].value - 101325)
+                    / (math.log(10) * build_options["gas_constant"] * temperature_value)
+                )
+            )
+
+            activities = []
+            for key, obj in x.items():
+                if "speciesActivityLn" in key:
+                    activities.append(
+                        obj.value * obj.stoichiometric_coeff / math.log(10)
+                    )
+            try:
+                si = 10 ** (
+                    sum(activities)
+                    + sum(
+                        log_k
+                    )  # this is positive here and in log10 fom, so we add instead of subtract
+                )
+            except OverflowError:
+                print("overflow error in scalingTendency calc_sat_dir")
+                si = 1e100
+            return si
+
+        def calc_scaling_tendency_derivative(x):
+            build_options = output.options
+            temperature_value = x["temperature", None].value
+            temperature_value_derivative = x["temperature", None].derivative
+            if build_options["logk_type"] == "Analytical":
+                # print("Analytical logk")
+                A_params = build_options["logk_paramters"]
+                log_k = [0]
+                # temp dependence for phreeqc
+                if A_params["A2"] != 0:
+                    log_k.append(A_params["A2"] * temperature_value_derivative)
+                if A_params["A3"] != 0:
+                    log_k.append(
+                        -A_params["A3"]
+                        * temperature_value**-2
+                        * temperature_value_derivative
+                    )
+                if A_params["A4"] != 0:
+                    log_k.append(
+                        A_params["A4"]
+                        / (temperature_value * math.log(10))
+                        * temperature_value_derivative
+                    )
+                if A_params["A5"] != 0:
+                    log_k.append(
+                        -2
+                        * A_params["A5"]
+                        * temperature_value**-3
+                        * temperature_value_derivative
+                    )
+                if A_params["A6"] != 0:
+                    log_k.append(
+                        2
+                        * A_params["A6"]
+                        * temperature_value
+                        * temperature_value_derivative
+                    )
+
+            if build_options["logk_type"] == "VantHoff":
+                # print("VantHoff logk")
+                vfparams = build_options["logk_paramters"]
+                log_k = [
+                    vfparams["dHr"]
+                    / build_options["gas_constant"]
+                    * (1 / temperature_value**2)
+                    * temperature_value_derivative
+                ]
+            # pressure dependenance
+            pressure_derivative = x[("pressure", None)].derivative
+            log_k.append(
+                -(
+                    build_options["delta_V"]
+                    * pressure_derivative
+                    / (math.log(10) * build_options["gas_constant"] * temperature_value)
+                )
+            )
+            log_k.append(
+                (
+                    build_options["delta_V"]
+                    * (x[("pressure", None)].value - 101325)
+                    / (
+                        math.log(10)
+                        * build_options["gas_constant"]
+                        * temperature_value**2
+                    )
+                    * temperature_value_derivative
+                )
+            )
+            activities = []
+            for key, obj in x.items():
+                if "speciesActivityLn" in key:
+                    activities.append(
+                        x[key].derivative * obj.stoichiometric_coeff / math.log(10)
+                    )
+            try:
+                st = calc_scaling_tendency(x)
+                sum_derivatives = sum(activities) + sum(
+                    log_k
+                )  # this is postive here and in log10 fom, so we add instead of subtract
+                dir_st = sum_derivatives * st * math.log(10)
+            except OverflowError:
+                print("overflow error in scalingTendency calc_sat_dir")
+                dir_st = 1e100
+            # print("dir_st", dir_st, st, activities, log_k, temperature_value_derivative)
+            return dir_st
+
+        output.calculate_value = calc_scaling_tendency
+        output.calculate_derivative_conversion = calc_scaling_tendency_derivative
         return output
 
 

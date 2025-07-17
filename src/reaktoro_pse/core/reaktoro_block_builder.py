@@ -581,6 +581,7 @@ class ReaktoroBlockBuilder:
 
         max_scale = self.jacobian_scaling_bounds[1]
         min_scale = self.jacobian_scaling_bounds[0]
+
         if self.jacobian_scaling_bounds_output_based:
             for i, scale in enumerate(self.solver.jacobian_scaling_values):
                 if min_scale is not None and scale < output_scales[i] * min_scale:

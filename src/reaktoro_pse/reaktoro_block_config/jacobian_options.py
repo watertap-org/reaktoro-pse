@@ -118,7 +118,7 @@ class JacobianOptions:
         CONFIG.declare(
             "jacobian_scaling_bounds_output_based",
             ConfigValue(
-                default=True,
+                default=False,
                 domain=bool,
                 description="Defines if lower and upper bounds for jacobian scaling factors should be baseded on output scale",
                 doc="""

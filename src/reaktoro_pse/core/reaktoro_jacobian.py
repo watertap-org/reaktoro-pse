@@ -454,7 +454,7 @@ class ReaktoroJacobianSpec:
                 variances = []
                 multipliers = []
                 target_variance = self.target_derivative_precision
-                rate_term = 0.01
+                rate_term = 0.1
 
                 def update_local_state(local_step_size):
                     zero_test, jac_val, variance = get_derivative(
@@ -467,7 +467,7 @@ class ReaktoroJacobianSpec:
 
                 steps = np.array([1.0, 0.0, -1.0])
                 hit_bounds = False
-                for i in range(100):
+                for i in range(50):
                     local_step_size = 10 ** (multiplier + steps)
                     if max_step is not None and local_step_size[1] > max_step:
                         local_step_size = max_step

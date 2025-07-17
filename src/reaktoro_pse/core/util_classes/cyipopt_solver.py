@@ -6,8 +6,8 @@ def get_cyipopt_watertap_solver(
     ma27=False,
     limited_memory=False,
     solver_args=None,
-    scalar_type="scalar2",
-    dual_inf_tol=1e-2,
+    scalar_type="scalar1",
+    dual_inf_tol=1e-1,
 ):
     """general config for cyipopt solver"""
     cy_solver = get_solver(solver="cyipopt-watertap")

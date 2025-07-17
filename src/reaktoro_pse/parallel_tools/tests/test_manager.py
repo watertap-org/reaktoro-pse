@@ -85,7 +85,7 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species, hess_typ
     print(scaling_result)
     expected_scaling = {
         "property_block": {
-            ("scalingTendency", "Calcite"): 4.8427389921397407e-08,
+            ("scalingTendency", "Calcite"): 4.8212913857241354e-08,
             ("pH", None): 2.5891024643724075e-09,
         }
     }
@@ -140,6 +140,6 @@ def test_blockBuild_with_wateqf_data_base(build_rkt_state_with_species):
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
     m.display()
-    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 8.02734612095552
+    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 7.88546261258027
     assert pytest.approx(m.pH.value, 1e-2) == 7.2526416924401556
     m.reaktoro_manager.terminate_workers()

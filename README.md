@@ -95,12 +95,12 @@ If option "A" did not work, using exact derivatives can potentially solve this i
 
 Supported PyomoProperties with exact derivatives:
 
-- scalingTendencyDirect - this only designed to work with PhreeqC data bases 
+- scalingTendencyPyomo - this only designed to work with PhreeqC data bases 
 - phDirect
 - osmoticPressure
 - vaporPressure
 
-These properties are accessed as any other property in ReaktoroBlock. Simply pass ('scalingTendencyDirect',phase) to outputs.  
+These properties are accessed as any other property in ReaktoroBlock. Simply pass ('scalingTendencyPyomo',phase) to outputs.  
 
 ### Failing due to iterates diverging
 In some cases you might experience a failed solve with error

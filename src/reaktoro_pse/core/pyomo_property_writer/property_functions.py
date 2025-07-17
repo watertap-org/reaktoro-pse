@@ -13,48 +13,6 @@ from pyomo.environ import log10, log, exp, units as pyunits
 from idaes.core.util.math import smooth_max
 
 
-def build_alkalinity_as_caco3_constraint(rkt_output_object):
-    user_output_var = rkt_output_object.pyomo_var
-    build_properties = rkt_output_object.pyomo_build_options.properties
-    return (
-        user_output_var
-        == (build_properties[("alkalinity", None)].pyomo_var * 100.09 * 1000)
-        * pyunits.mg
-        / pyunits.L
-    )
-
-
-def build_element_sum_constraint(rkt_output_object):
-    user_output_var = rkt_output_object.pyomo_var
-    build_properties = rkt_output_object.pyomo_build_options.properties
-    build_options = rkt_output_object.pyomo_build_options.options
-    return user_output_var == sum(
-        mol * build_properties["speciesAmount", spc].pyomo_var
-        for mol, spc in build_options["element_sum"]
-    )
-
-
-def build_scaling_tendency_constraint(rkt_output_object):
-    user_output_var = rkt_output_object.pyomo_var
-    build_properties = rkt_output_object.pyomo_build_options.properties
-    return (
-        user_output_var
-        == 10
-        ** build_properties[
-            ("saturationIndex", rkt_output_object.property_index)
-        ].pyomo_var
-    )
-
-
-def build_ph_constraint(rkt_output_object):
-    user_output_var = rkt_output_object.pyomo_var
-    build_properties = rkt_output_object.pyomo_build_options.properties
-    return (
-        -build_properties[("speciesActivityLn", "H+")].pyomo_var / log(10)
-        == user_output_var
-    )
-
-
 def build_vapor_pressure_constraint(rkt_output_object):
     user_output_var = rkt_output_object.pyomo_var
     build_properties = rkt_output_object.pyomo_build_options.properties
@@ -108,17 +66,6 @@ def build_osmotic_constraint(rkt_output_object):
         * build_properties[
             ("speciesActivityLn", rkt_output_object.property_index)
         ].pyomo_var
-    )
-
-
-def build_direct_charge(rkt_output_object):
-    # https://reaktoro.org/api/namespaceReaktoro.html#a55b9a29cdf35e98a6b07e67ed2edbc25
-    user_output_var = rkt_output_object.pyomo_var
-    build_properties = rkt_output_object.pyomo_build_options.properties
-    species = rkt_output_object.pyomo_build_options.options["species"]
-    return user_output_var == sum(
-        build_properties[("speciesAmount", key)].pyomo_var * charge
-        for key, charge in species
     )
 
 

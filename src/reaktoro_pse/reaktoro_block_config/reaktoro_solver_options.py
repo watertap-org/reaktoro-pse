@@ -11,7 +11,7 @@ class ReaktoroSolverOptions:
         CONFIG.declare(
             "solver_tolerance",
             ConfigValue(
-                default=1e-8,
+                default=1e-9,
                 domain=float,
                 description="Tolerance for Reaktoro solver",
                 doc="""Tolerance for primary Reaktoro solver""",
@@ -20,7 +20,7 @@ class ReaktoroSolverOptions:
         CONFIG.declare(
             "epsilon",
             ConfigValue(
-                default=1e-32,
+                default=1e-64,
                 domain=float,
                 description="epsilon for Reaktoro solver",
                 doc="""Defines what is considered to be 0 for ion composition""",

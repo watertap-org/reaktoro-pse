@@ -481,12 +481,11 @@ def test_numeric_setup(build_standard_state):
 def test_jacobian_matrix(build_standard_state):
     rkt_jac = build_standard_state
 
-    dummyMatrix = np.ones((len(rkt_jac.jac_rows.keys), 2))
-    dummyMatrix[:, 1] = 10
+    dummyMatrix = np.ones(178)
     rkt_jac.update_jacobian_absolute_values()
-    jac_matrix = rkt_jac.process_jacobian_matrix(dummyMatrix, 0, 100)
-
-    assert pytest.approx(jac_matrix[0][0], 1e-3) == 293.14999
-    assert pytest.approx(jac_matrix[0][0], 1e-3) == 293.15000293
+    rkt_jac.partial_jac_vals = dummyMatrix
+    jac_matrix = rkt_jac.process_jacobian_matrix(0.1, 0.01)
+    assert pytest.approx(jac_matrix[0][0], 1e-5) == 2.93148000e02
+    assert pytest.approx(jac_matrix[0][-1], 1e-5) == 2.93152000e02
 
     assert len(jac_matrix) == 178
