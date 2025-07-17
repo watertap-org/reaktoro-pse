@@ -671,7 +671,7 @@ def test_blockBuild_with_speciation_block_no_chem_super_critical_db(
         chemistry_modifier=m.CaO,
         database="SupcrtDatabase",
         database_file="supcrtbl",
-        reaktoro_solve_options={"solver_tolerance": 1e-12, "epsilon": 1e-64},
+        reaktoro_solve_options={"solver_tolerance": 1e-8, "epsilon": 1e-64},
         outputs=m.outputs,
         build_speciation_block=True,
     )
