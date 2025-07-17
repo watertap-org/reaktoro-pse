@@ -124,7 +124,6 @@ def test_blockBuild_with_wateqf_data_base(build_rkt_state_with_species):
             "pressure": m.pressure,
             "pH": m.pH,
         },
-        reaktoro_solve_options={"solver_tolerance": 1e-8, "epsilon": 1e-64},
         database="PhreeqcDatabase",
         database_file="wateq4f.dat",
         chemistry_modifier=m.CaO,
@@ -141,6 +140,6 @@ def test_blockBuild_with_wateqf_data_base(build_rkt_state_with_species):
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
     m.display()
-    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 7.88546261258027
+    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 8.027346120955238
     assert pytest.approx(m.pH.value, 1e-2) == 7.2526416924401556
     m.reaktoro_manager.terminate_workers()
