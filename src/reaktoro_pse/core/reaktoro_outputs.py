@@ -9,9 +9,7 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-from matplotlib.pylab import f
 import reaktoro as rkt
-
 import json
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
 import reaktoro_pse.core.pyomo_property_writer.property_functions as propFuncs

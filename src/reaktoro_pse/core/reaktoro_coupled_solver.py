@@ -9,29 +9,20 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-from matplotlib.table import Cell
-import reaktoro as rkt
-
 import numpy as np
 from reaktoro_pse.core.util_classes.rkt_inputs import (
     RktInputs,
-    RktInputTypes,
     DummyPyomoVar,
 )
-from reaktoro_pse.core.reaktoro_state import ReaktoroState
 from reaktoro_pse.core.reaktoro_outputs import (
     ReaktoroOutputSpec,
 )
 from reaktoro_pse.core.reaktoro_inputs import (
     ReaktoroInputSpec,
 )
-from reaktoro_pse.core.reaktoro_jacobian import (
-    ReaktoroJacobianSpec,
-)
-import cyipopt
 import idaes.logger as idaeslog
 
-__author__ = "Alexander V. Dudchenko, Ben Knueven, Ilayda Akkor"
+__author__ = "Alexander V. Dudchenko, Ben Knueven"
 
 _log = idaeslog.getLogger(__name__)
 
@@ -171,7 +162,6 @@ class ReaktoroCoupledSolver:
                 new_key = self.modify_key(f"s_{i}", key)
                 self.master_mapping[new_key] = key
                 self.input_specs.user_inputs[new_key] = obj
-                # self.update_input_list(new_key)
             for idx, key in enumerate(solver.input_specs.rkt_inputs.rkt_input_list):
                 if key in solver.input_specs.rkt_inputs:
                     new_key = self.modify_key(f"s_{i}", key)
@@ -207,7 +197,7 @@ class ReaktoroCoupledSolver:
             self.output_key_order[output] = idx
 
     def get_master_outputs(self):
-        # create master inputs/outputs for property solver
+        """create master inputs/outputs for property solver"""
         self.output_specs = ReaktoroOutputSpec()
         self.output_specs.user_outputs = self.property_solver.output_specs.user_outputs
         self.output_specs.rkt_outputs = self.property_solver.output_specs.rkt_outputs
@@ -215,7 +205,7 @@ class ReaktoroCoupledSolver:
     def equilibrate_state(
         self,
     ):
-        # intialzies all states
+        """Initialize all reaktoro states"""
         for solver in self.speciation_solvers:
             solver.equilibrate_state()
         self.prop_block_not_equilibrated = True
@@ -300,4 +290,6 @@ class ReaktoroCoupledSolver:
         )
 
     def get_input_scaling(self):
-        raise NotImplementedError("This method gets updated by ReaktoroBlockBuilder")
+        raise NotImplementedError(
+            "This method gets updated by ReaktoroBlockBuilder, did you build the builder?"
+        )

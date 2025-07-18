@@ -12,9 +12,7 @@
 import reaktoro as rkt
 from reaktoro_pse.core.util_classes.rkt_inputs import RktInputs, RktInput, RktInputTypes
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
-
 import idaes.logger as idaeslog
-import copy
 
 _log = idaeslog.getLogger(__name__)
 

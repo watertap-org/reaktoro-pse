@@ -10,7 +10,6 @@
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
 from pyomo.environ import log10, log, exp, units as pyunits
-from idaes.core.util.math import smooth_max
 
 
 def build_vapor_pressure_constraint(rkt_output_object):
@@ -23,6 +22,7 @@ def build_vapor_pressure_constraint(rkt_output_object):
             ].pyomo_var
         )
         * 101325
+        * pyunits.Pa
         == user_output_var
     )
 

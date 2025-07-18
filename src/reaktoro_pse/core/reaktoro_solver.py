@@ -9,7 +9,6 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-from matplotlib.table import Cell
 import reaktoro as rkt
 
 import numpy as np

@@ -9,16 +9,12 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-import sys
-from numpy import isin
 import reaktoro as rkt
 from pyomo.environ import units as pyunits
-
 import reaktoro_pse.core.util_classes.rkt_inputs as RktInputs
 from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from pyomo.core.base.var import IndexedVar
 import idaes.logger as idaeslog
-import copy
 
 _log = idaeslog.getLogger(__name__)
 

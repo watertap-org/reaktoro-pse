@@ -20,7 +20,6 @@ from pyomo.environ import (
 )
 import idaes.core.util.scaling as iscale
 import reaktoro as rkt
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 __author__ = "Alexander V. Dudchenko"
 

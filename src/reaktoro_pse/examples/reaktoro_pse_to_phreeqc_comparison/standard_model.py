@@ -19,7 +19,6 @@ from pyomo.environ import (
     Constraint,
     units as pyunits,
 )
-from watertap_solvers import get_solver
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 import idaes.core.util.scaling as iscale
 

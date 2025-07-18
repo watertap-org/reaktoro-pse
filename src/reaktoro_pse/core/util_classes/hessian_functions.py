@@ -9,11 +9,9 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-
-
 import numpy as np
 
-from scipy.sparse import coo_matrix, tril
+from scipy.sparse import coo_matrix
 
 __author__ = "Ilayda Akkor, Alexander V. Dudchenko, Paul Vecchiarelli, Ben Knueven"
 

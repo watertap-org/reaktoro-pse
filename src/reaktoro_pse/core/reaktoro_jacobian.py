@@ -9,9 +9,7 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-from statistics import variance
 import reaktoro as rkt
-
 import numpy as np
 from reaktoro_pse.core.reaktoro_outputs import PropTypes
 from reaktoro_pse.core.reaktoro_state import ReaktoroState

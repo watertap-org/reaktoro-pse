@@ -11,7 +11,6 @@
 #################################################################################
 from pyomo.environ import Var, value, units as pyunits
 from pyomo.core.base.var import VarData, ScalarVar
-import math
 
 __author__ = "Alexander V. Dudchenko"
 

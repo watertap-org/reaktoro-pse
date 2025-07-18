@@ -20,8 +20,6 @@ from pyomo.environ import (
     Constraint,
     assert_optimal_termination,
     units as pyunits,
-    Objective,
-    maximize,
 )
 from reaktoro_pse.parallel_tools.reaktoro_block_manager import (
     ReaktoroBlockManager,

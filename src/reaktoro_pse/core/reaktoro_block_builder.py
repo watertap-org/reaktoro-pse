@@ -12,12 +12,11 @@
 from pyomo.contrib.pynumero.interfaces.external_grey_box import (
     ExternalGreyBoxBlock,
 )
-from pyomo.environ import Var, Constraint, value
+from pyomo.environ import Var
 
 import numpy as np
 
 from reaktoro_pse.core.reaktoro_outputs import PropTypes
-from reaktoro_pse.core.util_classes.rkt_inputs import RktInputTypes
 from reaktoro_pse.core.reaktoro_solver import (
     ReaktoroSolver,
 )
@@ -31,7 +30,6 @@ from reaktoro_pse.core.reaktoro_gray_box import (
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
-import cyipopt
 import idaes.logger as idaeslog
 import math
 

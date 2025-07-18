@@ -21,8 +21,6 @@ from pyomo.environ import (
     assert_optimal_termination,
     units as pyunits,
 )
-from watertap_solvers import get_solver
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
 import pyomo.environ as pyo
