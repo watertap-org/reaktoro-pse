@@ -730,7 +730,7 @@ class ReaktoroBlockData(ProcessBlockData):
         assert_charge_neutrality = self.config.assert_charge_neutrality
         ion_for_balancing = self.config.charge_neutrality_ion
 
-        # if this is not speciation block and we are given exact speciation but no relaxation,
+        # if this is not speciation block and we are given exact speciation
         # we charge balance on pH
         if speciation_block == False and (exact_speciation or speciation_block_built):
             # only do so if we have 'H+' in species
@@ -741,7 +741,6 @@ class ReaktoroBlockData(ProcessBlockData):
             ):
                 assert_charge_neutrality = False
             exact_speciation = True
-
         block.rkt_inputs.register_charge_neutrality(
             assert_neutrality=assert_charge_neutrality,
             ion=ion_for_balancing,
