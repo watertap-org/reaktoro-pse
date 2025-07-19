@@ -99,15 +99,6 @@ def add_standard_properties(m):
         # we can use default converter as its defined for default database (Phreeqc and pitzer)
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
-        # reaktoro_solve_options={"open_species_on_property_block": ["OH-", "H2O"]},
-        # jacobian_options={
-        #     "user_scaling": {
-        #         ("saturationIndex", "Calcite"): 1,
-        #         ("saturationIndex", "Gypsum"): 1,
-        #         ("pH", None): 1,
-        #         ("speciesActivityLn", "H2O"): 1,
-        #     },
-        # },
     )
     scale_model(m)
 

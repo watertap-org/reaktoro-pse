@@ -765,14 +765,7 @@ class ReaktoroBlockData(ProcessBlockData):
         index = self.index()
 
         block.rkt_outputs = ReaktoroOutputSpec(block.rkt_state)
-        if self.config.reaktoro_solve_options.output_limits_for_pyomo is not None:
-            for (
-                prop,
-                options,
-            ) in self.config.reaktoro_solve_options.output_limits_for_pyomo.items():
-                block.rkt_outputs.register_output_limits(
-                    prop, options.get("min", None), options.get("max", None)
-                )
+
         if self.config.outputs is None:
             raise ValueError("Outputs must be provided!")
         if speciation_block:
@@ -1004,9 +997,6 @@ class ReaktoroBlockData(ProcessBlockData):
                 block.managed_block = managed_block
             else:
                 block.rkt_block_builder.build_reaktoro_block()
-
-    def build_coupled_graybox(self, block):
-        block.coupled_solver
 
     # TODO: Update to provide output location (e.g. StringIO)
     def display_jacobian_outputs(self):

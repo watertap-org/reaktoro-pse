@@ -212,9 +212,6 @@ class ReaktoroSolver:
                 input_obj.set_temp_value(value)
             unit = input_obj.main_unit
             self._input_params[input_key] = value
-            # print(
-            #     f"Updating input {input_key} to value {value} with unit {unit} in block {self.block_name}"
-            # )
             if input_key == RktInputTypes.temperature:
                 self.conditions.temperature(value, unit)
             elif input_key == RktInputTypes.pressure:

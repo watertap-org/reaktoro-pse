@@ -348,65 +348,27 @@ class ReaktoroJacobianSpec:
         )
         return jacobian_abs_matrix
 
-    def get_multiplier(self, input_name, output_index, default=1):
-        """get multiplier for specific input and output index"""
-        if (input_name, output_index) not in self.der_step_multipliers:
-            self.der_step_multipliers[(input_name, output_index)] = default
-        return self.der_step_multipliers[(input_name, output_index)]
-
-    def set_multiplier(self, input_name, output_index, value):
-        """set multiplier for specific input and output index"""
-        self.der_step_multipliers[(input_name, output_index)] = value
-        return self.der_step_multipliers[(input_name, output_index)]
-
-    def get_step_sizing(self, obj):
-
-        if isinstance(obj, tuple):
-            return obj[0], obj[1], obj[2]
-        elif isinstance(obj, float):
-            return obj, None, None
-        else:
-            raise TypeError(
-                f"Step sizing should be either float or tuple (default_step, min_step, max_step), got {type(obj)}"
-            )
-
     def get_jacobian(self, jacobian_matrix, input_object):
         input_index = input_object.get_jacobian_index()
         input_value = input_object.get_temp_value()
-        if isinstance(self.numerical_step, (float, tuple)):
-            step_size, max_step, min_step = self.get_step_sizing(self.numerical_step)
+        if isinstance(self.numerical_step, float):
+            step_size = self.numerical_step
         elif isinstance(self.numerical_step, dict):
             if RktInputTypes.pH == input_object.var_name:
-                step_size, max_step, min_step = self.get_step_sizing(
-                    self.numerical_step[RktInputTypes.pH]
-                )
+                step_size = self.numerical_step[RktInputTypes.pH]
             elif RktInputTypes.temperature == input_object.var_name:
-                step_size, max_step, min_step = self.get_step_sizing(
-                    self.numerical_step[RktInputTypes.temperature]
-                )
+                step_size = self.numerical_step[RktInputTypes.temperature]
             elif RktInputTypes.pressure == input_object.var_name:
-                step_size, max_step, min_step = self.get_step_sizing(
-                    self.numerical_step[RktInputTypes.pressure]
-                )
+                step_size = self.numerical_step[RktInputTypes.pressure]
             elif RktInputTypes.enthalpy == input_object.var_name:
-                step_size, max_step, min_step = self.get_step_sizing(
-                    self.numerical_step[RktInputTypes.enthalpy]
-                )
+                step_size = self.numerical_step[RktInputTypes.enthalpy]
             else:
-                step_size, max_step, min_step = self.get_step_sizing(
-                    self.numerical_step[RktInputTypes.species]
-                )
+                step_size = self.numerical_step[RktInputTypes.species]
+
         else:
             raise TypeError(
                 f"Numerical step should be either float or dict, got {type(self.numerical_step)}"
             )
-        self.partial_jac_vals = jacobian_matrix[:, input_index]
-        output_jacobian = []
-        jacobian_abs_matrix = self.process_jacobian_matrix(
-            input_value,
-            step_size,
-        )
-        self.update_states(jacobian_abs_matrix)
 
         def get_derivative(input_value, step_size, output_obj):
             """function to get numerical derivative for output object"""
@@ -440,6 +402,14 @@ class ReaktoroJacobianSpec:
                 jac_val = get_derivative(input_value, step_size, output_obj)
 
             return jac_val
+
+        self.partial_jac_vals = jacobian_matrix[:, input_index]
+        output_jacobian = []
+        jacobian_abs_matrix = self.process_jacobian_matrix(
+            input_value,
+            step_size,
+        )
+        self.update_states(jacobian_abs_matrix)
 
         for output_key, output_obj in self.output_specs.rkt_outputs.items():
             if output_obj.jacobian_type == JacType.calculated:

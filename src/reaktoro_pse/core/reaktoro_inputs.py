@@ -301,7 +301,7 @@ class ReaktoroInputSpec:
                     self.rkt_inputs[element] = RktInput(element)
                     self.rkt_inputs[element].set_rkt_input_name(f"input{element}")
                     self.rkt_inputs[element].set_lower_bound(0)
-                    self.rkt_inputs[element].io_type = "element"
+                    self.rkt_inputs[element].io_type = RktInputTypes.element
 
         # write reaktoro constraints to spec
         for element in self.constraint_dict:
@@ -314,7 +314,7 @@ class ReaktoroInputSpec:
             self.rkt_inputs[input_name] = self.state.inputs[input_name]
             self.rkt_inputs[input_name].set_rkt_input_name(input_name)
             self.rkt_inputs[input_name].set_lower_bound(0)
-            self.rkt_inputs[input_name].io_type = "specie"
+            self.rkt_inputs[input_name].io_type = RktInputTypes.specie
             self.rkt_inputs.rkt_input_list.append(input_name)
         if self.exact_speciation == False or self.fixed_solvent_type != {}:
             self.add_solvent_constraints(specs_object)
@@ -347,7 +347,7 @@ class ReaktoroInputSpec:
                     self.rkt_inputs[spc_name].set_lower_bound(0)
                     self.rkt_inputs.rkt_input_list.append(spc_name)
 
-                    self.rkt_inputs[spc_name].io_type = "specie"
+                    self.rkt_inputs[spc_name].io_type = RktInputTypes.specie
         self.write_open_solvent_constraints(specs_object)
 
     def update_constraint_dict(self, element, specie, coeff):
@@ -444,7 +444,7 @@ class ReaktoroInputSpec:
             self.rkt_inputs[specie].set_rkt_input_name(input_name)
             self.rkt_inputs[specie].set_lower_bound(0)
 
-            self.rkt_inputs[specie].io_type = "specie"
+            self.rkt_inputs[specie].io_type = RktInputTypes.specie
         elif specie in self.rkt_chemical_inputs:
             self.rkt_inputs[specie] = self.rkt_chemical_inputs[specie]
             self.rkt_inputs[specie].set_rkt_index(idx)
@@ -452,7 +452,7 @@ class ReaktoroInputSpec:
 
             self.rkt_inputs[specie].set_lower_bound(0)
 
-            self.rkt_inputs[specie].io_type = "chemical_specie"
+            self.rkt_inputs[specie].io_type = RktInputTypes.chemical_specie
         # elif specie in self.rkt_inputs:
         #     self.rkt_inputs[specie].set_rkt_index(idx)
         #     self.rkt_inputs[specie].set_rkt_input_name(input_name)

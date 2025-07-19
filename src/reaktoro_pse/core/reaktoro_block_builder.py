@@ -69,7 +69,6 @@ class ReaktoroBlockBuilder:
         self.configure_jacobian_scaling()
         self.reaktoro_initialize_function = None  # used to provide external solve call
         self.get_jacobian_matrix_function = None
-        self.relaxation_constraint_types = {}
         self.display_reaktoro_state_function = (
             None  # used to specifying external function to display rkt state
         )
@@ -299,6 +298,7 @@ class ReaktoroBlockBuilder:
                 return 1
 
             sf = calc_scale(abs(pyo_var.value))
+            # Magic Numbers! -  generally for specie amounts.
             max_scale = 1e32
             min_scale = 1e-32
             if sf > max_scale:

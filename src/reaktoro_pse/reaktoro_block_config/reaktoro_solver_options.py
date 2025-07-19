@@ -57,20 +57,6 @@ class ReaktoroSolverOptions:
                 it will raise CyIpoptEvaluationError, this defines how many sequential raises are allowed before terminating.""",
             ),
         )
-        CONFIG.declare(
-            "output_limits_for_pyomo",
-            ConfigValue(
-                default={"speciesAmount": {"min": None, "max": None}},
-                domain=None,
-                description="Maximum number of output limits for pyomo from reaktoro",
-                doc="""
-                This ensures we do not pass values beyond specified limits for specified
-                outputs to Pyomo (IPOPT), for example, if epsilon is set to 1e-64,
-                speciesAmount Reaktoro would return a 1e-64 if species nears zero, and require appropriate scaling, 
-                This can cause a range of issues, so instead we apply a limit where any value below 1e-12 is set to 1e-12.
-                User can provide a dictionary of output with specified min/max limits, and they will be applied to specified properties.""",
-            ),
-        )
         if presolve_options:
             CONFIG.declare(
                 "presolve_during_initialization",

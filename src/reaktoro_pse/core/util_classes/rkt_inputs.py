@@ -27,6 +27,9 @@ class RktInputTypes:
     enthalpy = "enthalpy"
     pressure = "pressure"
     species = "species"
+    element = "element"
+    specie = "specie"
+    chemical_specie = "chemical_specie"
     dimensionless = "dimensionless"
     mass_units = ["kg", "mg"]
     system_state = "system_state"
@@ -90,7 +93,6 @@ class RktInput:
         self.upper_bound = None
         self.input_type = None
         self.io_type = None  # input or output
-        self.auto_scaled = False
         self.dummy_var = None
         self.dummy_var_key = None
         if pyomo_var is not None:

@@ -61,22 +61,19 @@ class RktOutput:
             stoichiometric_coeff  # for tracking stichometry if needed
         )
         self.jacobian_type = jacobian_type
-        self.auto_scaled = False
-        self.min_rkt_value = None
-        self.max_rkt_value = None
         self.value_clipped = False
         self.io_type = None
-        self.conversion_function = None
-        self.derivative_conversion_function = None
-        self.derivative_conversion_value = 1
-
+        self.calculate_value = None
+        self.calculate_derivative_conversion = None
         self.calculation_options = None
         self.derivative = None
 
     def set_derivative(self, value):
+        """set derivative value if available, used for jacobian calculations"""
         self.derivative = value
 
     def get_calculated_jacobian_value(self):
+        """returns calculated jacobian value if available"""
         return self.calculation_options.calculate_derivative_conversion(
             self.calculation_options.properties
         )
@@ -102,29 +99,10 @@ class RktOutput:
     ):
         value = self.compute_values(prop_object, supported_props)
         self.value_clipped = False
-        if self.min_rkt_value is not None and value < self.min_rkt_value:
-            value = self.min_rkt_value
-            self.value_clipped = True
-        if self.max_rkt_value is not None and value > self.max_rkt_value:
-            value = self.max_rkt_value
-        # value, derivative_conversion_value = self.apply_conversions(value)
         if update_values:
             self.value = value
 
         return value
-
-    def get_derivative_conversion_factor(self):
-        return self.derivative_conversion_value
-
-    def apply_conversions(self, value):
-        """apply conversion functions if any"""
-        if self.conversion_function is not None:
-            converted_value = self.conversion_function(value)
-            derivative_conversion = self.derivative_conversion_function(value)
-            self._der_used_var = value
-            return converted_value, derivative_conversion
-        else:
-            return value, 1
 
     def delete_pyomo_var(self):
         # self.update_values()
@@ -653,7 +631,6 @@ class ConvertedPropTypes:
             except OverflowError:
                 print("overflow error in scalingTendency calc_sat_dir")
                 dir_st = 1e100
-            # print("dir_st", dir_st, st, activities, log_k, temperature_value_derivative)
             return dir_st
 
         output.calculate_value = calc_scaling_tendency
@@ -688,8 +665,6 @@ class ReaktoroOutputExport:
                 value=obj.value,
                 jacobian_type=obj.jacobian_type,
             )
-            self.rkt_outputs[key].min_rkt_value = obj.min_rkt_value
-            self.rkt_outputs[key].max_rkt_value = obj.max_rkt_value
             self.rkt_outputs[key].remove_unpicklable_data()
 
     def copy_user_outputs(self, outputs):
@@ -703,8 +678,6 @@ class ReaktoroOutputExport:
                 value=obj.value,
                 jacobian_type=obj.jacobian_type,
             )
-            self.user_outputs[key].min_rkt_value = obj.min_rkt_value
-            self.user_outputs[key].max_rkt_value = obj.max_rkt_value
             self.user_outputs[key].remove_unpicklable_data()
 
 
@@ -739,10 +712,7 @@ class ReaktoroOutputSpec:
             ]
             self.rkt_outputs = {}  # outputs that reaktoro needs to generate
             self.user_outputs = {}  # outputs user requests
-            self.output_limits = {}
-            self.register_output_limits(
-                "speciesAmount", min_value=1e-16, max_value=None
-            )
+
             self.get_possible_indexes()
 
     def update_supported_props(self):
@@ -809,23 +779,6 @@ class ReaktoroOutputSpec:
                 pyomo_var=pyomo_var,
             )
 
-    def register_output_limits(self, property_name, min_value=None, max_value=None):
-        """register output limits for the property, this will be used to limit the output values from reaktoro solve before passing them
-        to pyomo variables, this is useful for scaling and limiting outputs to avoid numerical issues
-        """
-
-        self.output_limits[property_name] = {
-            "min_rkt_value": min_value,
-            "max_rkt_value": max_value,
-        }
-
-    def apply_output_limits(self, property_name, rkt_output):
-
-        if property_name in self.output_limits:
-            limits = self.output_limits[property_name]
-            rkt_output.min_rkt_value = limits["min_rkt_value"]
-            rkt_output.max_rkt_value = limits["max_rkt_value"]
-
     def process_output(
         self,
         property_type,
@@ -849,7 +802,7 @@ class ReaktoroOutputSpec:
                     get_function=get_function,
                     pyomo_var=pyomo_var,
                 )
-                self.apply_output_limits(property_name, self.user_outputs[index])
+
                 self.user_outputs[index].io_type = prop_type
                 for index, prop in get_function.properties.items():
                     # check if prop already exists if it does nor add it outputs
@@ -858,9 +811,7 @@ class ReaktoroOutputSpec:
                         self.rkt_outputs[index] = prop
                     else:
                         get_function.properties[index] = self.rkt_outputs[index]
-                    self.apply_output_limits(
-                        prop.property_name, self.rkt_outputs[index]
-                    )
+
             elif property_type == PropTypes.converted_prop:
                 # if converted prop, we need to get the converted prop type
                 # and then set the get function
@@ -874,7 +825,6 @@ class ReaktoroOutputSpec:
 
                 self.user_outputs[index].calculation_options = get_function
                 self.user_outputs[index].set_pyomo_var(pyomo_var)
-                self.apply_output_limits(property_type, self.user_outputs[index])
                 self.user_outputs[index].io_type = prop_type
                 if index not in self.rkt_outputs:
                     self.rkt_outputs[index] = self.user_outputs[index]
@@ -886,8 +836,6 @@ class ReaktoroOutputSpec:
                     get_function=get_function,
                     pyomo_var=pyomo_var,
                 )
-
-                self.apply_output_limits(property_name, self.user_outputs[index])
                 self.user_outputs[index].io_type = prop_type
                 if index not in self.rkt_outputs:
                     self.rkt_outputs[index] = self.user_outputs[index]
@@ -991,24 +939,15 @@ class ReaktoroOutputSpec:
         ]
         self.species = [specie.name() for specie in self.state.state.system().species()]
 
-        # self.saturation_species = [
-        #     specie.name()
-        #     for specie in self.supported_properties[
-        #         PropTypes.aqueous_prop
-        #     ].saturationSpecies()
-        # ]
-
     def export_config(self):
         export_object = ReaktoroOutputExport()
         export_object.copy_rkt_outputs(self.rkt_outputs)
         export_object.copy_user_outputs(self.user_outputs)
-        export_object.output_limits = copy.deepcopy(self.output_limits)
         return export_object
 
     def load_from_export_object(self, export_object):
         self.rkt_outputs = export_object.rkt_outputs
         self.user_outputs = export_object.user_outputs
-        self.output_limits = export_object.output_limits
 
         def get_converted_function(obj):
             """get converted function for converted properties"""

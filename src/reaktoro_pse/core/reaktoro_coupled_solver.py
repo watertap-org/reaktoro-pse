@@ -12,6 +12,7 @@
 import numpy as np
 from reaktoro_pse.core.util_classes.rkt_inputs import (
     RktInputs,
+    RktInputTypes,
     DummyPyomoVar,
 )
 from reaktoro_pse.core.reaktoro_outputs import (
@@ -61,7 +62,10 @@ class ReaktoroCoupledSolver:
         # get user inputs into property block, we will track these manually in the
         # coupled solver
         for key, obj in self.property_solver.input_specs.user_inputs.items():
-            if obj.io_type != "specie" and obj.io_type != "element":
+            if (
+                obj.io_type != RktInputTypes.specie
+                and obj.io_type != RktInputTypes.element
+            ):
                 new_key = self.modify_key("prop", key)
                 self.input_specs.user_inputs[new_key] = obj
                 self.master_mapping[new_key] = key
@@ -72,8 +76,8 @@ class ReaktoroCoupledSolver:
             if key in self.property_solver.input_specs.rkt_inputs:
                 obj = self.property_solver.input_specs.rkt_inputs[key]
                 if (
-                    obj.io_type != "specie"
-                    and obj.io_type != "element"
+                    obj.io_type != RktInputTypes.specie
+                    and obj.io_type != RktInputTypes.element
                     or obj.dummy_var_key == None
                 ):
                     new_key = self.modify_key("prop", key)
@@ -81,7 +85,6 @@ class ReaktoroCoupledSolver:
                     self.master_mapping[new_key] = key
                     self.update_input_list(new_key)
                     self.prop_jac_idx.append(idx)
-                # elif obj.dummy_var_key == None:
                 else:
                     self.prop_jac_propagation_idx[
                         self.output_key_order[obj.dummy_var_key]
@@ -91,7 +94,11 @@ class ReaktoroCoupledSolver:
                     ] = key
             elif key in self.property_solver.input_specs.rkt_chemical_inputs:
                 obj = self.property_solver.input_specs.rkt_chemical_inputs[key]
-                if obj.io_type != "specie" and obj.io_type != "element":
+                if (
+                    obj.io_type != RktInputTypes.specie
+                    and obj.io_type != RktInputTypes.element
+                    or obj.dummy_var_key == None
+                ):
                     new_key = self.modify_key("prop", key)
                     self.input_specs.rkt_chemical_inputs[new_key] = obj
                     self.master_mapping[new_key] = key

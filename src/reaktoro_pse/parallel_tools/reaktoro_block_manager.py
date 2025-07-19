@@ -84,9 +84,6 @@ class AggregateSolverState:
     def register_get_function(self, block_index, get_function):
         self.get_solution_function[block_index] = get_function
 
-    def register_relaxation_constraints(self, block_index, constraint_types):
-        self.relaxation_constraints[block_index] = constraint_types
-
     def register_input(self, block_index, input_key, input_obj):
         self.inputs.append((block_index, input_key))
         self.input_dict[(block_index, input_key)] = input_obj
@@ -328,9 +325,6 @@ class ReaktoroBlockManagerData(ProcessBlockData):
                     block.builder.get_jacobian_scaling, block.builder.get_input_scaling
                 )
                 self.aggregate_solver_state.register_get_function(block_idx, get_func)
-                self.aggregate_solver_state.register_relaxation_constraints(
-                    block_idx, block.builder.relaxation_constraint_types
-                )
             else:
                 self.aggregate_solver_state.register_solve_function(
                     block_idx, block.solver.solve_reaktoro_block
