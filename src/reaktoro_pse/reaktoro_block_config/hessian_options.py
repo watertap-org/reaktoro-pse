@@ -57,7 +57,7 @@ class HessianOptions:
         CONFIG.declare(
             "bfgs_init_min_hessian_value",
             ConfigValue(
-                default=1e-64,
+                default=1e-32,
                 domain=float,
                 description="Minimum Hessian value for BFGS initialization",
                 doc="""Minimum Hessian value for BFGS initialization

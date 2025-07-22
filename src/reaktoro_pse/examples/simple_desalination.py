@@ -186,7 +186,7 @@ def initialize(m):
             m.desal_composition[key], m.eq_desal_composition[key]
         )
     m.eq_desal_properties.initialize()
-
+    m.eq_desal_properties.display_jacobian_scaling()
     solve(m)
 
 

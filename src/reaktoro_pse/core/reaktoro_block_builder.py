@@ -42,12 +42,15 @@ _log = idaeslog.getLogger(__name__)
 
 class JacScalingTypes:
     no_scaling = "no_scaling"
-    variable_scaling = "variable_scaling"
-    inverse_variable_scaling = "inverse_variable_scaling"
+    variable_output_scaling = "variable_output_scaling"
+    inverse_variable_output_scaling = "inverse_variable_output_scaling"
     jacobian_matrix_square_sum = "jacobian_matrix_square_sum"
     jacobian_matrix_inverse_sum = "jacobian_matrix_inverse_sum"
     manual_scaling = "manual_scaling"
-    variable_io_scaling = "variable_io_scaling"
+    variable_oi_scaling_square_sum = "variable_oi_scaling_square_sum"
+    variable_oi_scaling_inverse_sum = "variable_oi_scaling_inverse_sum"
+    inverse_variable_oi_scaling_square_sum = "inverse_variable_oi_scaling_square_sum"
+    inverse_variable_oi_scaling_inverse_sum = "inverse_variable_oi_scaling_inverse_sum"
 
 
 class ReaktoroBlockBuilder:
@@ -367,32 +370,90 @@ class ReaktoroBlockBuilder:
                 self.solver.output_specs.rkt_outputs.items()
             ):
                 self.solver.jacobian_scaling_values[i] = 1
-        elif self.jacobian_scaling_type == JacScalingTypes.variable_scaling:
+        elif self.jacobian_scaling_type == JacScalingTypes.variable_output_scaling:
             for i, (key, obj) in enumerate(
                 self.solver.output_specs.rkt_outputs.items()
             ):
                 out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
                 sf = out_sf
                 self.solver.jacobian_scaling_values[i] = sf
-        elif self.jacobian_scaling_type == JacScalingTypes.inverse_variable_scaling:
+        elif (
+            self.jacobian_scaling_type
+            == JacScalingTypes.inverse_variable_output_scaling
+        ):
             for i, (key, obj) in enumerate(
                 self.solver.output_specs.rkt_outputs.items()
             ):
                 out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
                 sf = 1 / out_sf
                 self.solver.jacobian_scaling_values[i] = sf
-        elif self.jacobian_scaling_type == JacScalingTypes.variable_io_scaling:
+        elif (
+            self.jacobian_scaling_type
+            == JacScalingTypes.variable_oi_scaling_inverse_sum
+        ):
             for i, (key, obj) in enumerate(
                 self.solver.output_specs.rkt_outputs.items()
             ):
                 input_scales = []
                 out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
                 for input_key, input_obj in self.solver.input_specs.rkt_inputs.items():
-                    sf = iscale.get_scaling_factor(input_obj.get_pyomo_var(), default=1)
-                    input_scales.append(out_sf / sf)
+                    sf = iscale.get_scaling_factor(
+                        input_obj.get_pyomo_var(), default=1.0
+                    )
+                    input_scales.append(sf)
 
                 sf = np.sum(np.array(input_scales) ** -1) ** -1
-                self.solver.jacobian_scaling_values[i] = sf
+                self.solver.jacobian_scaling_values[i] = out_sf / sf
+        elif (
+            self.jacobian_scaling_type == JacScalingTypes.variable_oi_scaling_square_sum
+        ):
+            for i, (key, obj) in enumerate(
+                self.solver.output_specs.rkt_outputs.items()
+            ):
+                input_scales = []
+                out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
+                for input_key, input_obj in self.solver.input_specs.rkt_inputs.items():
+                    sf = iscale.get_scaling_factor(
+                        input_obj.get_pyomo_var(), default=1.0
+                    )
+                    input_scales.append(sf)
+
+                sf = np.sum(np.array(input_scales) ** 2) ** 0.5
+                self.solver.jacobian_scaling_values[i] = out_sf / sf
+        elif (
+            self.jacobian_scaling_type
+            == JacScalingTypes.inverse_variable_oi_scaling_inverse_sum
+        ):
+            for i, (key, obj) in enumerate(
+                self.solver.output_specs.rkt_outputs.items()
+            ):
+                input_scales = []
+                out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
+                for input_key, input_obj in self.solver.input_specs.rkt_inputs.items():
+                    sf = iscale.get_scaling_factor(
+                        input_obj.get_pyomo_var(), default=1.0
+                    )
+                    input_scales.append(sf)
+
+                sf = np.sum(np.array(input_scales) ** -1) ** -1
+                self.solver.jacobian_scaling_values[i] = sf / out_sf
+        elif (
+            self.jacobian_scaling_type
+            == JacScalingTypes.inverse_variable_oi_scaling_square_sum
+        ):
+            for i, (key, obj) in enumerate(
+                self.solver.output_specs.rkt_outputs.items()
+            ):
+                input_scales = []
+                out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
+                for input_key, input_obj in self.solver.input_specs.rkt_inputs.items():
+                    sf = iscale.get_scaling_factor(
+                        input_obj.get_pyomo_var(), default=1.0
+                    )
+                    input_scales.append(sf)
+
+                sf = np.sum(np.array(input_scales) ** 2) ** 0.5
+                self.solver.jacobian_scaling_values[i] = sf / out_sf
         elif self.jacobian_scaling_type == JacScalingTypes.jacobian_matrix_square_sum:
             jac_matrix = self.get_jacobian_matrix().copy()
             scale_factors = np.sum(np.abs(jac_matrix) ** 2, axis=1) ** 0.5
@@ -442,6 +503,7 @@ class ReaktoroBlockBuilder:
         generally used parallel manager"""
         if self.update_jacobian_scale_every_solve:
             self.set_jacobian_scaling()
+            print(self.solver.jacobian_scaling_values)
         return self.solver.jacobian_scaling_values
 
     def get_input_scaling(self):

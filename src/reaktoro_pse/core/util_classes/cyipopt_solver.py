@@ -8,6 +8,7 @@ def get_cyipopt_watertap_solver(
     solver_args=None,
     scalar_type="scalar1",
     dual_inf_tol=1e-1,
+    constr_viol_tol=1e-8,
 ):
     """general config for cyipopt solver"""
     cy_solver = get_solver(solver="cyipopt-watertap")
@@ -15,7 +16,7 @@ def get_cyipopt_watertap_solver(
     # only enable if avaialbe !
     cy_solver.options["print_user_options"] = "yes"
     # helps handle property packages that have very small values requiring large steps
-    # cy_solver.options["recalc_y"] = "yes"
+
     cy_solver.options["diverging_iterates_tol"] = 1e30
     if ma27:
         cy_solver.options["linear_solver"] = "ma27"
@@ -26,6 +27,8 @@ def get_cyipopt_watertap_solver(
         cy_solver.options["dual_inf_tol"] = dual_inf_tol
         # prevent early termination due to dual infeasibility
         cy_solver.options["acceptable_dual_inf_tol"] = dual_inf_tol / 10
+    cy_solver.options["acceptable_constr_viol_tol"] = constr_viol_tol / 10
+    cy_solver.options["constr_viol_tol"] = constr_viol_tol
     if solver_args is not None:
         for arg, value in solver_args.items():
             cy_solver.options[arg] = value

@@ -42,7 +42,7 @@ def test_desal(hess_type):
         == 1548396.415543
     )
 
-    assert pytest.approx(m.desal_properties[("pH", None)].value, 1e-2) == 6.284055
+    assert pytest.approx(m.desal_properties[("pH", None)].value, 1e-3) == 6.284055
     assert pytest.approx(m.water_recovery.value, 1e-3) == 0.899999
     assert pytest.approx(m.acid_addition.value, 1e-3) == 0.003043
 
@@ -54,7 +54,7 @@ def test_desal(hess_type):
         "GaussNewton",
         "LBFGS",
         "BFGS",
-        "BFGS_mod",  # Does not work on this example
+        "BFGS_mod",
         "BFGS_damp",
         "BFGS_ipopt",
     ],
@@ -88,7 +88,7 @@ def test_thermal_precipt(hess_type):
         "GaussNewton",
         "LBFGS",
         "BFGS",
-        "BFGS_mod",  # Does not work on this example
+        "BFGS_mod",
         "BFGS_damp",
         "BFGS_ipopt",
     ],
@@ -96,10 +96,10 @@ def test_thermal_precipt(hess_type):
 def test_ion_exchange(hess_type):
     m = simple_ion_exchange.main(hess_type=hess_type)
 
-    assert pytest.approx(m.removal_percent["Mg"].value, 1e-1) == -35.54130924283
-    assert pytest.approx(m.removal_percent["Ca"].value, 1e-1) == -79.15299911033
-    assert pytest.approx(m.treated_pH.value, 1e-2) == 13.374349619456911
-    assert pytest.approx(m.base_addition.value, abs=1e-1) == 0.31567192053040094
+    assert pytest.approx(m.removal_percent["Mg"].value, 1e-3) == -35.54130924283
+    assert pytest.approx(m.removal_percent["Ca"].value, 1e-3) == -79.15299911033
+    assert pytest.approx(m.treated_pH.value, 1e-3) == 13.374349619456911
+    assert pytest.approx(m.base_addition.value, abs=1e-3) == 0.31967185413270405
 
 
 @pytest.mark.parametrize(
@@ -117,5 +117,5 @@ def test_ion_exchange(hess_type):
 def test_biogas(hess_type):
     m = biogas_combustion.main(hess_type=hess_type)
 
-    assert pytest.approx(m.air_to_fuel_ratio.value, 1e-1) == 3.8751662012681587
-    assert pytest.approx(m.exhaust_temperature.value, 1e-1) == 2000
+    assert pytest.approx(m.air_to_fuel_ratio.value, 1e-3) == 3.8751662012681587
+    assert pytest.approx(m.exhaust_temperature.value, 1e-3) == 2000

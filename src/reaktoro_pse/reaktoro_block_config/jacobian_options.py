@@ -74,15 +74,15 @@ class JacobianOptions:
         CONFIG.declare(
             "scaling_type",
             ConfigValue(
-                default=JacScalingTypes.jacobian_matrix_inverse_sum,
+                default=JacScalingTypes.variable_output_scaling,
                 domain=IsInstance((str, JacScalingTypes)),
                 description="Defines how to scale Jacobian matrix",
                 doc="""
                 Defines methods for jacobian scaling:
                 - no_scaling -- jacobian scale == 1 for all outputs
-                - variable_scaling -- use output variable scaling factors
-                - inverse_variable_scaling -- use inverse of output variable scaling factors
-                - variable_io_scaling -- sum squared of input scales and output scales
+                - variable_output_scaling -- use output variable scaling factors (output_scale_i)                
+                - variable_oi_scaling_inverse_sum -- sum squared of output/input variable scaling factors output_scale_i/((sum(input_scales_i)**-1)**-1)
+                - variable_oi_scaling_square_sum -- use inverse of sum squared of output/input variable scaling factors output_scale_i/((sum(input_scales_i)**2)**0.5)
                 - jacobian_matrix_inverse_sum -- (default) use inverse of sum of absolute values of jacobian matrix
                 - jacobian_matrix_square_sum -- use squared sum of absolute values of jacobian matrix
                 - user_scaling -- Use user provided scaling
@@ -92,7 +92,7 @@ class JacobianOptions:
         CONFIG.declare(
             "jacobian_scale_bounds",
             ConfigValue(
-                default=(1e-10, 1e2),
+                default=(1e-8, 1e4),
                 domain=IsInstance(tuple),
                 description="Defines lower and upper bounds for jacobian scaling factors",
                 doc="""

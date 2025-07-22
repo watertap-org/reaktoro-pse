@@ -77,34 +77,8 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species, hess_typ
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
     m.display()
-    assert pytest.approx(m.outputs[("pH", None)].value, 1e-2) == 6.7496301
-    assert pytest.approx(m.pH.value, 1e-2) == 6.401
-    m.property_block.update_block_scaling()
-    m.property_block.update_jacobian_scaling()
-    scaling_result = m.property_block.display_jacobian_scaling()
-    print(scaling_result)
-    expected_scaling = {
-        "property_block": {
-            ("scalingTendency", "Calcite"): 4.8212913857241354e-08,
-            ("pH", None): 2.5891024643724075e-09,
-        }
-    }
-
-    assert "property_block" in scaling_result
-    new_scaling = {}
-    for key in scaling_result["property_block"]:
-        new_scaling[key] = 1
-        assert (
-            pytest.approx(scaling_result["property_block"][key], 1e-3)
-            == expected_scaling["property_block"][key]
-        )
-    m.property_block.update_jacobian_scaling(new_scaling)
-    scaling_result = m.property_block.display_jacobian_scaling()
-
-    assert "property_block" in scaling_result
-    for key in scaling_result["property_block"]:
-        assert scaling_result["property_block"][key] == 1
-    m.property_block.display_reaktoro_state()
+    assert pytest.approx(m.outputs[("pH", None)].value, 1e-3) == 6.7496301
+    assert pytest.approx(m.pH.value, 1e-3) == 6.401
     m.reaktoro_manager.terminate_workers()
 
 
