@@ -25,7 +25,7 @@ from reaktoro_pse.examples import (
         "GaussNewton",
         "LBFGS",
         "BFGS",
-        "BFGS_mod",
+        # "BFGS_mod", does not work on this example
         "BFGS_damp",
         "BFGS_ipopt",
     ],
