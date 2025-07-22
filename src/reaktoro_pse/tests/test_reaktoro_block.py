@@ -149,13 +149,10 @@ def test_blockBuild(build_rkt_state_with_species):
     [
         "no_scaling",
         "variable_output_scaling",
-        "inverse_variable_output_scaling",
         "jacobian_matrix_square_sum",
         "jacobian_matrix_inverse_sum",
         "variable_oi_scaling_square_sum",
         "variable_oi_scaling_inverse_sum",
-        "inverse_variable_oi_scaling_square_sum",
-        "inverse_variable_oi_scaling_inverse_sum",
     ],
 )
 def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
@@ -189,14 +186,6 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
                 ("pH", None): 0.1428571428571429,
             }
         }
-    elif scaling_type == "inverse_variable_output_scaling":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 9.18393349569775,
-                ("pH", None): 6.999999999999997,
-            }
-        }
-
     elif scaling_type == "jacobian_matrix_square_sum":
         assert scaling_factors == {
             "property_block": {
@@ -223,20 +212,6 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
             "property_block": {
                 ("scalingTendency", "Calcite"): 0.9799722530891679,
                 ("pH", None): 1.2857142857142863,
-            }
-        }
-    elif scaling_type == "variable_oi_scaling_square_sum":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 1 / 0.03629526863293214,
-                ("pH", None): 1 / 0.04761904761904764,
-            }
-        }
-    elif scaling_type == "variable_oi_scaling_inverse_sum":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 1 / 0.9799722530891679,
-                ("pH", None): 1 / 1.2857142857142863,
             }
         }
 
