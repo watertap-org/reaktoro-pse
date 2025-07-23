@@ -9,8 +9,8 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
-from pyomo.environ import Var, value, units as pyunits
-from pyomo.core.base.var import VarData, ScalarVar
+from pyomo.environ import value, units as pyunits
+from pyomo.core.base.var import VarData
 
 __author__ = "Alexander V. Dudchenko"
 
@@ -102,7 +102,7 @@ class RktInput:
                 self.dummy_var = pyomo_var
                 self.value = self.dummy_var.value
                 self.dummy_var_key = self.dummy_var.original_key
-            elif isinstance(pyomo_var, (Var, VarData, ScalarVar)):
+            elif isinstance(pyomo_var, VarData):
                 self.value = pyomo_var.value
                 self.pyomo_var = pyomo_var
             else:

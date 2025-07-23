@@ -21,6 +21,7 @@ import idaes.logger as idaeslog
 from reaktoro_pse.core.util_classes.hessian_functions import (
     HessianApproximation,
     HessTypes,
+    BFGSInitializationTypes,
 )
 
 __author__ = "Ilayda Akkor, Alexander V. Dudchenko, Paul Vecchiarelli, Ben Knueven"
@@ -40,7 +41,7 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
         input_dict=None,
         outputs=None,
         hessian_type=None,
-        bfgs_initialization_type=HessTypes.scalar1,
+        bfgs_initialization_type=BFGSInitializationTypes.GaussNewton,
         bfgs_init_min_hessian_value=1e-32,
         bfgs_init_max_hessian_value=1e8,
         bfgs_init_const_hessian_value=1e-16,

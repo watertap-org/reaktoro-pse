@@ -11,7 +11,10 @@
 #################################################################################
 
 from pyomo.common.config import ConfigValue, IsInstance, ConfigDict
-from reaktoro_pse.core.util_classes.hessian_functions import HessTypes
+from reaktoro_pse.core.util_classes.hessian_functions import (
+    HessTypes,
+    BFGSInitializationTypes,
+)
 
 
 class HessianOptions:
@@ -43,8 +46,8 @@ class HessianOptions:
         CONFIG.declare(
             "bfgs_initialization_type",
             ConfigValue(
-                default=HessTypes.GaussNewton,
-                domain=IsInstance((str, HessTypes)),
+                default=BFGSInitializationTypes.GaussNewton,
+                domain=IsInstance((str, BFGSInitializationTypes)),
                 description="Hessian initialzation type for BFGS",
                 doc="""Scalar type for initialization BFGS hessian
                 - GaussNewton - Gauss-Newton Hessian approximation (Jacobian^T * Jacobian)
