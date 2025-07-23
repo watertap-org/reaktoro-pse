@@ -5,7 +5,7 @@ def get_cyipopt_watertap_solver(
     max_iter=500,
     ma27=False,
     limited_memory=False,
-    solver_args=None,
+    solver_options=None,
     scalar_type="scalar1",
     dual_inf_tol=1e-1,
     constr_viol_tol=1e-8,
@@ -29,7 +29,7 @@ def get_cyipopt_watertap_solver(
         cy_solver.options["acceptable_dual_inf_tol"] = dual_inf_tol / 10
     cy_solver.options["acceptable_constr_viol_tol"] = constr_viol_tol / 10
     cy_solver.options["constr_viol_tol"] = constr_viol_tol
-    if solver_args is not None:
-        for arg, value in solver_args.items():
-            cy_solver.options[arg] = value
+    if solver_options is not None:
+        for opt, value in solver_options.items():
+            cy_solver.options[opt] = value
     return cy_solver
