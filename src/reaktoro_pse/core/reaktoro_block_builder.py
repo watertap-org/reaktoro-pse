@@ -362,6 +362,7 @@ class ReaktoroBlockBuilder:
             1 / iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
             for _, obj in self.solver.output_specs.rkt_outputs.items()
         ]
+        output_keys = list(self.solver.output_specs.rkt_outputs.keys())
         if self.jacobian_scaling_type == JacScalingTypes.no_scaling:
             for i, (key, obj) in enumerate(
                 self.solver.output_specs.rkt_outputs.items()
@@ -424,25 +425,21 @@ class ReaktoroBlockBuilder:
         max_scale = self.jacobian_scaling_bounds[1]
         min_scale = self.jacobian_scaling_bounds[0]
 
-        if self.jacobian_scaling_bounds_output_based:
-            for i, scale in enumerate(self.solver.jacobian_scaling_values):
-                if min_scale is not None and scale < output_scales[i] * min_scale:
-                    self.solver.jacobian_scaling_values[i] = (
-                        output_scales[i] * min_scale
-                    )
-                if max_scale is not None and scale > output_scales[i] * max_scale:
-                    self.solver.jacobian_scaling_values[i] = (
-                        output_scales[i] * max_scale
-                    )
-        else:
-            if max_scale is not None:
-                self.solver.jacobian_scaling_values[
-                    self.solver.jacobian_scaling_values > max_scale
-                ] = max_scale
-            if min_scale is not None:
-                self.solver.jacobian_scaling_values[
-                    self.solver.jacobian_scaling_values < min_scale
-                ] = min_scale
+        for i, scale in enumerate(self.solver.jacobian_scaling_values):
+            if self.jacobian_scaling_bounds_output_based:
+                mx_multiplier = output_scales[i]
+            else:
+                mx_multiplier = 1
+            if min_scale is not None and scale < mx_multiplier * min_scale:
+                self.solver.jacobian_scaling_values[i] = mx_multiplier * min_scale
+                _log.warning(
+                    f"Jacobian scale for {output_keys[i]} below {min_scale*mx_multiplier }, set to {mx_multiplier * min_scale}"
+                )
+            if max_scale is not None and scale > mx_multiplier * max_scale:
+                self.solver.jacobian_scaling_values[i] = mx_multiplier * max_scale
+                _log.warning(
+                    f"Jacobian scale for {output_keys[i]} above {max_scale*mx_multiplier }, set to {mx_multiplier * max_scale}"
+                )
 
     def get_jacobian_matrix(self):
         """get jacobian matrix from reaktoro solver"""
@@ -456,7 +453,6 @@ class ReaktoroBlockBuilder:
         generally used parallel manager"""
         if self.update_jacobian_scale_every_solve:
             self.set_jacobian_scaling()
-            print(self.solver.jacobian_scaling_values)
         return self.solver.jacobian_scaling_values
 
     def get_input_scaling(self):
