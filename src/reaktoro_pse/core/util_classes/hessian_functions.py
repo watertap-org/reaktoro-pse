@@ -302,47 +302,67 @@ class HessianApproximation:
                         self.hessian_memory.jacobian[r],
                     ).copy()
                 )
+
+            def ipopt_update_test(sk, yk, ys, hessian):
+                if (
+                    (
+                        ys.T
+                        > np.sqrt(self.epsilon)
+                        * np.linalg.norm(sk)
+                        * np.linalg.norm(yk)
+                    )
+                    and (np.linalg.norm(sk, np.inf) >= self.epsilon)
+                    and np.sum(yk) != 0
+                    and np.sum(sk) != 0
+                    and np.sum(hessian) != 0
+                ):
+                    return True
+                else:
+                    return False
+
             for i in range(self.hessian_memory.jacobian[-1].shape[0]):
-                bk = []
-                ak = []
+                sk = (
+                    np.array([self.hessian_memory.inputs[-1]])
+                    - self.hessian_memory.inputs[-2]
+                ).T
+                yk = np.array(
+                    [
+                        self.hessian_memory.jacobian[-1][i, :]
+                        - self.hessian_memory.jacobian[-2][i, :]
+                    ]
+                ).T
+                y_s = yk.T @ sk
+                # only update if current step is good
+                if ipopt_update_test(sk, yk, y_s, initial_hessians[-1][i]):
+                    bk = []
+                    ak = []
+                    for r in self.hessian_memory.get_range(1, 0):
+                        sk = (
+                            np.array([self.hessian_memory.inputs[r]])
+                            - self.hessian_memory.inputs[r - 1]
+                        ).T
+                        yk = np.array(
+                            [
+                                self.hessian_memory.jacobian[r][i, :]
+                                - self.hessian_memory.jacobian[r - 1][i, :]
+                            ]
+                        ).T
+                        y_s = yk.T @ sk
+                        # only include update if sub step is good
+                        if ipopt_update_test(sk, yk, y_s, initial_hessians[r][i]):
+                            b = yk / np.sqrt(yk.T @ sk)
+                            _ak = initial_hessians[r][i] @ sk
+                            for k in range(len(ak)):
+                                _ak += (bk[k].T @ sk) * bk[k] - (ak[k].T @ sk) * ak[k]
+                            if sk.T @ _ak > 0:
+                                _ak = _ak / np.sqrt(sk.T @ _ak)
+                                ak.append(_ak.copy())
+                                bk.append(b.copy())
+                    sum_ak_bk = np.zeros(self.bfgs_hessian[i].shape)
 
-                for r in self.hessian_memory.get_range(1, 0):
-                    sk = (
-                        np.array([self.hessian_memory.inputs[r]])
-                        - self.hessian_memory.inputs[r - 1]
-                    ).T
-                    yk = np.array(
-                        [
-                            self.hessian_memory.jacobian[r][i, :]
-                            - self.hessian_memory.jacobian[r - 1][i, :]
-                        ]
-                    ).T
-                    y_s = yk.T @ sk
-                    if (
-                        (
-                            y_s.T
-                            > np.sqrt(self.epsilon)
-                            * np.linalg.norm(sk)
-                            * np.linalg.norm(yk)
-                        )
-                        and (np.linalg.norm(sk, np.inf) >= self.epsilon)
-                        and np.sum(yk) != 0
-                        and np.sum(sk) != 0
-                        and np.sum(initial_hessians[r]) != 0
-                    ):
-                        b = yk / np.sqrt(yk.T @ sk)
-                        _ak = initial_hessians[r][i] @ sk
-                        for k in range(len(ak)):
-                            _ak += (bk[k].T @ sk) * bk[k] - (ak[k].T @ sk) * ak[k]
-                        if sk.T @ _ak > 0:
-                            _ak = _ak / np.sqrt(sk.T @ _ak)
-                            ak.append(_ak.copy())
-                            bk.append(b.copy())
-                sum_ak_bk = np.zeros(self.bfgs_hessian[i].shape)
-
-                for m in range(len(bk)):
-                    sum_ak_bk += bk[m] @ bk[m].T - ak[m] @ ak[m].T
-                self.bfgs_hessian[i] = self.bfgs_hessian[i] + sum_ak_bk
+                    for m in range(len(bk)):
+                        sum_ak_bk += bk[m] @ bk[m].T - ak[m] @ ak[m].T
+                    self.bfgs_hessian[i] = self.bfgs_hessian[i] + sum_ak_bk
         self.update_bfgs_matrix()
 
     def hessian_cbfgs(self):

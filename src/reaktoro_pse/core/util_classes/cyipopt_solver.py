@@ -9,6 +9,7 @@ def get_cyipopt_watertap_solver(
     scalar_type="scalar1",
     dual_inf_tol=1e-1,
     constr_viol_tol=1e-8,
+    tol=1e-8,
 ):
     """general config for cyipopt solver"""
     cy_solver = get_solver(solver="cyipopt-watertap")
@@ -23,12 +24,14 @@ def get_cyipopt_watertap_solver(
     if limited_memory:
         cy_solver.options["hessian_approximation"] = "limited-memory"
         cy_solver.options["limited_memory_initialization"] = scalar_type
-    else:
-        cy_solver.options["dual_inf_tol"] = dual_inf_tol
-        # prevent early termination due to dual infeasibility
-        cy_solver.options["acceptable_dual_inf_tol"] = dual_inf_tol / 10
-    cy_solver.options["acceptable_constr_viol_tol"] = constr_viol_tol / 10
+    cy_solver.options["dual_inf_tol"] = dual_inf_tol
     cy_solver.options["constr_viol_tol"] = constr_viol_tol
+    cy_solver.options["tol"] = tol
+    # Ensure we never accept a "acceptable solution", which will be treated as infeasible"
+    cy_solver.options["acceptable_dual_inf_tol"] = dual_inf_tol / 10
+    cy_solver.options["acceptable_tol"] = tol / 10
+    cy_solver.options["acceptable_constr_viol_tol"] = constr_viol_tol / 10
+    cy_solver.options["acceptable_dual_inf_tol"] = dual_inf_tol / 10
     if solver_options is not None:
         for opt, value in solver_options.items():
             cy_solver.options[opt] = value

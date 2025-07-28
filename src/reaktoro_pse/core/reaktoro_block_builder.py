@@ -280,14 +280,9 @@ class ReaktoroBlockBuilder:
 
     def get_sf(self, pyo_var, use_default_scaling, return_none=1):
         """get scaling factor for pyomo variable"""
-
-        def calc_scale(value):
-            if value == 0:
-                return 10 ** (-1 * math.log(abs(1), 10))
-            else:
-                return 10 ** (-1 * math.log(abs(value), 10))
-
         dsf = iscale.get_scaling_factor(pyo_var)
+        # only return default scaling factor if we request to use default scaling and its not None,
+        # otherwise use the pyomo variable value to calculate scaling factor
         if dsf is not None and use_default_scaling:
             return dsf
         else:
@@ -297,8 +292,8 @@ class ReaktoroBlockBuilder:
                 _log.warning(f"Var {pyo_var} value is 0")
                 return 1
 
-            sf = calc_scale(abs(pyo_var.value))
-            # Magic Numbers! -  generally for specie amounts.
+            sf = 1 / (abs(pyo_var.value))
+            # Magic Numbers! -  generally for species amounts.
             max_scale = 1e32
             min_scale = 1e-32
             if sf > max_scale:
@@ -356,8 +351,12 @@ class ReaktoroBlockBuilder:
     def initialize_output_variables_and_constraints(self):
         self.set_output_vars_and_scale(True)
 
-    def set_jacobian_scaling(self):
-        """function to calculate jacobian scaling values"""
+    def set_jacobian_scaling(self, use_default_scaling=True):
+        """Function to calculate jacobian scaling values
+        Args:
+            use_default_scaling: if True will use default scaling factors for jacobian scaling when
+            using variable scaling methods
+        """
         output_scales = [
             1 / iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
             for _, obj in self.solver.output_specs.rkt_outputs.items()
@@ -372,7 +371,9 @@ class ReaktoroBlockBuilder:
             for i, (key, obj) in enumerate(
                 self.solver.output_specs.rkt_outputs.items()
             ):
-                out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
+                out_sf = self.get_rkt_scale(
+                    obj, use_default_scaling=use_default_scaling
+                )
                 sf = out_sf
                 self.solver.jacobian_scaling_values[i] = sf
         elif (
@@ -385,8 +386,8 @@ class ReaktoroBlockBuilder:
                 input_scales = []
                 out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
                 for input_key, input_obj in self.solver.input_specs.rkt_inputs.items():
-                    sf = iscale.get_scaling_factor(
-                        input_obj.get_pyomo_var(), default=1.0
+                    sf = self.get_rkt_scale(
+                        input_obj, use_default_scaling=use_default_scaling
                     )
                     input_scales.append(sf)
 
@@ -401,8 +402,8 @@ class ReaktoroBlockBuilder:
                 input_scales = []
                 out_sf = iscale.get_scaling_factor(obj.get_pyomo_var(), default=1)
                 for input_key, input_obj in self.solver.input_specs.rkt_inputs.items():
-                    sf = iscale.get_scaling_factor(
-                        input_obj.get_pyomo_var(), default=1.0
+                    sf = self.get_rkt_scale(
+                        input_obj, use_default_scaling=use_default_scaling
                     )
                     input_scales.append(sf)
 
