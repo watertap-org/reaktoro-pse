@@ -101,6 +101,7 @@ class ReaktoroBlockBuilder:
         self.build_input_constraints()
         self.build_output_constraints()
         self.solver.get_jacobian_scaling = self.get_jacobian_scaling
+        self.solver.get_input_scaling = self.get_input_scaling
 
     def configure_jacobian_scaling(
         self,

@@ -74,7 +74,6 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
             self.outputs = list(reaktoro_solver.output_specs.rkt_outputs.keys())
         else:
             self.outputs = outputs
-        self._input_scale = np.ones(len(self.inputs))
         self._outputs_dual_multipliers = np.ones(len(self.outputs))
         self.header_saved = False
         self.step = 0
@@ -152,6 +151,7 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
         np.copyto(self._outputs_dual_multipliers, _outputs_dual_multipliers)
 
     def get_output_constraint_scaling_factors(self):
+
         return self.reaktoro_solver.get_jacobian_scaling()
 
     def _evaluate_hessian_outputs(self):
@@ -159,7 +159,6 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
 
         low_triangular_hessian = self.hessian_calculator.get_hessian(
             self._input_values,
-            self.rkt_result,
             self.jacobian_matrix,
             self._outputs_dual_multipliers,
         )

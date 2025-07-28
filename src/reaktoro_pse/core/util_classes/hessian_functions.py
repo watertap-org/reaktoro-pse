@@ -303,10 +303,13 @@ class HessianApproximation:
                     ).copy()
                 )
 
-            def ipopt_update_test(sk, yk, ys, hessian):
+            def ipopt_update_test(sn, so, jn, jo, hessian):
+                sk = (np.array([sn]) - so).T
+                yk = np.array([jn - jo]).T
+                y_s = yk.T @ sk
                 if (
                     (
-                        ys.T
+                        y_s
                         > np.sqrt(self.epsilon)
                         * np.linalg.norm(sk)
                         * np.linalg.norm(yk)
@@ -321,19 +324,14 @@ class HessianApproximation:
                     return False
 
             for i in range(self.hessian_memory.jacobian[-1].shape[0]):
-                sk = (
-                    np.array([self.hessian_memory.inputs[-1]])
-                    - self.hessian_memory.inputs[-2]
-                ).T
-                yk = np.array(
-                    [
-                        self.hessian_memory.jacobian[-1][i, :]
-                        - self.hessian_memory.jacobian[-2][i, :]
-                    ]
-                ).T
-                y_s = yk.T @ sk
                 # only update if current step is good
-                if ipopt_update_test(sk, yk, y_s, initial_hessians[-1][i]):
+                if ipopt_update_test(
+                    self.hessian_memory.inputs[-1],
+                    self.hessian_memory.inputs[-2],
+                    self.hessian_memory.jacobian[-1][i, :],
+                    self.hessian_memory.jacobian[-2][i, :],
+                    initial_hessians[-1][i],
+                ):
                     bk = []
                     ak = []
                     for r in self.hessian_memory.get_range(1, 0):
@@ -347,9 +345,14 @@ class HessianApproximation:
                                 - self.hessian_memory.jacobian[r - 1][i, :]
                             ]
                         ).T
-                        y_s = yk.T @ sk
                         # only include update if sub step is good
-                        if ipopt_update_test(sk, yk, y_s, initial_hessians[r][i]):
+                        if ipopt_update_test(
+                            self.hessian_memory.inputs[r],
+                            self.hessian_memory.inputs[r - 1],
+                            self.hessian_memory.jacobian[r][i, :],
+                            self.hessian_memory.jacobian[r - 1][i, :],
+                            initial_hessians[r][i],
+                        ):
                             b = yk / np.sqrt(yk.T @ sk)
                             _ak = initial_hessians[r][i] @ sk
                             for k in range(len(ak)):
@@ -514,9 +517,8 @@ class HessianApproximation:
 
         self.hessian_matrix = coo_matrix((vals, (rows, cols)), shape=(shape, shape))
 
-    def get_hessian(self, input_values, output_values, jacobian, dual_multipliers):
+    def get_hessian(self, input_values, jacobian, dual_multipliers):
         self.inputs = np.array(input_values)
-        self.outputs = np.array(output_values)
         self.jacobian_matrix = np.array(jacobian)
         self._outputs_dual_multipliers = dual_multipliers
         try:
@@ -554,7 +556,6 @@ class HessianApproximation:
                 f"Error in Hessian approximation: {e}. "
                 f"Hessian type: {self.hessian_matrix_type}, "
                 f"Inputs: {self.inputs}, "
-                f"Outputs: {self.outputs}, "
                 f"Jacobian: {self.jacobian_matrix}, "
                 f"Dual multipliers: {self._outputs_dual_multipliers}"
             )
