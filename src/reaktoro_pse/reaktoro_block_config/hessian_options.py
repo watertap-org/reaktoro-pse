@@ -100,12 +100,11 @@ class HessianOptions:
         CONFIG.declare(
             "bfgs_epsilon",
             ConfigValue(
-                default=1e-12,
+                default=1e-16,
                 domain=float,
                 description="Epsilon value for BFGS Hessian approximation updates",
-                doc="""This is used to define when an update for hesisan is accepted, 
-                in general should be several orders of magnitude larger then machine precision.
-                IPOPT uses 1e-12, so we use the same value here.
+                doc="""This is used to define when an update for BFGS hessian is accepted, 
+                in general should be an order of magnitude above then machine precision.
                     """,
             ),
         )
