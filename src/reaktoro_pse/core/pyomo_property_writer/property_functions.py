@@ -98,6 +98,7 @@ def build_direct_scaling_tendency_constraint(rkt_output_object):
             - vfparams["dHr"]
             / build_options["gas_constant"]
             * (1 / temperature_var - 1 / vfparams["Tr"])
+            / log(10)
         ]
     # pressure dependenance
     log_k.append(

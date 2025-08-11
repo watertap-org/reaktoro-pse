@@ -444,6 +444,7 @@ class ConvertedPropTypes:
         #TODO: Need to add check for database being used as only PhreeqC is really supported at the
         moment"""
         # print("building sc direct")
+
         output = PropOptions()
         ref_temp = 25  # degC
         ref_pressure = 1  # atm
@@ -470,7 +471,7 @@ class ConvertedPropTypes:
         if not_implemented:
 
             Warning(
-                f"Exact derivatives for scaling tendencity with params of {jsp_dict} not implemented, returning numerical scalingTendencySaturationIndex instead"
+                f"Exact derivatives for scaling tendency with params of {jsp_dict} not implemented, returning numerical scalingTendencySaturationIndex instead"
             )
             return self.scalingTendencySaturationIndex(property_index)
         output.register_option("gas_constant", rkt.universalGasConstant)
@@ -481,15 +482,13 @@ class ConvertedPropTypes:
                 spec = self.state.system.species().get(s.name())
                 thermo_model = spec.standardThermoModel()
                 _pr = spec.props(ref_temp, "C", ref_pressure, "atm")
-                volume_reactants += float(_pr.V0) * abs(mol)
+                volume_reactants += float(_pr.V0) * (mol)
                 output.register_property(
                     PropTypes.chem_prop, "speciesActivityLn", s.name()
                 )
                 output.properties[
                     ("speciesActivityLn", s.name())
-                ].stoichiometric_coeff = abs(
-                    mol
-                )  # create on demand to track coefficients
+                ].stoichiometric_coeff = mol  # create on demand to track coefficients
 
         output.register_option("delta_V", float(specie_volume - (volume_reactants)))
         output.register_property(PropTypes.chem_prop, "temperature")
@@ -520,6 +519,7 @@ class ConvertedPropTypes:
                     - vfparams["dHr"]
                     / build_options["gas_constant"]
                     * (1 / temperature_value - 1 / vfparams["Tr"])
+                    / math.log(10)
                 ]
             # pressure dependence
             log_k.append(
@@ -594,6 +594,7 @@ class ConvertedPropTypes:
                     / build_options["gas_constant"]
                     * (1 / temperature_value**2)
                     * temperature_value_derivative
+                    / math.log(10)
                 ]
             # pressure dependenance
             pressure_derivative = x[("pressure", None)].derivative

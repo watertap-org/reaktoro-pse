@@ -55,9 +55,14 @@ def build_with_dissolve_in_rkt(build_rkt_state_with_species):
     rkt_inputs.build_input_specs()
     rkt_outputs = ReaktoroOutputSpec(rkt_state)
     rkt_outputs.register_output("scalingTendencySaturationIndex", "Calcite")
+
+    rkt_outputs.register_output("scalingTendencySaturationIndex", "Brucite")
     rkt_outputs.register_output("saturationIndex", "Calcite")
     rkt_outputs.register_output("scalingTendency", "Calcite")
+
+    rkt_outputs.register_output("scalingTendency", "Brucite")
     rkt_outputs.register_output("scalingTendencyPyomo", "Calcite")
+    rkt_outputs.register_output("scalingTendencyPyomo", "Brucite")
     rkt_outputs.register_output("osmoticPressure", "H2O")
     rkt_outputs.register_output("osmoticPressurePyomo", "H2O")
     rkt_outputs.register_output("pH")
@@ -104,10 +109,11 @@ def build_with_dissolve_in_rkt_mass_basis(build_rkt_state_with_species_mass_basi
     rkt_outputs = ReaktoroOutputSpec(rkt_state)
     rkt_outputs.register_output("saturationIndex", "Calcite")
     rkt_outputs.register_output("scalingTendency", "Calcite")
+    rkt_outputs.register_output("scalingTendency", "Brucite")
     rkt_outputs.register_output("scalingTendencyPyomo", "Calcite")
+    rkt_outputs.register_output("scalingTendencyPyomo", "Brucite")
     rkt_outputs.register_output("scalingTendencySaturationIndex", "Calcite")
-    # rkt_outputs.register_output("scalingTendencyPyomo", "Brucite")
-    # rkt_outputs.register_output("osmoticPressure", "H2O")
+    rkt_outputs.register_output("scalingTendencySaturationIndex", "Brucite")
     rkt_outputs.register_output("pH")
     # rkt_outputs.register_output("pHDirect")
     rkt_jacobian = ReaktoroJacobianSpec(rkt_state, rkt_outputs)
@@ -128,6 +134,7 @@ def build_with_dissolve_in_pyomo_mass_basis(build_rkt_state_with_species_mass_ba
     rkt_inputs.build_input_specs()
     rkt_outputs = ReaktoroOutputSpec(rkt_state)
     rkt_outputs.register_output("scalingTendencySaturationIndex", "Calcite")
+
     rkt_outputs.register_output("speciesAmount", get_all_indexes=True)
     rkt_outputs.register_output("scalingTendency", "Calcite")
     rkt_outputs.register_output("scalingTendencyPyomo", "Calcite")
@@ -155,28 +162,34 @@ def test_build_with_rkt_dissolution(build_with_dissolve_in_rkt):
     )
     assert degrees_of_freedom(m) == 0
     cy_solver = get_cyipopt_watertap_solver()
-    cy_solver.options["max_iter"] = 20
+    cy_solver.options["max_iter"] = 40
     m.pH.unfix()
-    m.rkt_block.outputs[("scalingTendency", "Calcite")].fix(5)
+    m.lime.value = 0.1
+    m.rkt_block.outputs[("scalingTendency", "Calcite")].fix(1000)
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
-    assert pytest.approx(m.pH.value, 1e-3) == 6.5257440
-    assert pytest.approx(m.pH.value, 1e-3) == 6.5257440
-    assert (
-        pytest.approx(m.rkt_block.outputs[("scalingTendency", "Calcite")].value, 1e-3)
-        == m.rkt_block.outputs[("scalingTendencyPyomo", "Calcite")].value
-    )
-    assert (
-        pytest.approx(
-            m.rkt_block.outputs[("scalingTendencySaturationIndex", "Calcite")].value,
-            1e-3,
+    m.rkt_block.outputs.display()
+    assert pytest.approx(m.pH.value, 1e-3) == 7.9832838874247205
+    for scalant in ["Calcite", "Brucite"]:
+        assert (
+            pytest.approx(m.rkt_block.outputs[("scalingTendency", scalant)].value, 1e-5)
+            == m.rkt_block.outputs[("scalingTendencyPyomo", scalant)].value
         )
-        == m.rkt_block.outputs[("scalingTendencyPyomo", "Calcite")].value
-    )
+        assert (
+            pytest.approx(m.rkt_block.outputs[("scalingTendency", scalant)].value, 1e-5)
+            == m.rkt_block.outputs[("scalingTendencySaturationIndex", scalant)].value
+        )
+        assert (
+            pytest.approx(
+                m.rkt_block.outputs[("scalingTendencySaturationIndex", scalant)].value,
+                1e-5,
+            )
+            == m.rkt_block.outputs[("scalingTendencyPyomo", scalant)].value
+        )
     assert (
         pytest.approx(
             m.rkt_block.outputs[("osmoticPressure", "H2O")].value,
-            1e-3,
+            1e-5,
         )
         == m.rkt_block.outputs[("osmoticPressurePyomo", "H2O")].value
     )
