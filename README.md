@@ -89,18 +89,13 @@ This option will force Ipopt to use least squares method to calculate dual infea
 
 B. Use exact derivatives instead of numeric
 
-The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your Reaktoro block are exact or numeric by using **your_reaktor_block.display_jacobian_outputs()**. 
+The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your Reaktoro block are exact, calculated, or numeric by using **your_reaktor_block.display_jacobian_outputs()**. 
 
-If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacoibanRows class](https://github.com/watertap-org/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_jacobian.py#L51). These properties can be used to write Pyomo constraints that calculate the desired property. Some properties are already supported and examples are shown of how to build them in [PyomoProperties](https://github.com/watertap-org/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_outputs.py#L118) class. 
+If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacoibanRows class](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/core/reaktoro_jacobian.py). These properties can be used to write Pyomo constraints that calculate the desired property. These derivatvies can be used in two ways:
+- through use of ConvertedPropTypes, here we apply chain rule to calculate exact derivatives for desired function
+- through use of PyomoProperties, where we pass outputs with exact derivatives to a Pyomo constraint. 
 
-Supported PyomoProperties with exact derivatives:
-
-- scalingTendencyPyomo - this only designed to work with PhreeqC data bases 
-- phDirect
-- osmoticPressure
-- vaporPressure
-
-These properties are accessed as any other property in ReaktoroBlock. Simply pass ('scalingTendencyPyomo',phase) to outputs.  
+Examples and available properties can be found in */src/reaktoro_pse/core/reaktoro_outputs.py* 
 
 ### Failing due to iterates diverging
 In some cases you might experience a failed solve with error
@@ -135,7 +130,7 @@ Reaktoro-pse depends on the following packages and/or versions:
 - CyIpopt 1.4.1
 - Pyomo>=6.8.0
 - idaes-pse>=2.5.0
-- watertap>=1.0.0 - (required for watertap-cyipopt wrapper only)
+
 
 ## 9. Getting started (for contributors)
 
@@ -146,14 +141,26 @@ Reaktoro-pse depends on the following packages and/or versions:
 
 ### Installation
 
+## 1. In a dedicated reatkro-pse-dev environment
 ```sh
 git clone https://github.com/watertap-org/reaktoro-pse.git
 cd reaktoro-pse
-conda create --yes -c conda-forge --name reaktoro-pse-dev python=3.11 reaktoro=2.12.3 cyipopt=1.4.1
-conda activate reaktoro-pse-dev
-pip install -r requirements-dev.txt
+conda env create -f reaktoro_pse_env.yml
 ```
 
+## 2. To install in a different existing conda env
+```sh
+git clone https://github.com/watertap-org/reaktoro-pse.git
+cd reaktoro-pse
+conda env update -n $YOUR_ENV --f reaktoro_pse_env.yml
+```
+
+## 3. To update your installation (replace $YOUR_ENV with name of your conda environment)
+```sh
+cd reaktoro-pse
+conda env update -n $YOUR_ENV --f reaktoro_pse_env.yml
+```
+ 
 ### Running tests
 
 ```sh

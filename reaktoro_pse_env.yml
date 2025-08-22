@@ -1,0 +1,11 @@
+name: reaktoro-pse-dev
+channels: 
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11*
+  - cyipopt>=1.6.1
+  - reaktoro>=2.13
+  - pip
+  - pip:
+    - -r requirements-dev.txt
