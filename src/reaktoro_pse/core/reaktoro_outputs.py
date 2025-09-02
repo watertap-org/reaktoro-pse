@@ -473,8 +473,8 @@ class ConvertedPropTypes:
         else:
             not_implemented = True
         if not_implemented:
-            Warning(
-                f"Exact derivatives for scaling tendency with params of {jsp_dict} not implemented, returning numerical scalingTendencySaturationIndex instead"
+            _log.warning(
+                f"Exact derivatives for scaling tendency of {property_index} not implemented, returning numerical scalingTendencySaturationIndex instead"
             )
             return self.scalingTendencySaturationIndex(property_index)
 
