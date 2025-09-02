@@ -449,6 +449,7 @@ class ConvertedPropTypes:
         ref_temp = 25  # degC
         ref_pressure = 1  # atm
         spec = self.aqueous_props.saturationSpecies().get(property_index)
+        reactant_species = spec.reaction().reactants()
         thermo_model = spec.standardThermoModel()
         pr = spec.props(ref_temp, "C", ref_pressure, "atm")
         specie_volume = float(pr.V0)  # returns auto diff/not usable with pyomo
@@ -457,7 +458,10 @@ class ConvertedPropTypes:
         jsp = thermo_model.params().dumpJson()
         jsp_dict = json.loads(jsp)
         not_implemented = False
-        if isinstance(jsp_dict, list):
+        # TODO: need to add pE calculation to be able to calc scaling tendcies for these props.
+        if isinstance(jsp_dict, list) and "e-" not in [
+            s.name() for s, _ in reactant_species
+        ]:
             if jsp_dict[0].get("PhreeqcLgK", None) is not None:
                 output.register_option("logk_type", "Analytical")
                 output.register_option("logk_paramters", jsp_dict[0]["PhreeqcLgK"])
@@ -469,11 +473,11 @@ class ConvertedPropTypes:
         else:
             not_implemented = True
         if not_implemented:
-
             Warning(
                 f"Exact derivatives for scaling tendency with params of {jsp_dict} not implemented, returning numerical scalingTendencySaturationIndex instead"
             )
             return self.scalingTendencySaturationIndex(property_index)
+
         output.register_option("gas_constant", rkt.universalGasConstant)
         volume_reactants = 0
         system_species = [s.name() for s in self.state.state.system().species()]
