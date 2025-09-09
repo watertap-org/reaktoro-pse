@@ -13,7 +13,7 @@ import pytest
 import reaktoro_pse.core.util_classes.rkt_inputs as RktInputs
 from pyomo.environ import Var, units as pyunits
 
-__author__ = "Alexander V. Dudchenko (NETL)"
+__author__ = "Alexander V. Dudchenko"
 
 
 @pytest.fixture

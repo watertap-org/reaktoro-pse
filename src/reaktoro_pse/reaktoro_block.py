@@ -545,6 +545,10 @@ class ReaktoroBlockData(ProcessBlockData):
             pH_state = self.config.system_state
         config_ph = return_none_option(pH_state.pH)
         config_ph_index = get_indexing(pH_state.pH_indexed)
+        config_eh = return_none_option(pH_state.Eh)
+        config_eh_index = get_indexing(pH_state.Eh_indexed)
+        config_pe = return_none_option(pH_state.pE)
+        config_pe_index = get_indexing(pH_state.pE_indexed)
 
         # setup aqueous inputs
         aqueous_input_composition = self.config.aqueous_phase.composition
@@ -560,13 +564,16 @@ class ReaktoroBlockData(ProcessBlockData):
             pressure_index=get_indexing(pressure_state.pressure_indexed),
             pH=config_ph,
             pH_index=config_ph_index,
+            pE=config_pe,
+            pE_index=config_pe_index,
+            Eh=config_eh,
+            Eh_index=config_eh_index,
         )
 
         if building_prop_block_after_speciation():
             # we need to ensure when we provide initial input compo into
             # speciation block we don't have extremely high ion concentration
             # these value swill be overwritten during initialization anyway
-
             for ion, obj in self.speciation_block.outputs.items():
                 if self.config.aqueous_phase.fixed_solvent_specie in ion:
                     obj.set_value(obj.value * 10)

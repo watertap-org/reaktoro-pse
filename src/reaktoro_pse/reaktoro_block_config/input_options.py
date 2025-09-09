@@ -249,6 +249,46 @@ class SystemInput:
                     - If false, all indexed blocks will get same input""",
                 ),
             )
+            system_input.declare(
+                "pE",
+                ConfigValue(
+                    default=None,
+                    domain=IsInstance((VarData, Var, dict, IndexedVar)),
+                    description="Input pE for reaktoro block",
+                    doc="Var or IndexedVar that references system pE",
+                ),
+            )
+            system_input.declare(
+                "pE_indexed",
+                ConfigValue(
+                    default=True,
+                    domain=bool,
+                    description="pE is indexed",
+                    doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
+                    - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
+                    - If false, all indexed blocks will get same input""",
+                ),
+            )
+            system_input.declare(
+                "Eh",
+                ConfigValue(
+                    default=None,
+                    domain=IsInstance((VarData, Var, dict, IndexedVar)),
+                    description="Input Eh for reaktoro block",
+                    doc="Var or IndexedVar that references system Eh",
+                ),
+            )
+            system_input.declare(
+                "Eh_indexed",
+                ConfigValue(
+                    default=True,
+                    domain=bool,
+                    description="Eh is indexed",
+                    doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
+                    - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
+                    - If false, all indexed blocks will get same input""",
+                ),
+            )
         system_input.declare(
             "temperature_bounds",
             ConfigValue(

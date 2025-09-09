@@ -262,6 +262,16 @@ class ReaktoroInputSpec:
                 self.rkt_inputs[RktInputTypes.pH] = self.state.inputs[RktInputTypes.pH]
                 self.rkt_inputs[RktInputTypes.pH].set_lower_bound(-1)
                 self.rkt_inputs[RktInputTypes.pH].set_upper_bound(14)
+            elif input_name == RktInputTypes.pE:
+                specs_object.pE()
+                self.rkt_inputs[RktInputTypes.pE] = self.state.inputs[RktInputTypes.pE]
+                self.rkt_inputs[RktInputTypes.pE].set_lower_bound(None)
+                self.rkt_inputs[RktInputTypes.pE].set_upper_bound(None)
+            elif input_name == RktInputTypes.Eh:
+                specs_object.Eh()
+                self.rkt_inputs[RktInputTypes.Eh] = self.state.inputs[RktInputTypes.Eh]
+                self.rkt_inputs[RktInputTypes.Eh].set_lower_bound(None)
+                self.rkt_inputs[RktInputTypes.Eh].set_upper_bound(None)
             elif input_name == RktInputTypes.pOH:
                 self.write_pOH_constraint(specs_object)
                 self.rkt_inputs[RktInputTypes.pOH] = self.state.inputs[

@@ -52,7 +52,7 @@ def build_comp(blk):
     blk.composition["HCO3"].fix(0.01)
     blk.composition["SO4"].fix(0.01)
     blk.outputs = Var(
-        [("scalingTendency", "Calcite"), ("pH", None)],
+        [("scalingTendency", "Calcite"), ("pH", None), ("pE", None)],
         initialize=1,
     )
 
@@ -61,6 +61,15 @@ def build_comp(blk):
 def build_rkt_state_with_species():
     m = ConcreteModel()
     build_comp(m)
+    return m
+
+
+@pytest.fixture
+def build_rkt_state_with_species_and_pE():
+    m = ConcreteModel()
+    build_comp(m)
+    m.pE = Var(initialize=0, units=pyunits.dimensionless)
+    m.pE.fix()
     return m
 
 
@@ -144,6 +153,46 @@ def test_blockBuild(build_rkt_state_with_species):
     assert pytest.approx(m.composition["H2O"].value, 1e-3) == 68.0601837
 
 
+def test_blockBuild_with_pE(build_rkt_state_with_species_and_pE):
+    m = build_rkt_state_with_species_and_pE
+    m.outputs.display()
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+            "pE": m.pE,
+        },
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        outputs=m.outputs,
+    )
+    print("rkt block")
+    m.property_block.reaktoro_model.display()
+    print("rkt block")
+    m.property_block.initialize()
+
+    m.property_block.display_jacobian_scaling()
+    cy_solver = get_cyipopt_watertap_solver()
+    cy_solver.options["max_iter"] = 20
+    m.pH.fix()
+    m.composition["H2O"].unfix()
+    m.composition["H2O"].setlb(30)
+    m.outputs[("scalingTendency", "Calcite")].fix(5)
+    m.property_block.output_constraints.pprint()
+    print(degrees_of_freedom(m))
+    assert degrees_of_freedom(m) == 0
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    m.display()
+    assert pytest.approx(m.composition["H2O"].value, 1e-3) == 68.0601837
+    assert pytest.approx(m.outputs[("pE", None)].value, 1e-3) == -9.675807527465942
+
+
 @pytest.mark.parametrize(
     "scaling_type",
     [
@@ -174,16 +223,21 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
     )
     m.property_block.initialize()
     scaling_factors = m.property_block.display_jacobian_scaling()
-    print(scaling_factors)
+    print(scaling_type, scaling_factors)
     if scaling_type == "no_scaling":
         assert scaling_factors == {
-            "property_block": {("scalingTendency", "Calcite"): 1.0, ("pH", None): 1.0}
+            "property_block": {
+                ("scalingTendency", "Calcite"): 1.0,
+                ("pH", None): 1.0,
+                ("pE", None): 1,
+            }
         }
     elif scaling_type == "variable_output_scaling":
         assert scaling_factors == {
             "property_block": {
                 ("scalingTendency", "Calcite"): 0.1088858058987964,
                 ("pH", None): 0.14285714285714285,
+                ("pE", None): 0.10361133064195724,
             }
         }
     elif scaling_type == "jacobian_matrix_square_sum":
@@ -191,6 +245,7 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
             "property_block": {
                 ("scalingTendency", "Calcite"): 0.0007698149159929651,
                 ("pH", None): 0.9999999999999998,
+                ("pE", None): 0.1359733544810525,
             }
         }
     elif scaling_type == "jacobian_matrix_inverse_sum":
@@ -198,6 +253,7 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
             "property_block": {
                 ("scalingTendency", "Calcite"): 9.627321324829857e-08,
                 ("pH", None): 1e-08,
+                ("pE", None): 1e-08,
             }
         }
     elif scaling_type == "variable_oi_scaling_square_sum":
@@ -205,6 +261,7 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
             "property_block": {
                 ("scalingTendency", "Calcite"): 0.0006275654371006124,
                 ("pH", None): 0.0008233598912186447,
+                ("pE", None): 0.0005971658974846666,
             }
         }
 
@@ -213,6 +270,7 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
             "property_block": {
                 ("scalingTendency", "Calcite"): 100.0,
                 ("pH", None): 100.0,
+                ("pE", None): 100,
             }
         }
 
