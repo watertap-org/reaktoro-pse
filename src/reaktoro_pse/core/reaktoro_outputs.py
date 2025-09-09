@@ -459,9 +459,12 @@ class ConvertedPropTypes:
         jsp_dict = json.loads(jsp)
         not_implemented = False
         # TODO: need to add pE calculation to be able to calc scaling tendcies for these props.
-        if isinstance(jsp_dict, list) and "e-" not in [
-            s.name() for s, _ in reactant_species
-        ]:
+        system_species = [s.name() for s in self.state.state.system().species()]
+        all_species_exists = True
+        for s, _ in reactant_species:
+            if s.name() not in system_species:
+                all_species_exists = False
+        if isinstance(jsp_dict, list) and all_species_exists:
             if jsp_dict[0].get("PhreeqcLgK", None) is not None:
                 output.register_option("logk_type", "Analytical")
                 output.register_option("logk_paramters", jsp_dict[0]["PhreeqcLgK"])
@@ -481,7 +484,7 @@ class ConvertedPropTypes:
         output.register_option("gas_constant", rkt.universalGasConstant)
         volume_reactants = 0
         system_species = [s.name() for s in self.state.state.system().species()]
-        for s, mol in spec.reaction().reactants():
+        for s, mol in reactant_species:
             if s.name() in system_species:
                 spec = self.state.system.species().get(s.name())
                 thermo_model = spec.standardThermoModel()
