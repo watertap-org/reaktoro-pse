@@ -43,7 +43,6 @@ class RktInputTypes:
     liquid_phase = "liquid_phase"
     solid_phase = "solid_phase"
     condensed_phase = "condensed_phase"
-    relaxation = "relaxation"
 
     supported_phases = [
         aqueous_phase,
@@ -54,7 +53,7 @@ class RktInputTypes:
         condensed_phase,
         liquid_phase,
     ]
-    non_species_types = [pH, pE, Eh, enthalpy, pressure, temperature, relaxation, pOH]
+    non_species_types = [pH, pE, Eh, enthalpy, pressure, temperature, pOH]
 
 
 # imitator for pyomo object, passed as input to speciation block
