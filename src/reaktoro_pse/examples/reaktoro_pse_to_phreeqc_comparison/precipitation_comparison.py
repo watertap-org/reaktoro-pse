@@ -44,7 +44,7 @@ def main_wate4qf(save_fig=False, show_fig=True):
     phreeqc_config = compUtils.get_phreeqc_data(data_type="phreeqc_data_waterq4f.json")
     m = standardModel.build_modification_example(phreeqc_config["feed_comp"])
     add_mineral_properties(
-        m, database="wateq4f.dat", activity_mode="ActivityModelPhreeqc"
+        m, database="wateq4f.dat", activity_model="ActivityModelPhreeqc"
     )
     m.display()
     # assert False
@@ -76,7 +76,7 @@ def run_sim(m, phreeqc_config, save_fig=False, show_fig=True):
 
 
 def add_mineral_properties(
-    m, database="pitzer.dat", activity_mode="ActivityModelPitzer"
+    m, database="pitzer.dat", activity_model="ActivityModelPitzer"
 ):
     # getting vapor pressure, we
     # the system presure is unkown,(as we don't know vapor pressure),
@@ -99,7 +99,7 @@ def add_mineral_properties(
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-            "activity_model": activity_mode,
+            "activity_model": activity_model,
         },
         database_file=database,
         system_state={

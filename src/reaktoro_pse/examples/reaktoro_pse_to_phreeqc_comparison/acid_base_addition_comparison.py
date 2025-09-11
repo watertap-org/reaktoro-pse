@@ -36,7 +36,7 @@ def main_wateq4f(save_fig=False, show_fig=True):
     phreeqc_config = compUtils.get_phreeqc_data(data_type="phreeqc_data_waterq4f.json")
     m = standardModel.build_modification_example(phreeqc_config["feed_comp"])
     standardModel.add_standard_properties(
-        m, database="wateq4f.dat", activity_mode="ActivityModelPhreeqc"
+        m, database="wateq4f.dat", activity_model="ActivityModelPhreeqc"
     )
     standardModel.initialize(m)
     return run_sim(m, phreeqc_config, save_fig, show_fig)

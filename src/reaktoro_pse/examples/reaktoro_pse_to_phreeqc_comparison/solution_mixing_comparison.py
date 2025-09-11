@@ -75,7 +75,7 @@ def main_wateq4f(save_fig=False, show_fig=True):
         phreeqc_config["pE_2"],
     )
     add_standard_properties(
-        m, database="wateq4f.dat", activity_mode="ActivityModelPhreeqc"
+        m, database="wateq4f.dat", activity_model="ActivityModelPhreeqc"
     )
     initialize(m)
     m.display()
@@ -155,7 +155,7 @@ def build_modification_example(water_comp, water_comp_2, pH2, pE2=None):
 def add_standard_properties(
     m,
     database="pitzer.dat",
-    activity_mode="ActivityModelPitzer",
+    activity_model="ActivityModelPitzer",
 ):
     m.modified_properties = Var(
         [
@@ -182,7 +182,7 @@ def add_standard_properties(
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-            "activity_model": activity_mode,
+            "activity_model": activity_model,
         },
         database_file=database,
         system_state={
@@ -200,7 +200,7 @@ def add_standard_properties(
         aqueous_phase={
             "composition": m.ratio_feed_composition_2,
             "convert_to_rkt_species": True,
-            "activity_model": activity_mode,
+            "activity_model": activity_model,
         },
         database_file=database,
         system_state={

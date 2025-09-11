@@ -73,7 +73,7 @@ def build_modification_example(water_comp):
 def add_standard_properties(
     m,
     database="pitzer.dat",
-    activity_mode="ActivityModelPitzer",
+    activity_model="ActivityModelPitzer",
 ):
     m.modified_properties = Var(
         [
@@ -93,7 +93,7 @@ def add_standard_properties(
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-            "activity_model": activity_mode,
+            "activity_model": activity_model,
         },
         database_file=database,
         system_state={
