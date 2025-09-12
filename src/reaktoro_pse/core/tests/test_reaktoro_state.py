@@ -16,7 +16,7 @@ import reaktoro_pse.core.reaktoro_state as rktState
 from pyomo.environ import ConcreteModel, Var, units as pyunits
 import pickle
 
-__author__ = "Alexander V. Dudchenko (NETL)"
+__author__ = "Alexander V. Dudchenko"
 
 
 @pytest.fixture

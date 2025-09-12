@@ -385,11 +385,6 @@ class ReaktoroState:
             composition, composition_index, RktInputTypes.aqueous_phase
         )
 
-    def register_relaxation_var(self, name, var):
-        """used to register custom vars to use as relaxation, these do not go into rkt state or model"""
-        self.inputs[name] = var
-        self.inputs[name].set_input_type("relaxation")
-
     def register_inputs(self, composition, composition_index, phase):
         """generic input registration method,
         unpacks composition (assumes its a dict or indexed var)

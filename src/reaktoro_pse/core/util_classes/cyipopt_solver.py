@@ -1,6 +1,9 @@
 from watertap_solvers import get_solver
 
 
+from watertap_solvers import get_solver
+
+
 def get_cyipopt_watertap_solver(
     max_iter=500,
     ma27=False,
@@ -10,6 +13,8 @@ def get_cyipopt_watertap_solver(
     dual_inf_tol=1e-1,
     constr_viol_tol=1e-8,
     tol=1e-8,
+    mumps_pivtol=1e-3,
+    mumps_pivtolmax=1.0,
 ):
     """general config for cyipopt solver"""
     cy_solver = get_solver(solver="cyipopt-watertap")
@@ -21,6 +26,9 @@ def get_cyipopt_watertap_solver(
     cy_solver.options["diverging_iterates_tol"] = 1e30
     if ma27:
         cy_solver.options["linear_solver"] = "ma27"
+    else:
+        cy_solver.options["mumps_pivtol"] = mumps_pivtol
+        cy_solver.options["mumps_pivtolmax"] = mumps_pivtolmax
     if limited_memory:
         cy_solver.options["hessian_approximation"] = "limited-memory"
         cy_solver.options["limited_memory_initialization"] = scalar_type

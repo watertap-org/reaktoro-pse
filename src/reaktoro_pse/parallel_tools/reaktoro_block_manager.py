@@ -72,7 +72,6 @@ class AggregateSolverState:
         self.jacobian_matrix = []
         self.input_windows = {}
         self.output_windows = {}
-        self.relaxation_constraints = {}
         self.parallel_mode = parallel_mode
         if maximum_number_of_parallel_solves is None:
             maximum_number_of_parallel_solves = multiprocessing.cpu_count() - 1
