@@ -10,7 +10,7 @@ def get_cyipopt_watertap_solver(
     dual_inf_tol=1e-1,
     constr_viol_tol=1e-8,
     tol=1e-8,
-    mumps_pivtol=1e-4,
+    mumps_pivtol=1e-3,
     mumps_pivtolmax=1.0,
 ):
     """general config for cyipopt solver"""
