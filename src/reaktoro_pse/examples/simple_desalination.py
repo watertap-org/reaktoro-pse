@@ -52,7 +52,6 @@ def main(
     m = build_simple_desal(hess_type)
     initialize(m)
     setup_optimization(m)
-    print("---result with out extra open species---")
     solve(m)
     return m
 
