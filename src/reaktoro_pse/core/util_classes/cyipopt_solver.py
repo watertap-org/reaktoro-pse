@@ -43,9 +43,9 @@ def get_cyipopt_watertap_solver(
     cy_solver.options["diverging_iterates_tol"] = 1e30
     cy_solver.options["linear_solver"] = linear_solver
     if pivtol is not None:
-        cy_solver.options[f"{linear_solver}_pivtol"] = pivtol
+        cy_solver.options[f"{linear_solver}_pivtol"] = float(pivtol)
     if pivtolmax is not None:
-        cy_solver.options[f"{linear_solver}_pivtolmax"] = pivtolmax
+        cy_solver.options[f"{linear_solver}_pivtolmax"] = float(pivtolmax)
     if limited_memory:
         cy_solver.options["hessian_approximation"] = "limited-memory"
         cy_solver.options["limited_memory_initialization"] = scalar_type
