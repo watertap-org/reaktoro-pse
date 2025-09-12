@@ -31,8 +31,8 @@ def get_cyipopt_watertap_solver(
     dual_inf_tol=1e-1,
     constr_viol_tol=1e-8,
     tol=1e-8,
-    mumps_pivtol=1e-3,
-    mumps_pivtolmax=1.0,
+    pivtol=None,
+    pivtolmax=None,
 ):
     """general config for cyipopt solver"""
     cy_solver = get_solver(solver="cyipopt-watertap")
@@ -40,18 +40,19 @@ def get_cyipopt_watertap_solver(
     # only enable if avaialbe !
     cy_solver.options["print_user_options"] = "yes"
     # helps handle property packages that have very small values requiring large steps
-
     cy_solver.options["diverging_iterates_tol"] = 1e30
     cy_solver.options["linear_solver"] = linear_solver
-    if linear_solver == LinearSolverTypes.mumps:
-        cy_solver.options["mumps_pivtol"] = mumps_pivtol
-        cy_solver.options["mumps_pivtolmax"] = mumps_pivtolmax
+    if pivtol is not None:
+        cy_solver.options[f"{linear_solver}_pivtol"] = pivtol
+    if pivtolmax is not None:
+        cy_solver.options[f"{linear_solver}_pivtolmax"] = pivtolmax
     if limited_memory:
         cy_solver.options["hessian_approximation"] = "limited-memory"
         cy_solver.options["limited_memory_initialization"] = scalar_type
     cy_solver.options["dual_inf_tol"] = dual_inf_tol
     cy_solver.options["constr_viol_tol"] = constr_viol_tol
     cy_solver.options["tol"] = tol
+
     # Ensure we never accept a "acceptable solution", which will be treated as infeasible"
     cy_solver.options["acceptable_dual_inf_tol"] = dual_inf_tol / 10
     cy_solver.options["acceptable_tol"] = tol / 10
