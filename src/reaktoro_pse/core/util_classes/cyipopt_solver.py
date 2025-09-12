@@ -53,7 +53,6 @@ def get_cyipopt_watertap_solver(
 
     cy_solver = get_solver(solver="cyipopt-watertap")
     cy_solver.options["max_iter"] = max_iter
-    # only enable if avaialbe !
     cy_solver.options["print_user_options"] = "yes"
     # helps handle property packages that have very small values requiring large steps
     cy_solver.options["diverging_iterates_tol"] = 1e30
