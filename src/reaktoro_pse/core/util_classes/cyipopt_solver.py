@@ -34,7 +34,23 @@ def get_cyipopt_watertap_solver(
     pivtol=None,
     pivtolmax=None,
 ):
-    """general config for cyipopt solver"""
+    """
+    Helper function to get cyipopt-watertap solver with options commonly used in reaktoro_pse examples
+    Args:
+        max_iter: maximum number of iterations
+        linear_solver: linear solver to use, see LinearSolverTypes class for options or solver supported by cyipopt configuration
+        limited_memory: use limited memory BFGS hessian approximation
+        solver_options: dictionary of additional solver options to set
+        scalar_type: limited memory initialization type, see cyipopt documentation for options
+        dual_inf_tol: dual infeasibility tolerance
+        constr_viol_tol: constraint violation tolerance
+        tol: overall convergence tolerance
+        pivtol: pivot tolerance for linear solver (solver must accept option as <linear_solver>_pivtol)
+        pivtolmax: maximum pivot tolerance for linear solver (solver must accept option as <linear_solver>_pivtolmax)
+    Returns:
+        cyipopt-watertap solver with specified options
+    """
+
     cy_solver = get_solver(solver="cyipopt-watertap")
     cy_solver.options["max_iter"] = max_iter
     # only enable if avaialbe !
