@@ -1,12 +1,30 @@
-from watertap_solvers import get_solver
+#################################################################################
+# WaterTAP Copyright (c) 2020-2024, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory, Oak Ridge National Laboratory,
+# National Renewable Energy Laboratory, and National Energy Technology
+# Laboratory (subject to receipt of any required approvals from the U.S. Dept.
+# of Energy). All rights reserved.
+#
+# Please see the files COPYRIGHT.md and LICENSE.md for full copyright and license
+# information, respectively. These files are also available online at the URL
+# "https://github.com/watertap-org/reaktoro-pse/"
+#################################################################################
+
+__author__ = "Alexander V. Dudchenko"
 
 
 from watertap_solvers import get_solver
+import warnings
+
+
+class LinearSolverTypes:
+    ma27 = "ma27"
+    mumps = "mumps"
 
 
 def get_cyipopt_watertap_solver(
     max_iter=500,
-    ma27=False,
+    linear_solver=LinearSolverTypes.mumps,
     limited_memory=False,
     solver_options=None,
     scalar_type="scalar1",
@@ -24,9 +42,8 @@ def get_cyipopt_watertap_solver(
     # helps handle property packages that have very small values requiring large steps
 
     cy_solver.options["diverging_iterates_tol"] = 1e30
-    if ma27:
-        cy_solver.options["linear_solver"] = "ma27"
-    else:
+    cy_solver.options["linear_solver"] = linear_solver
+    if linear_solver == LinearSolverTypes.mumps:
         cy_solver.options["mumps_pivtol"] = mumps_pivtol
         cy_solver.options["mumps_pivtolmax"] = mumps_pivtolmax
     if limited_memory:
