@@ -23,6 +23,8 @@ class RktInputTypes:
     Pa = "Pa"
     pH = "pH"
     pOH = "pOH"
+    pE = "pE"
+    Eh = "Eh"
     temperature = "temperature"
     enthalpy = "enthalpy"
     pressure = "pressure"
@@ -51,7 +53,7 @@ class RktInputTypes:
         condensed_phase,
         liquid_phase,
     ]
-    non_species_types = [pH, enthalpy, pressure, temperature, pOH]
+    non_species_types = [pH, pE, Eh, enthalpy, pressure, temperature, pOH]
 
 
 # imitator for pyomo object, passed as input to speciation block
@@ -354,10 +356,10 @@ def specie_to_rkt_species(species):
             "SO4",
             "CO3",
         ],
-        "-": ["Cl", "HCO3", "F", "NO3"],
-        "+": ["Na", "K"],
+        "-": ["Br", "Cl", "HCO3", "F", "NO3"],
+        "+": ["Na", "K", "Li"],
         "+2": ["Mg", "Mn", "Ca", "Sr", "Ba", "Fe"],
-        "": ["H2O", "CO2"],
+        "": ["H2O", "CO2", "B", "B(OH)3"],
         "H4SiO4": ["Si", "SiO2"],
         "SeO4-2": ["Se"],
     }
