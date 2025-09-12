@@ -27,7 +27,7 @@ class HessianOptions:
         CONFIG.declare(
             "hessian_type",
             ConfigValue(
-                default=HessTypes.ZeroHessian,
+                default=HessTypes.LBFGS,
                 domain=IsInstance((str, HessTypes)),
                 description="Hessian type to use for reaktor gray box",
                 doc="""Hessian type to use, some might provide better stability
