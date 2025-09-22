@@ -19,7 +19,7 @@ from reaktoro_pse.examples import (
 )
 
 
-def test_biogas():
+def test_redox_couples():
     results_array = redox_tracking.main()
     expected_result = {
         "inputs": {
