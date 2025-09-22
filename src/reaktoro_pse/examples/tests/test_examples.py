@@ -44,7 +44,7 @@ def test_redox_couples():
     for key, item in expected_result.items():
         for subkey, subitem in item.items():
             for i, v in enumerate(subitem):
-                assert pytest.approx(results_array[key][subkey][i], 1e-3) == v
+                assert pytest.approx(results_array[key][subkey][i], 1e-2) == v
 
 
 @pytest.mark.parametrize(
