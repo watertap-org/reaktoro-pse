@@ -79,7 +79,7 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species, hess_typ
         reaktoro_block_manager=m.reaktoro_manager,
     )
     m.reaktoro_manager.build_reaktoro_blocks()
-    m.property_block.initialize()
+    m.reaktoro_manager.initialize()
 
     cy_solver = get_cyipopt_watertap_solver()
     cy_solver.options["max_iter"] = 20
@@ -120,7 +120,7 @@ def test_deactivate(build_rkt_state_with_species):
     m.outputs[("scalingTendency", "Calcite")].fix(5)
     m.reaktoro_manager.deactivate()
 
-    assert m.property_block.active == True
+    assert m.property_block.active == False
     assert m.reaktoro_manager.active == False
     for v in m.reaktoro_manager.component_data_objects(Constraint):
         print(v.name)
