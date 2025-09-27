@@ -1090,18 +1090,42 @@ class ReaktoroBlockData(ProcessBlockData):
         _log.info(f"---initializing property block {str(self)}----")
         self.rkt_block_builder.initialize(presolve)
 
-    def deactivate(self):
+    def fix_outputs(self):
+        """Fixes all output variables"""
+        self.output_states = {}
+        for key, obj in self.rkt_solver.output_specs.rkt_outputs.items():
+            pyo_var = obj.get_pyomo_var()
+            pyo_var.pprint()
+            self.output_states[key] = pyo_var.fixed
+            pyo_var.fix()
+
+    def unfix_outputs(self):
+        """Unfixes all output variables"""
+        print(self.output_states)
+        for key, obj in self.rkt_solver.output_specs.rkt_outputs.items():
+            if key in self.output_states:
+                if self.output_states[key] == False:
+                    obj.get_pyomo_var().pprint()
+                    obj.get_pyomo_var().unfix()
+            else:
+                obj.get_pyomo_var().unfix()
+
+    def deactivate(self, fix_outputs=True):
         """Deactivates all constraints and grayboxes"""
         super().deactivate()
+        if fix_outputs:
+            self.fix_outputs()
         for v in self.component_data_objects(Constraint):
             v.deactivate()
-        for v in self.component_data_objects(ExternalGreyBoxModel):
+        for v in self.component_objects(ExternalGreyBoxModel, descend_into=True):
             v.deactivate()
 
-    def activate(self):
+    def activate(self, unfix_outputs=True):
         """Activates all constraints and grayboxes"""
         super().activate()
+        if unfix_outputs:
+            self.unfix_outputs()
         for v in self.component_data_objects(Constraint):
             v.activate()
-        for v in self.component_data_objects(ExternalGreyBoxModel):
+        for v in self.component_objects(ExternalGreyBoxModel, descend_into=True):
             v.activate()

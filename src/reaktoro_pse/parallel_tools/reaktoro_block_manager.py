@@ -26,6 +26,10 @@ from idaes.core.base.process_base import declare_process_block_class, ProcessBlo
 from pyomo.common.config import ConfigValue, IsInstance
 from reaktoro_pse.reaktoro_block_config.hessian_options import HessianOptions
 
+from pyomo.environ import (
+    Constraint,
+)
+
 
 class ReaktoroBlockData:
     def __init__(self):
@@ -378,3 +382,51 @@ class ReaktoroBlockManagerData(ProcessBlockData):
     def terminate_workers(self):
         if self.config.use_parallel_mode:
             self.parallel_manager.terminate_workers()
+
+    def fix_outputs(self):
+        """Fixes all output variables"""
+        self.output_states = {}
+        for block in self.registered_blocks:
+            self.output_states[block] = {}
+            for key, obj in block.outputs.rkt_outputs.items():
+                pyo_var = obj.get_pyomo_var()
+                pyo_var.pprint()
+                self.output_states[block][key] = pyo_var.fixed
+                pyo_var.fix()
+
+    def unfix_outputs(self):
+        """Unfixes all output variables"""
+        print(self.output_states)
+        for block in self.registered_blocks:
+            for key, obj in block.outputs.rkt_outputs.items():
+                if key in self.output_states[block]:
+                    if self.output_states[block][key] == False:
+                        obj.get_pyomo_var().pprint()
+                        obj.get_pyomo_var().unfix()
+                else:
+                    obj.get_pyomo_var().unfix()
+
+    def deactivate(self, fix_outputs=True):
+        """Deactivates all constraints and grayboxes"""
+        super().deactivate()
+        if fix_outputs:
+            self.fix_outputs()
+        for v in self.component_data_objects(Constraint):
+            v.deactivate()
+        for block in self.registered_blocks:
+            block.builder.block.output_constraints.deactivate()
+            block.builder.block.input_constraints.deactivate()
+
+        self.reaktoro_model.deactivate()
+
+    def activate(self, unfix_outputs=True):
+        """Activates all constraints and grayboxes"""
+        super().activate()
+        if unfix_outputs:
+            self.unfix_outputs()
+        for v in self.component_data_objects(Constraint):
+            v.activate()
+        for block in self.registered_blocks:
+            block.builder.block.output_constraints.activate()
+            block.builder.block.input_constraints.activate()
+        self.reaktoro_model.activate()
