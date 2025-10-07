@@ -163,10 +163,13 @@ def test_with_rkt_sum_and_pE(build_rkt_state_with_species_and_pE):
     for ec in expected_constraints:
         assert ec in input_constraints
 
+    assert len(input_names) == len(expected_names)
+    assert len(expected_constraints) == len(input_constraints)
+
 
 def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
     """testing if we can construct all constraints correctly if summing with
-    rkt, so inputs should be apprant species, with single empty constraint for CO3-2"""
+    rkt, so inputs should be apparent species, with single empty constraint for CO3-2"""
     m, rkt_state = build_rkt_state_with_species_no_ph
     rkt_state.build_state()
     rkt_state.equilibrate_state()
@@ -196,6 +199,7 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
 
     for en in expected_names:
         assert en in input_names
+
     for ec in expected_constraints:
         assert ec in input_constraints
     assert len(input_names) == len(expected_names)
@@ -244,7 +248,7 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
 
 def test_with_pyomo_sum(build_rkt_state_with_species):
     """testing if we can construct all constraints correctly but summing in pyomo
-    so rkt inputs are elment species only"""
+    so rkt inputs are element species only"""
     m, rkt_state = build_rkt_state_with_species
     rkt_state.build_state()
     rkt_state.equilibrate_state()
