@@ -55,7 +55,16 @@ def plot_data_sets(
     fig, ax = plt.subplots()
     fig.set_dpi(300)
     fig.set_size_inches(3.25, 3.25, forward=True)
-    colors = ["#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00", "#ffff33"]
+    colors = [
+        "#e41a1c",
+        "#377eb8",
+        "#4daf4a",
+        "#984ea3",
+        "#ff7f00",
+        "#ffff33",
+        "#a65628",
+        "#f781bf",
+    ]
     errors = {}
     for i, key in enumerate(
         [
