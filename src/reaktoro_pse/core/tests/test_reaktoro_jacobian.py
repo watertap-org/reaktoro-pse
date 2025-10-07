@@ -22,7 +22,7 @@ from reaktoro_pse.core.tests.test_reaktoro_state import (
 )
 import numpy as np
 
-__author__ = "Alexander V. Dudchenko (NETL)"
+__author__ = "Alexander V. Dudchenko"
 
 
 @pytest.fixture

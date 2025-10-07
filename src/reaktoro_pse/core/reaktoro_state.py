@@ -312,9 +312,13 @@ class ReaktoroState:
         pressure=None,
         enthalpy=None,
         pH=None,
+        pE=None,
+        Eh=None,
         temperature_index=None,
         pressure_index=None,
         pH_index=None,
+        pE_index=None,
+        Eh_index=None,
         enthalpy_index=None,
     ):
         """registers inputs
@@ -323,8 +327,16 @@ class ReaktoroState:
 
         temperature -- pyomo var that contains temperature data (293.15K)
         pressure -- pyomo var that contains pressure data (default 1 atm)
+        pH -- pyomo var that contains solution pH (default None)
+        enthalpy -- pyomo var that contains specific enthalpy (default None)
+        pE -- pyomo var that contains solution pe (default None)
+        Eh -- pyomo var that contains solution eh (default None)
         temperature_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[temperature_index])
         pressure_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[pressure_index])
+        pH_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[pH_index])
+        pE_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[pE_index])
+        Eh_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[Eh_index])
+        enthalpy_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[enthalpy_index])
         """
         if temperature is not None:
             self.inputs[RktInputTypes.temperature] = self.process_input(
@@ -350,6 +362,12 @@ class ReaktoroState:
         if pH is not None:
             self.inputs[RktInputTypes.pH] = self.process_input(pH, pH_index)
             self.inputs[RktInputTypes.pH].set_input_type(RktInputTypes.aqueous_phase)
+        if pE is not None:
+            self.inputs[RktInputTypes.pE] = self.process_input(pE, pE_index)
+            self.inputs[RktInputTypes.pE].set_input_type(RktInputTypes.aqueous_phase)
+        if Eh is not None:
+            self.inputs[RktInputTypes.Eh] = self.process_input(Eh, Eh_index)
+            self.inputs[RktInputTypes.Eh].set_input_type(RktInputTypes.aqueous_phase)
 
     def set_input_options(
         self,
@@ -384,11 +402,6 @@ class ReaktoroState:
         self.register_inputs(
             composition, composition_index, RktInputTypes.aqueous_phase
         )
-
-    def register_relaxation_var(self, name, var):
-        """used to register custom vars to use as relaxation, these do not go into rkt state or model"""
-        self.inputs[name] = var
-        self.inputs[name].set_input_type("relaxation")
 
     def register_inputs(self, composition, composition_index, phase):
         """generic input registration method,

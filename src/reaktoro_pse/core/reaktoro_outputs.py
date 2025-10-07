@@ -444,11 +444,11 @@ class ConvertedPropTypes:
         #TODO: Need to add check for database being used as only PhreeqC is really supported at the
         moment"""
         # print("building sc direct")
-
         output = PropOptions()
         ref_temp = 25  # degC
         ref_pressure = 1  # atm
         spec = self.aqueous_props.saturationSpecies().get(property_index)
+        reactant_species = spec.reaction().reactants()
         thermo_model = spec.standardThermoModel()
         pr = spec.props(ref_temp, "C", ref_pressure, "atm")
         specie_volume = float(pr.V0)  # returns auto diff/not usable with pyomo
@@ -457,7 +457,16 @@ class ConvertedPropTypes:
         jsp = thermo_model.params().dumpJson()
         jsp_dict = json.loads(jsp)
         not_implemented = False
-        if isinstance(jsp_dict, list):
+        # TODO: need to add pE calculation to be able to calc scaling tendcies for these props.
+        system_species = [s.name() for s in self.state.state.system().species()]
+        all_species_exists = True
+        for s, _ in reactant_species:
+            if s.name() not in system_species:
+                all_species_exists = False
+                _log.warning(
+                    f"Species {s.name()} not found in system species for index {property_index}, returning numerical scalingTendencySaturationIndex instead"
+                )
+        if isinstance(jsp_dict, list) and all_species_exists:
             if jsp_dict[0].get("PhreeqcLgK", None) is not None:
                 output.register_option("logk_type", "Analytical")
                 output.register_option("logk_paramters", jsp_dict[0]["PhreeqcLgK"])
@@ -469,15 +478,14 @@ class ConvertedPropTypes:
         else:
             not_implemented = True
         if not_implemented:
-
-            Warning(
-                f"Exact derivatives for scaling tendency with params of {jsp_dict} not implemented, returning numerical scalingTendencySaturationIndex instead"
+            _log.warning(
+                f"Exact derivatives for scaling tendency of {property_index} not implemented, returning numerical scalingTendencySaturationIndex instead"
             )
             return self.scalingTendencySaturationIndex(property_index)
+
         output.register_option("gas_constant", rkt.universalGasConstant)
         volume_reactants = 0
-        system_species = [s.name() for s in self.state.state.system().species()]
-        for s, mol in spec.reaction().reactants():
+        for s, mol in reactant_species:
             if s.name() in system_species:
                 spec = self.state.system.species().get(s.name())
                 thermo_model = spec.standardThermoModel()
