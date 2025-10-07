@@ -51,6 +51,8 @@ def build_modification_example(water_comp):
     m.base_addition.fix()
     m.lime_addition = Var(initialize=1e-8, units=pyunits.mol / pyunits.s)
     m.lime_addition.fix()
+    m.pE = Var(initialize=4, units=pyunits.dimensionless)
+    m.pE.fix()
     m.modified_properties_water_removal = Var(
         initialize=1e-8,
         units=pyunits.mol / pyunits.s,
@@ -68,26 +70,37 @@ def build_modification_example(water_comp):
     return m
 
 
-def add_standard_properties(m):
+def add_standard_properties(
+    m,
+    database="pitzer.dat",
+    activity_model="ActivityModelPitzer",
+):
     m.modified_properties = Var(
         [
             ("scalingTendency", "Calcite"),
             ("scalingTendency", "Gypsum"),
             ("pH", None),
+            ("pE", None),
             ("osmoticPressure", "H2O"),
         ],
         initialize=1,
     )
+    if m.find_component("pE") is None:
+        pE = None
+    else:
+        pE = m.pE
     m.eq_modified_properties = ReaktoroBlock(
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-            "activity_model": rkt.ActivityModelPitzer(),
+            "activity_model": activity_model,
         },
+        database_file=database,
         system_state={
             "temperature": m.feed_temperature,
             "pressure": m.feed_pressure,
             "pH": m.feed_pH,
+            "pE": pE,
         },
         outputs=m.modified_properties,
         chemistry_modifier={

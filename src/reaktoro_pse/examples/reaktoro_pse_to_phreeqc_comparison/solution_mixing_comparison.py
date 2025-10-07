@@ -66,7 +66,42 @@ def main(save_fig=False, show_fig=True):
     return errors
 
 
-def build_modification_example(water_comp, water_comp_2, pH2):
+def main_wateq4f(save_fig=False, show_fig=True):
+    phreeqc_config = compUtils.get_phreeqc_data(data_type="phreeqc_data_waterq4f.json")
+    m = build_modification_example(
+        phreeqc_config["feed_comp"],
+        phreeqc_config["feed_comp_2"],
+        phreeqc_config["ph_2"],
+        phreeqc_config["pE_2"],
+    )
+    add_standard_properties(
+        m, database="wateq4f.dat", activity_model="ActivityModelPhreeqc"
+    )
+    initialize(m)
+    m.display()
+    # assert False
+    reaktoro_output_dict = {}
+    reaktoro_output_dict["mix_ratio_sweep"] = {}
+    for wr in phreeqc_config["mix_ratio"]:
+        m.ratio.fix(wr)
+        standardModel.solve(m)
+        compUtils.get_reaktoro_solved_outputs(
+            m, reaktoro_output_dict["mix_ratio_sweep"]
+        )
+    errors = compUtils.plot_data_sets(
+        phreeqc_config["mix_ratio"],
+        phreeqc_config,
+        reaktoro_output_dict,
+        "mix_ratio_sweep",
+        "Mixing ratio (-)",
+        show_fig=show_fig,
+        save_fig=save_fig,
+    )
+    print(errors)
+    return errors
+
+
+def build_modification_example(water_comp, water_comp_2, pH2, pE2=None):
     m = ConcreteModel()
     m.feed_composition = Var(
         water_comp.keys(),
@@ -86,6 +121,11 @@ def build_modification_example(water_comp, water_comp_2, pH2):
     # pressure.construct()
     m.feed_pH = Var(initialize=7.8, bounds=(4, 12), units=pyunits.dimensionless)
     m.feed_pH.fix(7.8)  # feed pH used in phreeqc sim
+    if pE2 is not None:
+        m.pE = Var(initialize=4, units=pyunits.dimensionless)
+        m.pE.fix(4)
+        m.pE_2 = Var(initialize=pE2, units=pyunits.dimensionless)
+        m.pE_2.fix(pE2)
     m.feed_composition_2 = Var(
         water_comp_2.keys(),
         initialize=1,
@@ -112,12 +152,17 @@ def build_modification_example(water_comp, water_comp_2, pH2):
     return m
 
 
-def add_standard_properties(m):
+def add_standard_properties(
+    m,
+    database="pitzer.dat",
+    activity_model="ActivityModelPitzer",
+):
     m.modified_properties = Var(
         [
             ("scalingTendency", "Calcite"),
             ("scalingTendency", "Gypsum"),
             ("pH", None),
+            ("pE", None),
             ("osmoticPressure", "H2O"),
         ],
         initialize=1,
@@ -127,17 +172,24 @@ def add_standard_properties(m):
     # different feeds, we can use {"speciesAmount", True} to get all possible
     # exact species as an output from reaktoro with out knowing what they
     # are apriori.
-
+    if m.find_component("pE") is None:
+        pE = None
+        pE_2 = None
+    else:
+        pE_2 = m.pE_2
+        pE = m.pE
     m.eq_feed_properties = ReaktoroBlock(
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-            "activity_model": rkt.ActivityModelPitzer(),
+            "activity_model": activity_model,
         },
+        database_file=database,
         system_state={
             "temperature": m.feed_temperature,
             "pressure": m.feed_pressure,
             "pH": m.feed_pH,
+            "pE": pE,
         },
         outputs={"speciesAmount": True},  # get exact speciation for the feed
         dissolve_species_in_reaktoro=True,
@@ -148,12 +200,14 @@ def add_standard_properties(m):
         aqueous_phase={
             "composition": m.ratio_feed_composition_2,
             "convert_to_rkt_species": True,
-            "activity_model": rkt.ActivityModelPitzer(),
+            "activity_model": activity_model,
         },
+        database_file=database,
         system_state={
             "temperature": m.feed_temperature,
             "pressure": m.feed_pressure,
             "pH": m.feed_2_pH,
+            "pE": pE_2,
         },
         outputs=m.modified_properties,  # get exact speciation for the feed
         build_speciation_block=True,
@@ -184,4 +238,4 @@ def initialize(m):
 
 
 if __name__ == "__main__":
-    main()
+    main_wateq4f()

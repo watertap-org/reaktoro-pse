@@ -13,6 +13,7 @@ import reaktoro_pse.core.reaktoro_inputs as RktInputspec
 
 from pyomo.environ import Var, units as pyunits
 from reaktoro_pse.core.tests.test_reaktoro_state import (
+    build_rkt_state_with_species_and_pE,
     build_rkt_state_with_species,
     build_rkt_state_with_species_no_ph,
 )
@@ -118,9 +119,57 @@ def test_with_rkt_sum(build_rkt_state_with_species):
     assert rkt_input.neutrality_ion == "Cl"
 
 
-def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
+def test_with_rkt_sum_and_pE(build_rkt_state_with_species_and_pE):
     """testing if we can construct all constraints correctly if summing with
     rkt, so inputs should be apprant species, with single empty constraint for CO3-2"""
+    m, rkt_state = build_rkt_state_with_species_and_pE
+    rkt_state.build_state()
+    rkt_state.equilibrate_state()
+    rkt_input = RktInputspec.ReaktoroInputSpec(rkt_state)
+    rkt_input.configure_specs(dissolve_species_in_rkt=True)
+    rkt_input.build_input_specs()
+    input_names = rkt_input.equilibrium_specs.namesControlVariables()
+    print(input_names)
+    input_constraints = rkt_input.equilibrium_specs.namesConstraints()
+    print(input_constraints)
+    expected_names = [
+        "[Cl]",
+        "[C]",
+        "[Na]",
+        "[Mg]",
+        "[Ca]",
+        "[H2O]",
+        "[O]",
+        "[H]",
+        "[H+]",
+        "[e-]",
+    ]
+
+    expected_constraints = [
+        "charge",
+        "C_constraint",
+        "Na_constraint",
+        "Mg_constraint",
+        "Ca_constraint",
+        "H2O_constraint",
+        "O_dummy_constraint",
+        "H_dummy_constraint",
+        "pH",
+        "pE",
+    ]
+
+    for en in expected_names:
+        assert en in input_names
+    for ec in expected_constraints:
+        assert ec in input_constraints
+
+    assert len(input_names) == len(expected_names)
+    assert len(expected_constraints) == len(input_constraints)
+
+
+def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
+    """testing if we can construct all constraints correctly if summing with
+    rkt, so inputs should be apparent species, with single empty constraint for CO3-2"""
     m, rkt_state = build_rkt_state_with_species_no_ph
     rkt_state.build_state()
     rkt_state.equilibrate_state()
@@ -150,6 +199,7 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
 
     for en in expected_names:
         assert en in input_names
+
     for ec in expected_constraints:
         assert ec in input_constraints
     assert len(input_names) == len(expected_names)
@@ -198,7 +248,7 @@ def test_with_rkt_sum_no_ph(build_rkt_state_with_species_no_ph):
 
 def test_with_pyomo_sum(build_rkt_state_with_species):
     """testing if we can construct all constraints correctly but summing in pyomo
-    so rkt inputs are elment species only"""
+    so rkt inputs are element species only"""
     m, rkt_state = build_rkt_state_with_species
     rkt_state.build_state()
     rkt_state.equilibrate_state()

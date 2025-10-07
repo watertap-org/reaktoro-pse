@@ -127,6 +127,47 @@ def build_rkt_state_with_species_no_ph():
 
 
 @pytest.fixture
+def build_rkt_state_with_species_and_pE():
+    m = ConcreteModel()
+    m.temp = Var(initialize=293.15, units=pyunits.K)
+    m.temp.fix()
+    # temp.construct()
+    m.pressure = Var(initialize=1e5, units=pyunits.Pa)
+    m.pressure.fix()
+    # pressure.construct()
+    m.pH = Var(initialize=7, units=pyunits.dimensionless)
+    m.pH.fix()
+    m.pE = Var(initialize=7, units=pyunits.dimensionless)
+    m.pE.fix()
+    # pH.construct()
+    m.composition = Var(
+        ["H2O", "Mg", "Na", "Cl", "Ca", "HCO3", "CO2"],
+        initialize=1,
+        units=pyunits.mol / pyunits.s,
+    )
+    m.composition.construct()
+    m.composition["H2O"].fix(50)
+    m.composition["Mg"].fix(0.1)
+    m.composition["Na"].fix(0.5)
+    m.composition["Cl"].fix(0.5)
+    m.composition["Ca"].fix(0.01)
+    m.composition["HCO3"].fix(0.01)
+    m.composition["CO2"].fix(0.001)
+
+    rkt_state = rktState.ReaktoroState()
+    rkt_state.set_database()
+    rkt_state.set_input_options(
+        "aqueous_phase",
+    )
+    rkt_state.register_system_inputs(
+        temperature=m.temp, pressure=m.pressure, pH=m.pH, pE=m.pE
+    )
+    rkt_state.register_aqueous_inputs(composition=m.composition)
+    rkt_state.set_aqueous_phase_activity_model()
+    return m, rkt_state
+
+
+@pytest.fixture
 def build_rkt_state_with_elements():
     temp = Var(initialize=293.15, units=pyunits.K)
     temp.construct()
@@ -158,6 +199,14 @@ def build_rkt_state_with_elements():
     rkt_state.register_aqueous_inputs(composition=composition)
     rkt_state.set_aqueous_phase_activity_model()
     return rkt_state
+
+
+def test_build_rkt_state_with_species_and_pE(build_rkt_state_with_species):
+    m, rkt_state = build_rkt_state_with_species
+    rkt_state.build_state()
+    rkt_state.equilibrate_state()
+    aprops = rkt.AqueousProps(rkt_state.state)
+    assert pytest.approx(float(aprops.pE()), 1e-3) == -12.046791540217814
 
 
 def test_state_with_species(build_rkt_state_with_species):

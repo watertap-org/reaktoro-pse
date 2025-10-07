@@ -15,7 +15,36 @@ from reaktoro_pse.examples import (
     simple_desalination,
     simple_ion_exchange,
     thermal_precipitation,
+    redox_tracking,
 )
+
+
+def test_redox_couples():
+    results_array = redox_tracking.main()
+    expected_result = {
+        "inputs": {
+            "pH": [7.315729083913665, 7.315729083913665],
+            "acid_addition": [1e-05, 0.01],
+            "pE": [4.0, 4.0],
+            "water_removal": [10.0, 10.0],
+        },
+        "no_pe": {
+            ("pH", None): [7.2975046335789155, 7.2975046335789155],
+            ("pE", None): [4.08216774461248, 4.08216774461248],
+            ("scalingTendency", "Calcite"): [0.47433536607119553, 0.47433536607119553],
+            ("scalingTendency", "Gypsum"): [0.038512922840069234, 0.038512922840069234],
+        },
+        "with_pe": {
+            ("pH", None): [7.285565634713234, 7.285565634713234],
+            ("pE", None): [-3.738828183882938, -3.738828183882938],
+            ("scalingTendency", "Calcite"): [0.5122697256588773, 0.5122697256588773],
+            ("scalingTendency", "Gypsum"): [0.01219890975409037, 0.01219890975409037],
+        },
+    }
+    for key, item in expected_result.items():
+        for subkey, subitem in item.items():
+            for i, v in enumerate(subitem):
+                assert pytest.approx(results_array[key][subkey][i], 1e-2) == v
 
 
 @pytest.mark.parametrize(

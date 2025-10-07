@@ -36,6 +36,24 @@ def main(save_fig=False, show_fig=True):
     m.display()
     # assert False
     standardModel.initialize(m)
+    errors = run_sim(m, phreeqc_config, save_fig, show_fig)
+    return errors
+
+
+def main_wate4qf(save_fig=False, show_fig=True):
+    phreeqc_config = compUtils.get_phreeqc_data(data_type="phreeqc_data_waterq4f.json")
+    m = standardModel.build_modification_example(phreeqc_config["feed_comp"])
+    add_mineral_properties(
+        m, database="wateq4f.dat", activity_model="ActivityModelPhreeqc"
+    )
+    m.display()
+    # assert False
+    standardModel.initialize(m)
+    errors = run_sim(m, phreeqc_config, save_fig, show_fig)
+    return errors
+
+
+def run_sim(m, phreeqc_config, save_fig=False, show_fig=True):
     reaktoro_output_dict = {}
     reaktoro_output_dict["CaO_sweep"] = {}
     for lime in phreeqc_config["CaO"]:
@@ -53,10 +71,13 @@ def main(save_fig=False, show_fig=True):
         show_fig=show_fig,
         save_fig=save_fig,
     )
+    print(errors)
     return errors
 
 
-def add_mineral_properties(m):
+def add_mineral_properties(
+    m, database="pitzer.dat", activity_model="ActivityModelPitzer"
+):
     # getting vapor pressure, we
     # the system presure is unkown,(as we don't know vapor pressure),
     # and we are nod modifying state"""
@@ -65,23 +86,27 @@ def add_mineral_properties(m):
             ("speciesAmount", "Calcite"),
             ("scalingTendency", "Calcite"),
             ("pH", None),
+            ("pE", None),
         ],
         initialize=1,
     )
     iscale.set_scaling_factor(m.modified_properties[("speciesAmount", "Calcite")], 1e5)
     iscale.set_scaling_factor(m.modified_properties[("pH", None)], 1 / 10)
+
     # iscale.set_scaling_factor(m.modefied_properties[("speciesAmount", "Calcite")], 1e-5)
     m.feed_pressure.fix(1e5)  # fixing at 1 bar
     m.eq_modified_properties = ReaktoroBlock(
         aqueous_phase={
             "composition": m.feed_composition,
             "convert_to_rkt_species": True,
-            "activity_model": rkt.ActivityModelPitzer(),
+            "activity_model": activity_model,
         },
+        database_file=database,
         system_state={
             "temperature": m.feed_temperature,
             "pressure": m.feed_pressure,
             "pH": m.feed_pH,
+            "pE": m.pE,
         },
         outputs=m.modified_properties,
         mineral_phase={"phase_components": ["Calcite", "Gypsum"]},
@@ -93,4 +118,4 @@ def add_mineral_properties(m):
 
 
 if __name__ == "__main__":
-    main()
+    main_wate4qf()

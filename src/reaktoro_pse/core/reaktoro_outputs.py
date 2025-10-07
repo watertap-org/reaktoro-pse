@@ -444,7 +444,6 @@ class ConvertedPropTypes:
         #TODO: Need to add check for database being used as only PhreeqC is really supported at the
         moment"""
         # print("building sc direct")
-
         output = PropOptions()
         ref_temp = 25  # degC
         ref_pressure = 1  # atm
@@ -464,6 +463,9 @@ class ConvertedPropTypes:
         for s, _ in reactant_species:
             if s.name() not in system_species:
                 all_species_exists = False
+                _log.warning(
+                    f"Species {s.name()} not found in system species for index {property_index}, returning numerical scalingTendencySaturationIndex instead"
+                )
         if isinstance(jsp_dict, list) and all_species_exists:
             if jsp_dict[0].get("PhreeqcLgK", None) is not None:
                 output.register_option("logk_type", "Analytical")
@@ -483,7 +485,6 @@ class ConvertedPropTypes:
 
         output.register_option("gas_constant", rkt.universalGasConstant)
         volume_reactants = 0
-        system_species = [s.name() for s in self.state.state.system().species()]
         for s, mol in reactant_species:
             if s.name() in system_species:
                 spec = self.state.system.species().get(s.name())

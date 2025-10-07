@@ -29,6 +29,20 @@ def main(save_fig=False, show_fig=True):
     m = standardModel.build_modification_example(phreeqc_config["feed_comp"])
     standardModel.add_standard_properties(m)
     standardModel.initialize(m)
+    return run_sim(m, phreeqc_config, save_fig, show_fig)
+
+
+def main_wateq4f(save_fig=False, show_fig=True):
+    phreeqc_config = compUtils.get_phreeqc_data(data_type="phreeqc_data_waterq4f.json")
+    m = standardModel.build_modification_example(phreeqc_config["feed_comp"])
+    standardModel.add_standard_properties(
+        m, database="wateq4f.dat", activity_model="ActivityModelPhreeqc"
+    )
+    standardModel.initialize(m)
+    return run_sim(m, phreeqc_config, save_fig, show_fig)
+
+
+def run_sim(m, phreeqc_config, save_fig=False, show_fig=True):
     reaktoro_output_dict = {}
     reaktoro_output_dict["HCl_sweep"] = {}
     m.water_recovery.fix(0)
@@ -62,8 +76,9 @@ def main(save_fig=False, show_fig=True):
         show_fig=show_fig,
         save_fig=save_fig,
     )
+    print(errors_hcl, errors_naoh)
     return errors_hcl, errors_naoh
 
 
 if __name__ == "__main__":
-    main()
+    main_wate4qf()
