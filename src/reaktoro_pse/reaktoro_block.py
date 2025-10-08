@@ -1112,7 +1112,6 @@ class ReaktoroBlockData(ProcessBlockData):
         for key, obj in self.rkt_solver.output_specs.rkt_outputs.items():
             if key in self.output_states:
                 if self.output_states[key] == False:
-                    obj.get_pyomo_var().pprint()
                     obj.get_pyomo_var().unfix()
             else:
                 obj.get_pyomo_var().unfix()
