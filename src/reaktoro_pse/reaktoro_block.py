@@ -1102,7 +1102,6 @@ class ReaktoroBlockData(ProcessBlockData):
         self.output_states = {}
         for key, obj in self.rkt_solver.output_specs.rkt_outputs.items():
             pyo_var = obj.get_pyomo_var()
-            pyo_var.pprint()
             self.output_states[key] = pyo_var.fixed
             pyo_var.fix()
 
