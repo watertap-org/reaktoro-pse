@@ -28,7 +28,7 @@ from pyomo.contrib.pynumero.interfaces.external_grey_box import (
 from reaktoro_pse.core.util_classes.cyipopt_solver import (
     get_cyipopt_watertap_solver,
 )
-
+from watertap_solvers import get_solver
 from idaes.core.util.model_statistics import degrees_of_freedom
 
 
@@ -55,6 +55,17 @@ def build_comp(blk):
         [("scalingTendency", "Calcite"), ("pH", None), ("pE", None)],
         initialize=1,
     )
+
+
+def add_simple_test_constraints(blk):
+    blk.recovery = Var(initialize=0.9, bounds=(0, 1))
+    blk.outlet_composition = Var(
+        blk.composition.index_set(), initialize=1, units=pyunits.mol / pyunits.s
+    )
+
+    @blk.Constraint(blk.composition.index_set())
+    def mass_balance_rule(b, i):
+        return b.outlet_composition[i] == b.composition[i] * b.recovery
 
 
 @pytest.fixture
@@ -292,6 +303,11 @@ def test_activate_deactivate(build_rkt_state_with_species):
         outputs=m.outputs,
     )
     m.property_block.initialize()
+
+    m.pH.fix()
+    m.composition["H2O"].unfix()
+    m.composition["H2O"].setlb(30)
+    m.outputs[("scalingTendency", "Calcite")].fix(5)
     m.property_block.deactivate()
 
     assert m.property_block.active == False
@@ -303,15 +319,15 @@ def test_activate_deactivate(build_rkt_state_with_species):
 
     cy_solver = get_cyipopt_watertap_solver()
     cy_solver.options["max_iter"] = 20
-    m.pH.fix()
-    m.composition["H2O"].unfix()
-    m.composition["H2O"].setlb(30)
-    m.outputs[("scalingTendency", "Calcite")].fix(5)
 
     # this should fail run solve, raising value error
     with pytest.raises(ValueError):
         result = cy_solver.solve(m, tee=True)
-
+    add_simple_test_constraints(m)
+    m.composition["H2O"].fix()
+    water_solver = get_solver()
+    results = water_solver.solve(m, tee=True)
+    assert_optimal_termination(results)
     assert pytest.approx(m.composition["H2O"].value, 1e-3) == 50
     m.property_block.activate()
     assert m.property_block.active == True
@@ -322,6 +338,7 @@ def test_activate_deactivate(build_rkt_state_with_species):
         assert v.active == True
 
     # this solve should solve
+    m.composition["H2O"].unfix()
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
     assert pytest.approx(m.composition["H2O"].value, 1e-3) == 68.0601837
