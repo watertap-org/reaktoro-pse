@@ -82,7 +82,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           miniforge-version: latest
           channels: conda-forge
-          activate-environment: ${{ matrix.install-mode == 'dev' && 'reaktoro-pse-dev' || 'reaktoro-pse' }}
+          activate-environment: ${{ matrix.install-mode == 'dev' || matrix.install-mode == 'yaml' && 'reaktoro-pse-dev' || 'reaktoro-pse' }}
       - if: matrix.install-mode == 'yaml'
         name: Install via yaml.
         run: |
