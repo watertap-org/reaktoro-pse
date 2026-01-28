@@ -76,13 +76,9 @@ jobs:
           miniforge-version: latest
           channels: conda-forge
           activate-environment: ${{ matrix.install-mode == 'dev' && 'reaktoro-pse-dev' || 'reaktoro-pse' }}
-      - name: Install conda-forge dependencies
+      - name: Install via yaml.
         run: |
-          conda install reaktoro>=2.13 cyipopt>=1.4.1
-      - if: matrix.install-mode == 'dev'
-        name: Install (dev)
-        run: |
-          pip install -r requirements-dev.txt
+          conda env update -n reaktoro-pse-dev --f reaktoro_pse_env.yml
           pip list
       - if: matrix.install-mode == 'standard'
         name: Install (standard)
