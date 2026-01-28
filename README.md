@@ -132,13 +132,20 @@ Reaktoro-pse depends on the following packages and/or versions:
 - idaes-pse>=2.5.0
 
 
-## 9. Getting started (for contributors)
+## 9. Getting started
 
 ### Prerequisites
 
 - A Conda distribution compatible with `conda-forge`, e.g. [Miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#download)
 - Git (needed by [setuptools_scm](https://setuptools-scm.readthedocs.io/en/latest/) to set the version dynamically during installation of the Python package distribution)
 
+### For users
+```
+conda install cyipopt reaktoro
+pip install git+https://github.com/watertap-org/reaktoro-pse.git
+```
+
+### For Contributors
 ### Installation
 
 ## 1. In a dedicated reatkro-pse-dev environment

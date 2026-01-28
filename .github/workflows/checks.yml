@@ -46,7 +46,8 @@ jobs:
       matrix:
         install-mode:
           - dev
-          # - standard
+          - standard
+          - yaml
         python-version:
           - "3.9"
           - "3.10"
@@ -66,9 +67,15 @@ jobs:
           - install-mode: dev
             python-version: "3.11"  # choice of Python version is arbitrary among those in matrix
             coverage: "true"
-
+        exclude:
+          - install-mode: yaml
+            python-version: "3.9"
+          - install-mode: yaml
+            python-version: "3.10"
+          - install-mode: yaml
+            python-version: "3.11"
     steps:
-      - if: matrix.install-mode == 'dev'
+      - if: matrix.install-mode == 'dev' || matrix.install-mode == 'yaml'
         uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v3
         with:
@@ -76,10 +83,16 @@ jobs:
           miniforge-version: latest
           channels: conda-forge
           activate-environment: ${{ matrix.install-mode == 'dev' && 'reaktoro-pse-dev' || 'reaktoro-pse' }}
-      - name: Install via yaml.
+      - if: matrix.install-mode == 'yaml'
+        name: Install via yaml.
         run: |
           conda env update -n reaktoro-pse-dev --f reaktoro_pse_env.yml
           pip list
+      - if: matrix.install-mode == 'dev'
+        name: Install (dev)
+        run: |
+          conda install cyipopt reaktoro
+          pip install -r requirements-dev.txt
       - if: matrix.install-mode == 'standard'
         name: Install (standard)
         run: |
