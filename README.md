@@ -140,7 +140,8 @@ Reaktoro-pse depends on the following packages and/or versions:
 - Git (needed by [setuptools_scm](https://setuptools-scm.readthedocs.io/en/latest/) to set the version dynamically during installation of the Python package distribution)
 
 ### For users
-```
+```sh
+conda activate $YOUR_ENV
 conda install cyipopt reaktoro
 pip install git+https://github.com/watertap-org/reaktoro-pse.git
 ```
