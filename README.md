@@ -91,7 +91,7 @@ B. Use exact derivatives instead of numeric
 
 The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your Reaktoro block are exact, calculated, or numeric by using **your_reaktor_block.display_jacobian_outputs()**. 
 
-If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacoibanRows class](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/core/reaktoro_jacobian.py). These properties can be used to write Pyomo constraints that calculate the desired property. These derivatvies can be used in two ways:
+If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacobianRows class](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/core/reaktoro_jacobian.py). These properties can be used to write Pyomo constraints that calculate the desired property. These derivatvies can be used in two ways:
 - through use of ConvertedPropTypes, here we apply chain rule to calculate exact derivatives for desired function
 - through use of PyomoProperties, where we pass outputs with exact derivatives to a Pyomo constraint. 
 
@@ -139,31 +139,31 @@ Reaktoro-pse depends on the following packages and/or versions:
 - A Conda distribution compatible with `conda-forge`, e.g. [Miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#download)
 - Git (needed by [setuptools_scm](https://setuptools-scm.readthedocs.io/en/latest/) to set the version dynamically during installation of the Python package distribution)
 
-### For users
+### Installation
 ```sh
 conda activate $YOUR_ENV
 conda install cyipopt reaktoro
 pip install git+https://github.com/watertap-org/reaktoro-pse.git
 ```
 
-### For Contributors
+## For Contributors
 ### Installation
 
-## 1. In a dedicated reatkro-pse-dev environment
+### 1. In a dedicated reatkro-pse-dev environment
 ```sh
 git clone https://github.com/watertap-org/reaktoro-pse.git
 cd reaktoro-pse
 conda env create -f reaktoro_pse_env.yml
 ```
 
-## 2. To install in a different existing conda env
+### 2. To install in a different existing conda env
 ```sh
 git clone https://github.com/watertap-org/reaktoro-pse.git
 cd reaktoro-pse
 conda env update -n $YOUR_ENV --f reaktoro_pse_env.yml
 ```
 
-## 3. To update your installation (replace $YOUR_ENV with name of your conda environment)
+### 3. To update your installation (replace $YOUR_ENV with name of your conda environment)
 ```sh
 cd reaktoro-pse
 conda env update -n $YOUR_ENV --f reaktoro_pse_env.yml
