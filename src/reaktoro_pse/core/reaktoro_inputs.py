@@ -483,6 +483,7 @@ class ReaktoroInputSpec:
             "NaOH": {"Na": 1, "O": 1, "H": 1},
             "H": {"H": 1},
             "OH": {"O": 1, "H": 1},
+            "H3O": {"O": 1, "H": 3},
             "H2O_evaporation": {"O": -1, "H": -2},
         }
         self.ensure_safe_modifier_names()
@@ -550,6 +551,7 @@ class ReaktoroInputSpec:
             idx = spec_object.addInput(f"input{element}")
         else:
             idx = spec_object.addInput(f"input{input_name}")
+
         constraint = rkt.EquationConstraint()
         constraint.id = f"{element}_constraint"
         constraint.fn = (
