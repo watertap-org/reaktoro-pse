@@ -1,0 +1,45 @@
+{
+  "Ca": {
+    "charge": 2,
+    "mass_conc_mg_L": 400,
+    "mw": 0.04,
+    "rejection_phase_comp": 0.79
+  },
+  "Cl": {
+    "charge": -1,
+    "mass_conc_mg_L": 17000,
+    "mw": 0.035,
+    "rejection_phase_comp": 0.001 
+  },
+  "HCO3": {
+    "charge": -1,
+    "mass_conc_mg_L": 140,
+    "mw": 0.061,
+    "rejection_phase_comp": 0.75
+  },
+  "K": {
+    "charge": 1,
+    "mass_conc_mg_L": 380,
+    "mw": 0.039,
+    "rejection_phase_comp": 0.01
+  },
+  "Mg": {
+    "charge": 2,
+    "mass_conc_mg_L": 1262,
+    "mw": 0.024,
+    "rejection_phase_comp": 0.94
+  },
+  "Na": {
+    "charge": 1,
+    "mass_conc_mg_L": 10556,
+    "mw": 0.023,
+    "rejection_phase_comp": 0.01
+  },
+  "SO4": {
+    "charge": -2,
+    "mass_conc_mg_L": 2649,
+    "mw": 0.096,
+    "rejection_phase_comp": 0.8
+  }
+}
+ 
