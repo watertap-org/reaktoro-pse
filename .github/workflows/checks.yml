@@ -47,7 +47,6 @@ jobs:
         install-mode:
           - dev
           - standard
-          - yaml
         python-version:
           - "3.10"
           - "3.11"
@@ -56,14 +55,14 @@ jobs:
         os:
           - linux
           - win64
-          # - macos
+          - macos
         include:
           - os: linux
             os-version: ubuntu-22.04
           - os: win64
             os-version: windows-2022
-          # - os: macos
-          #   os-version: macos-14
+          - os: macos
+            os-version: macos-15
           - install-mode: dev
             python-version: "3.11"  # choice of Python version is arbitrary among those in matrix
             coverage: "true"
