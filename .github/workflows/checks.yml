@@ -58,7 +58,7 @@ jobs:
         os:
           - linux
           - win64
-          - macos
+          # - macos # need ma27
         include:
           - os: linux
             os-version: ubuntu-22.04
