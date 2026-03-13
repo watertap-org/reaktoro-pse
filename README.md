@@ -55,7 +55,7 @@ Currently, repo includes several tutorials and examples.
 3. [Demonstration add ReaktoroBlock to Nano filtration model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_nf.ipynb)
     * How to add indexed ReaktoroBlocks WaterTAP NF ZO model for calculation of Osmotic pressure and scaling tendecies
 
-4. [Simple softening - acid - desalination process modeling with Reaktoro-PSE](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/softening_acid_ro_example.ipynb)
+4. [Treatment train with Softening -> acid -> desalination process modeling with Reaktoro-PSE](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/softening_acid_ro_example.ipynb)
     * How to model softening 
     * How to model acid addition
     * How to model scaling tendencies
