@@ -1,4 +1,6 @@
-# reaktoro-pse introduction
+
+<img src="docs\images\reaktoro_pse.svg" width="400"/>
+
 ## 1. Overview
 This is a package for configuring [Reaktoro](https://reaktoro.org/index.html) as a gray box model in [Pyomo](https://pyomo.readthedocs.io/en/stable/), [IDAES-PSE](https://idaes-pse.readthedocs.io/en/stable/), and [WaterTAP](https://watertap.readthedocs.io/en/stable/) modeling libraries. This package is not meant to replace or act as a higher level API for Reaktoro - it is only meant to enable setting up Reaktoro equilibrium problems as blocks on Pyomo models and automate transferring Reaktoro data into Pyomo variables. 
 
@@ -20,6 +22,17 @@ This is a package for configuring [Reaktoro](https://reaktoro.org/index.html) as
 ## 3. Inputs and outputs of the Reaktoro blocks
 The Reaktoro blocks built by this package are designed to solve an equilibrium problem using user provided apparent species or true species, temperature, pressure, and pH, which are broken down to base elements and equilibrated within Reaktoro to provide exact speciation and equilibrium state. Using this state the block can return various information supported by Reaktoro:
 
+* Converted Property Types - used by default as they provide exact derivatives for common properties:
+  * vaporPressure - vapor pressure for specie in Pa
+  * osmoticPressure - osmotic pressure for specie in Pa 
+  * elementAmount - amount of element in system in mol
+  * charge - solution charge balance
+  * alkalinityAsCaCO3 - solution alkalinity as CaCO3
+  * scalingTendencySaturationIndex - Saturation index of a phase 
+  * scalingTendency - scaling tendencies of a phase (10^saturation index)
+  * pH - solution pH
+
+If a property  is not available in converted property types, reaktoro-pse can access any property from reaktoro which wil use numerical derivatives when exact derivatives are not available:
 * [Chemical properties](https://reaktoro.org/api/classReaktoro_1_1ChemicalProps.html)
 * [Aqueous properties](https://reaktoro.org/api/classReaktoro_1_1AqueousProps.html)
 * Pyomo build properties, which are custom properties built in Pyomo that use chemical properties or aqueous properties as inputs 
@@ -163,7 +176,7 @@ conda create --name reaktoro-pse-dev --yes python=3.12
 conda activate reaktoro-pse-dev
 conda install cyipopt reaktoro
 install -e.
-
+```
 ### Running tests
 
 ```sh
