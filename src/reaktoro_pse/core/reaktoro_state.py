@@ -610,7 +610,12 @@ class ReaktoroState:
 
     def load_database(self):
         if isinstance(self.database_type, str):
-            self.database = getattr(rkt, self.database_type)(self.database_file)
+            try:
+                self.database = getattr(rkt, self.database_type)(self.database_file)
+            except RuntimeError:
+                self.database = getattr(rkt, self.database_type).fromFile(
+                    self.database_file
+                )
         else:
             self.database = self.database_type
         self.database_species = [specie.name() for specie in self.database.species()]
