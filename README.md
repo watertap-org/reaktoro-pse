@@ -37,8 +37,17 @@ Currently, repo includes several tutorials and examples.
     * Build reaktoro block with speciation_block option 
 
 2. [Demonstration add ReaktoroBlock to 1D Reverse Osmosis model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_ro.ipynb)
-    * How to add indexed ReaktoroBlocks [WaterTAP RO1D model](https://watertap.readthedocs.io/en/stable/technical_reference/unit_models/reverse_osmosis_1D.html) for calculation of Osmotic pressure
- 
+    * How to add indexed ReaktoroBlocks [WaterTAP RO1D model](https://watertap.readthedocs.io/en/stable/technical_reference/unit_models/reverse_osmosis_1D.html) for calculation of Osmotic pressure and scaling tendecies
+
+3. [Demonstration add ReaktoroBlock to Nano filtration model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_nf.ipynb)
+    * How to add indexed ReaktoroBlocks WaterTAP NF ZO model for calculation of Osmotic pressure and scaling tendecies
+
+4. [Simple softening - acid - desalination process modeling with Reaktoro-PSE](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/softening_acid_ro_example.ipynb)
+    * How to model softening 
+    * How to model acid addition
+    * How to model scaling tendencies
+    * How to optimize softening and acid addition to control scaling and minimize chemical dosing costs.
+
 *Examples:*
 
 1. [Example of adding ReaktoroBlock to basic desalination problem](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/simple_desalination.py) that demonstrates how to:
@@ -136,10 +145,10 @@ Reaktoro-pse depends on the following packages and/or versions:
 
 ### Prerequisites
 
-- A Conda distribution compatible with `conda-forge`, e.g. [Miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#download)
+- A conda or miniforge distribution compatible with `conda-forge`, e.g. [Miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#download)
 - Git (needed by [setuptools_scm](https://setuptools-scm.readthedocs.io/en/latest/) to set the version dynamically during installation of the Python package distribution)
 
-### Installation
+### Installation (Conda)
 ```sh
 conda activate $YOUR_ENV
 conda install cyipopt reaktoro
@@ -148,27 +157,13 @@ pip install git+https://github.com/watertap-org/reaktoro-pse.git
 
 ## For Contributors
 ### Installation
-
-### 1. In a dedicated reatkro-pse-dev environment
 ```sh
 git clone https://github.com/watertap-org/reaktoro-pse.git
-cd reaktoro-pse
-conda env create -f reaktoro_pse_env.yml
-```
+conda create --name reaktoro-pse-dev --yes python=3.12
+conda activate reaktoro-pse-dev
+conda install cyipopt reaktoro
+install -e.
 
-### 2. To install in a different existing conda env
-```sh
-git clone https://github.com/watertap-org/reaktoro-pse.git
-cd reaktoro-pse
-conda env update -n $YOUR_ENV --f reaktoro_pse_env.yml
-```
-
-### 3. To update your installation (replace $YOUR_ENV with name of your conda environment)
-```sh
-cd reaktoro-pse
-conda env update -n $YOUR_ENV --f reaktoro_pse_env.yml
-```
- 
 ### Running tests
 
 ```sh
