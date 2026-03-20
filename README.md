@@ -53,7 +53,7 @@ Currently, repo includes several tutorials and examples.
     * How to add indexed ReaktoroBlocks [WaterTAP RO1D model](https://watertap.readthedocs.io/en/stable/technical_reference/unit_models/reverse_osmosis_1D.html) for calculation of osmotic pressure and scaling tendencies
 
 3. [Demonstration add ReaktoroBlock to Nano filtration model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_nf.ipynb)
-    * How to add indexed ReaktoroBlocks WaterTAP NF ZO model for calculation of Osmotic pressure and scaling tendecies
+    * How to add indexed ReaktoroBlocks to WaterTAP NF ZO model for calculation of osmotic pressure and scaling tendencies
 
 4. [Treatment train with Softening -> acid -> desalination process modeling with Reaktoro-PSE](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/softening_acid_ro_example.ipynb)
     * How to model softening 
