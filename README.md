@@ -50,7 +50,7 @@ Currently, repo includes several tutorials and examples.
     * Build reaktoro block with speciation_block option 
 
 2. [Demonstration add ReaktoroBlock to 1D Reverse Osmosis model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_ro.ipynb)
-    * How to add indexed ReaktoroBlocks [WaterTAP RO1D model](https://watertap.readthedocs.io/en/stable/technical_reference/unit_models/reverse_osmosis_1D.html) for calculation of Osmotic pressure and scaling tendecies
+    * How to add indexed ReaktoroBlocks [WaterTAP RO1D model](https://watertap.readthedocs.io/en/stable/technical_reference/unit_models/reverse_osmosis_1D.html) for calculation of osmotic pressure and scaling tendencies
 
 3. [Demonstration add ReaktoroBlock to Nano filtration model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_nf.ipynb)
     * How to add indexed ReaktoroBlocks WaterTAP NF ZO model for calculation of Osmotic pressure and scaling tendecies
