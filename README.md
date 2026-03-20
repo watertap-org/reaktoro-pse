@@ -111,7 +111,7 @@ This option will force Ipopt to use least squares method to calculate dual infea
 
 B. Use exact derivatives instead of numeric
 
-The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your Reaktoro block are exact, calculated, or numeric by using **your_reaktor_block.display_jacobian_outputs()**. 
+The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your Reaktoro block are exact, calculated, or numeric by using **your_reaktoro_block.display_jacobian_outputs()**. 
 
 If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacobianRows class](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/core/reaktoro_jacobian.py). These properties can be used to write Pyomo constraints that calculate the desired property. These derivatvies can be used in two ways:
 - through use of ConvertedPropTypes, here we apply chain rule to calculate exact derivatives for desired function
