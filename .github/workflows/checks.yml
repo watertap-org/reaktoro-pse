@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency: 
+  group: ${{ github.head_ref }}
+  cancel-in-progress: true
+
 env:
   PYTEST_ADDOPTS: --color=yes
   PIP_PROGRESS_BAR: "off"
@@ -16,7 +20,6 @@ defaults:
     shell: bash -l {0}
 
 jobs:
-
   code-formatting:
     name: Check code is formatted (Black)
     # OS and/or Python version don't make a difference, so we choose ubuntu and 3.12 as defaults
@@ -46,7 +49,7 @@ jobs:
       matrix:
         install-mode:
           - dev
-          # - standard
+          - standard
         python-version:
           - "3.10"
           - "3.11"
@@ -55,38 +58,35 @@ jobs:
         os:
           - linux
           - win64
-          # - macos
+          # - macos # need ma27
         include:
           - os: linux
             os-version: ubuntu-22.04
           - os: win64
             os-version: windows-2022
           # - os: macos
-          #   os-version: macos-14
+          #   os-version: macos-15
           - install-mode: dev
             python-version: "3.11"  # choice of Python version is arbitrary among those in matrix
             coverage: "true"
-
     steps:
-      - if: matrix.install-mode == 'dev'
+      - if: matrix.install-mode == 'dev' || matrix.install-mode == 'yaml'
         uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v3
         with:
           python-version: ${{ matrix.python-version }}
           miniforge-version: latest
           channels: conda-forge
-          activate-environment: ${{ matrix.install-mode == 'dev' && 'reaktoro-pse-dev' || 'reaktoro-pse' }}
-      - name: Install conda-forge dependencies
-        run: |
-          conda install reaktoro>=2.13 cyipopt>=1.4.1
+          activate-environment: ${{ matrix.install-mode == 'dev' || matrix.install-mode == 'yaml' && 'reaktoro-pse-dev' || 'reaktoro-pse' }}
       - if: matrix.install-mode == 'dev'
         name: Install (dev)
         run: |
+          conda install cyipopt reaktoro
           pip install -r requirements-dev.txt
-          pip list
       - if: matrix.install-mode == 'standard'
         name: Install (standard)
         run: |
+          conda install cyipopt reaktoro
           pip install "git+${{ format('{0}/{1}@{2}', github.server_url, github.repository, github.ref) }}"
       - name: Install (idaes-solvers)
         run: |
@@ -98,12 +98,15 @@ jobs:
         run: |
           pip install pytest  # ensure pytest is installed (should do nothing if already present from requirements-dev.txt)
           pytest --pyargs reaktoro_pse --verbose
-      - name: Install Jupyter kernel
+      - if: matrix.install-mode == 'dev'
+        name: Install Jupyter kernel
         run: |
           jupyter kernelspec list
           python -m ipykernel install --user --name "${{ env.KERNEL_NAME }}"
           jupyter kernelspec list
-      - name: Run pytest with nbmake
+        
+      - if: matrix.install-mode == 'dev'
+        name: Run pytest with nbmake
         run: |
           # watertap is needed to run the following notebooks in src/reaktoro_pse/tutorials:
           # - basic_reaktoro_block_interaction.ipynb

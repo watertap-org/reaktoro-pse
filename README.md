@@ -1,4 +1,6 @@
-# reaktoro-pse introduction
+
+<img src="docs\images\reaktoro_pse.svg" width="400"/>
+
 ## 1. Overview
 This is a package for configuring [Reaktoro](https://reaktoro.org/index.html) as a gray box model in [Pyomo](https://pyomo.readthedocs.io/en/stable/), [IDAES-PSE](https://idaes-pse.readthedocs.io/en/stable/), and [WaterTAP](https://watertap.readthedocs.io/en/stable/) modeling libraries. This package is not meant to replace or act as a higher level API for Reaktoro - it is only meant to enable setting up Reaktoro equilibrium problems as blocks on Pyomo models and automate transferring Reaktoro data into Pyomo variables. 
 
@@ -20,6 +22,17 @@ This is a package for configuring [Reaktoro](https://reaktoro.org/index.html) as
 ## 3. Inputs and outputs of the Reaktoro blocks
 The Reaktoro blocks built by this package are designed to solve an equilibrium problem using user provided apparent species or true species, temperature, pressure, and pH, which are broken down to base elements and equilibrated within Reaktoro to provide exact speciation and equilibrium state. Using this state the block can return various information supported by Reaktoro:
 
+* Converted Property Types - used by default as they provide exact derivatives for common properties:
+  * vaporPressure - vapor pressure for specie in Pa
+  * osmoticPressure - osmotic pressure for specie in Pa 
+  * elementAmount - amount of element in system in mol
+  * charge - solution charge balance
+  * alkalinityAsCaCO3 - solution alkalinity as CaCO3
+  * scalingTendencySaturationIndex - Saturation index of a phase 
+  * scalingTendency - scaling tendencies of a phase (10^saturation index)
+  * pH - solution pH
+
+If a property  is not available in converted property types, reaktoro-pse can access any property from reaktoro which wil use numerical derivatives when exact derivatives are not available:
 * [Chemical properties](https://reaktoro.org/api/classReaktoro_1_1ChemicalProps.html)
 * [Aqueous properties](https://reaktoro.org/api/classReaktoro_1_1AqueousProps.html)
 * Pyomo build properties, which are custom properties built in Pyomo that use chemical properties or aqueous properties as inputs 
@@ -37,8 +50,17 @@ Currently, repo includes several tutorials and examples.
     * Build reaktoro block with speciation_block option 
 
 2. [Demonstration add ReaktoroBlock to 1D Reverse Osmosis model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_ro.ipynb)
-    * How to add indexed ReaktoroBlocks [WaterTAP RO1D model](https://watertap.readthedocs.io/en/stable/technical_reference/unit_models/reverse_osmosis_1D.html) for calculation of Osmotic pressure
- 
+    * How to add indexed ReaktoroBlocks [WaterTAP RO1D model](https://watertap.readthedocs.io/en/stable/technical_reference/unit_models/reverse_osmosis_1D.html) for calculation of osmotic pressure and scaling tendencies
+
+3. [Demonstration add ReaktoroBlock to Nano filtration model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_nf.ipynb)
+    * How to add indexed ReaktoroBlocks to WaterTAP NF ZO model for calculation of osmotic pressure and scaling tendencies
+
+4. [Treatment train with Softening -> acid -> desalination process modeling with Reaktoro-PSE](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/softening_acid_ro_example.ipynb)
+    * How to model softening 
+    * How to model acid addition
+    * How to model scaling tendencies
+    * How to optimize softening and acid addition to control scaling and minimize chemical dosing costs.
+
 *Examples:*
 
 1. [Example of adding ReaktoroBlock to basic desalination problem](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/simple_desalination.py) that demonstrates how to:
@@ -89,18 +111,13 @@ This option will force Ipopt to use least squares method to calculate dual infea
 
 B. Use exact derivatives instead of numeric
 
-The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your Reaktoro block are exact or numeric by using **your_reaktor_block.display_jacobian_outputs()**. 
+The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your Reaktoro block are exact, calculated, or numeric by using **your_reaktoro_block.display_jacobian_outputs()**. 
 
-If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacoibanRows class](https://github.com/watertap-org/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_jacobian.py#L51). These properties can be used to write Pyomo constraints that calculate the desired property. Some properties are already supported and examples are shown of how to build them in [PyomoProperties](https://github.com/watertap-org/reaktoro-pse/blob/868efe883dbc26654b53a32e5a58e8b6ee2af5c7/src/reaktoro_pse/core/reaktoro_outputs.py#L118) class. 
+If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacobianRows class](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/core/reaktoro_jacobian.py). These properties can be used to write Pyomo constraints that calculate the desired property. These derivatvies can be used in two ways:
+- through use of ConvertedPropTypes, here we apply chain rule to calculate exact derivatives for desired function
+- through use of PyomoProperties, where we pass outputs with exact derivatives to a Pyomo constraint. 
 
-Supported PyomoProperties with exact derivatives:
-
-- scalingTendencyPyomo - this only designed to work with PhreeqC data bases 
-- phDirect
-- osmoticPressure
-- vaporPressure
-
-These properties are accessed as any other property in ReaktoroBlock. Simply pass ('scalingTendencyPyomo',phase) to outputs.  
+Examples and available properties can be found in */src/reaktoro_pse/core/reaktoro_outputs.py* 
 
 ### Failing due to iterates diverging
 In some cases you might experience a failed solve with error
@@ -135,25 +152,31 @@ Reaktoro-pse depends on the following packages and/or versions:
 - CyIpopt 1.4.1
 - Pyomo>=6.8.0
 - idaes-pse>=2.5.0
-- watertap>=1.0.0 - (required for watertap-cyipopt wrapper only)
 
-## 9. Getting started (for contributors)
+
+## 9. Getting started
 
 ### Prerequisites
 
-- A Conda distribution compatible with `conda-forge`, e.g. [Miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#download)
+- A conda or miniforge distribution compatible with `conda-forge`, e.g. [Miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#download)
 - Git (needed by [setuptools_scm](https://setuptools-scm.readthedocs.io/en/latest/) to set the version dynamically during installation of the Python package distribution)
 
-### Installation
-
+### Installation (Conda)
 ```sh
-git clone https://github.com/watertap-org/reaktoro-pse.git
-cd reaktoro-pse
-conda create --yes -c conda-forge --name reaktoro-pse-dev python=3.11 reaktoro=2.12.3 cyipopt=1.4.1
-conda activate reaktoro-pse-dev
-pip install -r requirements-dev.txt
+conda activate $YOUR_ENV
+conda install cyipopt reaktoro
+pip install git+https://github.com/watertap-org/reaktoro-pse.git
 ```
 
+## For Contributors
+### Installation
+```sh
+git clone https://github.com/watertap-org/reaktoro-pse.git
+conda create --name reaktoro-pse-dev --yes python=3.12
+conda activate reaktoro-pse-dev
+conda install cyipopt reaktoro
+install -e.
+```
 ### Running tests
 
 ```sh
