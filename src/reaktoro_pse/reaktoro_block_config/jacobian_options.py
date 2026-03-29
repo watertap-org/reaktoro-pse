@@ -74,7 +74,7 @@ class JacobianOptions:
         CONFIG.declare(
             "scaling_type",
             ConfigValue(
-                default=JacScalingTypes.variable_oi_scaling_square_sum,
+                default=JacScalingTypes.variable_output_scaling,
                 domain=IsInstance((str, JacScalingTypes)),
                 description="Defines how to scale Jacobian matrix",
                 doc="""

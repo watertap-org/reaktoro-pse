@@ -535,7 +535,9 @@ class ReaktoroInputSpec:
             sum_species = []
             for mol, idx in species_list:
                 sum_species.append(mol * w[idx])
-            return (props.elementAmount(element) - sum(sum_species)) ** 2.0
+            return (props.elementAmount(element) - sum(sum_species)) / (
+                sum(sum_species)
+            )
 
         spec_object.openTo(element)
         constraint = rkt.EquationConstraint()
@@ -553,8 +555,8 @@ class ReaktoroInputSpec:
         constraint = rkt.EquationConstraint()
         constraint.id = f"{element}_constraint"
         constraint.fn = (
-            lambda props, w: (props.elementAmount(element) - w[idx]) ** 2.0
-        )  # - props.elementAmount(element)
+            lambda props, w: (props.elementAmount(element) - w[idx]) / w[idx]
+        )
         spec_object.addConstraint(constraint)
 
     def write_elementAmountInPhase_constraint(self, spec_object, element, phase):
@@ -564,8 +566,7 @@ class ReaktoroInputSpec:
         constraint = rkt.EquationConstraint()
         constraint.id = f"{element}_constraint"
         constraint.fn = (
-            lambda props, w: (props.elementAmountInPhase(element, phase) - w[idx])
-            ** 2.0
+            lambda props, w: props.elementAmountInPhase(element, phase) - w[idx]
         )
 
         spec_object.addConstraint(constraint)
@@ -579,7 +580,7 @@ class ReaktoroInputSpec:
             idx = spec_object.addInput(input_name)
         constraint = rkt.EquationConstraint()
         constraint.id = f"{species}_constraint"
-        constraint.fn = lambda props, w: (props.speciesAmount(species) - w[idx]) ** 2.0
+        constraint.fn = lambda props, w: props.speciesAmount(species) - w[idx]
         spec_object.addConstraint(constraint)
 
     def write_pOH_constraint(self, spec_object):
