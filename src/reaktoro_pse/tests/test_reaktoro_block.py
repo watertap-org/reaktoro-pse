@@ -242,7 +242,7 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
                 assert pytest.approx(dict_a[blk][key], tol) == dict_b[blk][key]
 
     if scaling_type == "no_scaling":
-        assert dict_test(
+        dict_test(
             scaling_factors,
             {
                 "property_block": {
@@ -253,7 +253,7 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
             },
         )
     elif scaling_type == "variable_output_scaling":
-        assert dict_test(
+        dict_test(
             scaling_factors,
             {
                 "property_block": {
@@ -264,7 +264,7 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
             },
         )
     elif scaling_type == "jacobian_matrix_square_sum":
-        assert dict_test(
+        dict_test(
             scaling_factors,
             {
                 "property_block": {
@@ -275,7 +275,7 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
             },
         )
     elif scaling_type == "jacobian_matrix_inverse_sum":
-        assert dict_test(
+        dict_test(
             scaling_factors,
             {
                 "property_block": {
@@ -286,7 +286,7 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
             },
         )
     elif scaling_type == "variable_oi_scaling_square_sum":
-        assert dict_test(
+        dict_test(
             scaling_factors,
             {
                 "property_block": {
@@ -298,7 +298,7 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
         )
 
     elif scaling_type == "variable_oi_scaling_inverse_sum":
-        assert dict_test(
+        dict_test(
             scaling_factors,
             {
                 "property_block": {
