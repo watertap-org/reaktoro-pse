@@ -535,9 +535,9 @@ class ReaktoroInputSpec:
             sum_species = []
             for mol, idx in species_list:
                 sum_species.append(mol * w[idx])
-            return (props.elementAmount(element) - sum(sum_species)) / (
-                sum(sum_species)
-            )
+            return (
+                (props.elementAmount(element) - sum(sum_species)) / sum(sum_species)
+            ) * 10
 
         spec_object.openTo(element)
         constraint = rkt.EquationConstraint()
@@ -555,7 +555,7 @@ class ReaktoroInputSpec:
         constraint = rkt.EquationConstraint()
         constraint.id = f"{element}_constraint"
         constraint.fn = (
-            lambda props, w: (props.elementAmount(element) - w[idx]) / w[idx]
+            lambda props, w: ((props.elementAmount(element) - w[idx]) / w[idx]) * 10
         )
         spec_object.addConstraint(constraint)
 
@@ -566,7 +566,10 @@ class ReaktoroInputSpec:
         constraint = rkt.EquationConstraint()
         constraint.id = f"{element}_constraint"
         constraint.fn = (
-            lambda props, w: props.elementAmountInPhase(element, phase) - w[idx]
+            lambda props, w: (
+                (props.elementAmountInPhase(element, phase) - w[idx]) / w[idx]
+            )
+            * 10
         )
 
         spec_object.addConstraint(constraint)
@@ -580,7 +583,9 @@ class ReaktoroInputSpec:
             idx = spec_object.addInput(input_name)
         constraint = rkt.EquationConstraint()
         constraint.id = f"{species}_constraint"
-        constraint.fn = lambda props, w: props.speciesAmount(species) - w[idx]
+        constraint.fn = (
+            lambda props, w: ((props.speciesAmount(species) - w[idx]) / w[idx]) * 10
+        )
         spec_object.addConstraint(constraint)
 
     def write_pOH_constraint(self, spec_object):
@@ -613,7 +618,9 @@ class ReaktoroInputSpec:
         idx = spec_object.addInput(f"volume_{phase}")
         constraint = rkt.EquationConstraint()
         constraint.id = f"{phase}_volume_constraint"
-        constraint.fn = lambda props, w: w[idx] - props.phaseProps(phase).volume()
+        constraint.fn = (
+            lambda props, w: (w[idx] - props.phaseProps(phase).volume()) / w[idx] * 10
+        )
         spec_object.addConstraint(constraint)
 
     def write_empty_constraints(self, spec_object):
