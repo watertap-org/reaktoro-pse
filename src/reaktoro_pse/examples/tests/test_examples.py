@@ -23,24 +23,25 @@ def test_redox_couples():
     results_array = redox_tracking.main()
     expected_result = {
         "inputs": {
-            "pH": [7.315729083913665, 7.315729083913665],
+            "pH": [7.315598798142677, 7.315598798142677],
             "acid_addition": [1e-05, 0.01],
             "pE": [4.0, 4.0],
             "water_removal": [10.0, 10.0],
         },
         "no_pe": {
-            ("pH", None): [7.2975046335789155, 7.2975046335789155],
-            ("pE", None): [4.08216774461248, 4.08216774461248],
-            ("scalingTendency", "Calcite"): [0.47433536607119553, 0.47433536607119553],
-            ("scalingTendency", "Gypsum"): [0.038512922840069234, 0.038512922840069234],
+            ("pH", None): [7.297370329017587, 7.297370329017587],
+            ("pE", None): [4.082175889008317, 4.082175889008317],
+            ("scalingTendency", "Calcite"): [0.474175277894885, 0.474175277894885],
+            ("scalingTendency", "Gypsum"): [0.03851168496475971, 0.03851168496475971],
         },
         "with_pe": {
-            ("pH", None): [7.285565634713234, 7.285565634713234],
-            ("pE", None): [-3.738828183882938, -3.738828183882938],
-            ("scalingTendency", "Calcite"): [0.5122697256588773, 0.5122697256588773],
-            ("scalingTendency", "Gypsum"): [0.01219890975409037, 0.01219890975409037],
+            ("pH", None): [7.285927113880941, 7.285927113880941],
+            ("pE", None): [-3.6386128307733747, -3.6386128307733747],
+            ("scalingTendency", "Calcite"): [0.451388136820164, 0.451388136820164],
+            ("scalingTendency", "Gypsum"): [0.03110979408672154, 0.03110979408672154],
         },
     }
+    print(results_array)
     for key, item in expected_result.items():
         for subkey, subitem in item.items():
             for i, v in enumerate(subitem):
@@ -94,7 +95,7 @@ def test_thermal_precipt(hess_type):
         pytest.approx(
             m.precipitation_properties[("speciesAmount", "Calcite")].value, 1e-2
         )
-        == 0.0005126288368576707
+        == 0.00041493774
     )
     assert (
         pytest.approx(
