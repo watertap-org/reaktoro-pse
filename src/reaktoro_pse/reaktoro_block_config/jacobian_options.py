@@ -93,7 +93,7 @@ class JacobianOptions:
         CONFIG.declare(
             "jacobian_scale_bounds",
             ConfigValue(
-                default=(1e-8, 1e8),
+                default=(1e-8, 1e2),
                 domain=IsInstance(tuple),
                 description="Defines lower and upper bounds for jacobian scaling factors",
                 doc="""
