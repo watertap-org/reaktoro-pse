@@ -66,6 +66,8 @@ class ReaktoroInputExport:
 
 class ReaktoroInputSpec:
     def __init__(self, reaktor_state=None):
+        # global scaling factor for reaktoro constraints to help with solver convergence
+        self._constraint_scaling_multiplier = 1
         # initialize parameters needed to build reaktor solver
         if reaktor_state is not None:
             self.state = reaktor_state
@@ -90,7 +92,9 @@ class ReaktoroInputSpec:
                 self.register_fixed_solvent_specie(RktInputTypes.aqueous_phase, "H2O")
 
     def register_chemistry_modifiers(
-        self, chemical_dict, index=None, log10_basis=False
+        self,
+        chemical_dict,
+        index=None,
     ):
         """registers chemistry modifiers being added to system
         chemistry_modifier -- chemicals to be added (pyo object should be mole flow of chemical that would enter a system with same species as in apparat_species_mol_flow
@@ -100,9 +104,9 @@ class ReaktoroInputSpec:
             if index is None or index in chemical:
                 if isinstance(chemical, tuple):
                     chemical = chemical[-1]
-                self.register_chemistry_modifier(chemical, obj, log10_basis=log10_basis)
+                self.register_chemistry_modifier(chemical, obj)
 
-    def register_chemistry_modifier(self, chemical, pyomo_var, log10_basis=False):
+    def register_chemistry_modifier(self, chemical, pyomo_var):
         chemical = self.safe_modifier_name(chemical)
         if chemical not in self.chemical_to_elements:
             raise ValueError(
@@ -537,7 +541,7 @@ class ReaktoroInputSpec:
                 sum_species.append(mol * w[idx])
             return (
                 (props.elementAmount(element) - sum(sum_species)) / sum(sum_species)
-            ) * 10
+            ) * self._constraint_scaling_multiplier
 
         spec_object.openTo(element)
         constraint = rkt.EquationConstraint()
@@ -555,7 +559,8 @@ class ReaktoroInputSpec:
         constraint = rkt.EquationConstraint()
         constraint.id = f"{element}_constraint"
         constraint.fn = (
-            lambda props, w: ((props.elementAmount(element) - w[idx]) / w[idx]) * 10
+            lambda props, w: ((props.elementAmount(element) - w[idx]) / w[idx])
+            * self._constraint_scaling_multiplier
         )
         spec_object.addConstraint(constraint)
 
@@ -569,7 +574,7 @@ class ReaktoroInputSpec:
             lambda props, w: (
                 (props.elementAmountInPhase(element, phase) - w[idx]) / w[idx]
             )
-            * 10
+            * self._constraint_scaling_multiplier
         )
 
         spec_object.addConstraint(constraint)
@@ -584,7 +589,8 @@ class ReaktoroInputSpec:
         constraint = rkt.EquationConstraint()
         constraint.id = f"{species}_constraint"
         constraint.fn = (
-            lambda props, w: ((props.speciesAmount(species) - w[idx]) / w[idx]) * 10
+            lambda props, w: ((props.speciesAmount(species) - w[idx]) / w[idx])
+            * self._constraint_scaling_multiplier
         )
         spec_object.addConstraint(constraint)
 
@@ -613,13 +619,15 @@ class ReaktoroInputSpec:
                     spec_object.openTo(element)
                     self.write_empty_con(spec_object, element)
 
-    def write_phase_volume_constraint(self, spec_object, phase, fixed_vlaue=1e-8):
+    def write_phase_volume_constraint(self, spec_object, phase):
         # spec_object.openTo(f"volume_{phase}")
         idx = spec_object.addInput(f"volume_{phase}")
         constraint = rkt.EquationConstraint()
         constraint.id = f"{phase}_volume_constraint"
         constraint.fn = (
-            lambda props, w: (w[idx] - props.phaseProps(phase).volume()) / w[idx] * 10
+            lambda props, w: (w[idx] - props.phaseProps(phase).volume())
+            / w[idx]
+            * self._constraint_scaling_multiplier
         )
         spec_object.addConstraint(constraint)
 
