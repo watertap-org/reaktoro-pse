@@ -96,6 +96,7 @@ class RktInput:
         self.io_type = None  # input or output
         self.dummy_var = None
         self.dummy_var_key = None
+        self.rkt_scaling_factor = 1
         if pyomo_var is not None:
             if isinstance(pyomo_var, DummyPyomoVar):
                 # if its a dummy variable, we do not need to set it
@@ -115,8 +116,10 @@ class RktInput:
             self.pyomo_var = None
             self.value = None
 
-    def delete_pyomo_var(self):
+    def set_rkt_scaling_factor(self, factor):
+        self.rkt_scaling_factor = factor
 
+    def delete_pyomo_var(self):
         self.update_values(True)
         del self.pyomo_var
         self.pyomo_var = None

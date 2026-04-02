@@ -210,6 +210,7 @@ class ReaktoroSolver:
             else:
                 value = params.get(input_key)
                 input_obj.set_temp_value(value)
+            input_obj.set_rkt_scaling_factor(1 / value)
             unit = input_obj.main_unit
             self._input_params[input_key] = value
             if input_key == RktInputTypes.temperature:
@@ -221,6 +222,16 @@ class ReaktoroSolver:
             else:
                 # TODO figure out how deal with units...
                 self.conditions.set(input_obj.get_rkt_input_name(), value)
+        self.update_scaling_factors()
+
+    def update_scaling_factors(self):
+        for constraint in self.input_specs.rkt_constraints:
+            constraint_obj = self.input_specs.rkt_constraints[constraint]
+
+            sf = 0
+            for rkt_input in constraint_obj.rkt_inputs:
+                sf += 1 / rkt_input.rkt_scaling_factor
+            constraint_obj.scaling_factor = 1 / sf
 
     def get_outputs(self):
         output_arr = []
