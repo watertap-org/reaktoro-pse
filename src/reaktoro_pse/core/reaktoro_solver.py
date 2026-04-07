@@ -222,7 +222,7 @@ class ReaktoroSolver:
             else:
                 # TODO figure out how deal with units...
                 self.conditions.set(input_obj.get_rkt_input_name(), value)
-        self.update_scaling_factors()
+        # self.update_scaling_factors()
 
     def update_scaling_factors(self):
         for constraint in self.input_specs.rkt_constraints:

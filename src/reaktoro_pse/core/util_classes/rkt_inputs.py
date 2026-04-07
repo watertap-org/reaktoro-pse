@@ -116,7 +116,11 @@ class RktInput:
             self.pyomo_var = None
             self.value = None
 
-    def set_rkt_scaling_factor(self, factor):
+    def set_rkt_scaling_factor(self, factor, compute_scale_factor=False):
+        if factor == 0 and compute_scale_factor:
+            factor = 1
+        elif compute_scale_factor:
+            factor = 1 / factor
         self.rkt_scaling_factor = factor
 
     def delete_pyomo_var(self):

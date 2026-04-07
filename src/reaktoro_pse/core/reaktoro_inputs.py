@@ -661,9 +661,14 @@ class ReaktoroInputSpec:
         # spec_object.openTo(f"volume_{phase}")
         idx = spec_object.addInput(f"volume_{phase}")
         constraint = rkt.EquationConstraint()
+        self.rkt_constraints.register_constraint(
+            f"{phase}_volume_constraint",
+            rkt_inputs=[self.rkt_inputs[f"volume_{phase}"]],
+        )
         constraint.id = f"{phase}_volume_constraint"
         constraint.fn = (
-            lambda props, w: (w[idx] - props.phaseProps(phase).volume()) / w[idx]
+            lambda props, w: (w[idx] - props.phaseProps(phase).volume())
+            * self.rkt_constraints[f"{phase}_volume_constraint"].scaling_factor
         )
         spec_object.addConstraint(constraint)
 
