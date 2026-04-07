@@ -109,6 +109,7 @@ class ReaktoroSolver:
         export_object.bfgs_hessian_memory = self.bfgs_hessian_memory
         export_object.bfgs_epsilon = self.bfgs_epsilon
         export_object.block_name = self.block_name
+        export_object.auto_scale_constraint = self.auto_scale_constraint
         return export_object
 
     def load_from_export_object(self, export_object):
@@ -128,6 +129,7 @@ class ReaktoroSolver:
             export_object.bfgs_init_const_hessian_value,
             export_object.bfgs_hessian_memory,
             export_object.bfgs_epsilon,
+            export_object.auto_scale_constraint,
         )
 
     def equilibrate_state(self):
@@ -152,6 +154,7 @@ class ReaktoroSolver:
         bfgs_init_const_hessian_value=1e-16,
         bfgs_hessian_memory=3,
         bfgs_epsilon=1e-12,
+        auto_scale_constraint=True,
     ):
         """configuration for reaktro solver
 
@@ -177,6 +180,7 @@ class ReaktoroSolver:
         self.bfgs_init_const_hessian_value = bfgs_init_const_hessian_value
         self.bfgs_hessian_memory = bfgs_hessian_memory
         self.bfgs_epsilon = bfgs_epsilon
+        self.auto_scale_constraint = auto_scale_constraint
         if self.input_specs.assert_charge_neutrality:
             self.conditions.charge(0)
 
@@ -222,7 +226,8 @@ class ReaktoroSolver:
             else:
                 # TODO figure out how deal with units...
                 self.conditions.set(input_obj.get_rkt_input_name(), value)
-        self.update_scaling_factors()
+        if self.auto_scale_constraint:
+            self.update_scaling_factors()
 
     def update_scaling_factors(self):
         for constraint in self.input_specs.rkt_constraints:

@@ -30,6 +30,15 @@ class ReaktoroSolverOptions:
             ),
         )
         CONFIG.declare(
+            "auto_scale_constraints",
+            ConfigValue(
+                default=True,
+                domain=bool,
+                description="Option to automatically scale Reaktoro constraints",
+                doc="""If True, Reaktoro constraints will be automatically scaled based on their values""",
+            ),
+        )
+        CONFIG.declare(
             "epsilon",
             ConfigValue(
                 default=1e-32,
