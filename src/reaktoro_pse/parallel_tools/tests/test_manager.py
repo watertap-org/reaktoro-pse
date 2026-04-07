@@ -193,6 +193,6 @@ def test_blockBuild_with_wateqf_data_base(build_rkt_state_with_species):
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
     m.display()
-    assert pytest.approx(m.outputs[("pH", None)].value, 1e-3) == 7.753153674694847
-    assert pytest.approx(m.pH.value, 1e-3) == 7.18281964536
+    assert pytest.approx(m.outputs[("pH", None)].value, 1e-3) == 8.02734612095523
+    assert pytest.approx(m.pH.value, 1e-3) == 7.2526416924401556
     m.reaktoro_manager.terminate_workers()

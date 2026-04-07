@@ -629,7 +629,6 @@ class ReaktoroInputSpec:
             lambda props, w: ((props.speciesAmount(species) - w[idx]))
             * self.rkt_constraints[f"{species}_constraint"].scaling_factor
         )
-        print(self.rkt_constraints[f"{species}_constraint"].scaling_factor)
         spec_object.addConstraint(constraint)
 
     def write_pOH_constraint(self, spec_object):

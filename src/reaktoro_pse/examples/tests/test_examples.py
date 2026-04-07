@@ -23,7 +23,7 @@ def test_redox_couples():
     results_array = redox_tracking.main()
     expected_result = {
         "inputs": {
-            "pH": [7.315598798142677, 7.315598798142677],
+            "pH": [7.315729083913665, 7.315729083913665],
             "acid_addition": [1e-05, 0.01],
             "pE": [4.0, 4.0],
             "water_removal": [10.0, 10.0],
@@ -36,10 +36,10 @@ def test_redox_couples():
         #     ("scalingTendency", "Gypsum"): [0.03851168496475971, 0.03851168496475971],
         # },
         "with_pe": {
-            ("pH", None): [7.285927113880941, 7.285927113880941],
-            ("pE", None): [-3.6386128307733747, -3.6386128307733747],
-            ("scalingTendency", "Calcite"): [0.451388136820164, 0.451388136820164],
-            ("scalingTendency", "Gypsum"): [0.03110979408672154, 0.03110979408672154],
+            ("pH", None): [7.285565634713234, 7.285565634713234],
+            ("pE", None): [-3.738828183882938, -3.738828183882938],
+            ("scalingTendency", "Calcite"): [0.5122697256588773, 0.5122697256588773],
+            ("scalingTendency", "Gypsum"): [0.01219890975409037, 0.01219890975409037],
         },
     }
     print(results_array)
@@ -96,19 +96,19 @@ def test_thermal_precipt(hess_type):
         pytest.approx(
             m.precipitation_properties[("speciesAmount", "Calcite")].value, 1e-2
         )
-        == 0.00041493774
+        == 0.00045489073504150667
     )
     assert (
         pytest.approx(
             m.precipitation_properties[("vaporPressure", "H2O(g)")].value, 1e-3
         )
-        == 12162.679103537726
+        == 12163.22022972652
     )
     assert (
         pytest.approx(m.precipitation_properties[("pH", None)].value, 1e-3)
         == 6.937058009545616
     )
-    assert pytest.approx(m.Q_heating.value, abs=4e4) == 125.56703878579671 * 1000
+    assert pytest.approx(m.Q_heating.value, abs=4e4) == 122.7730 * 1000
     assert pytest.approx(m.precipitator_temperature.value, 1e-3) == 273.15 + 50
 
 

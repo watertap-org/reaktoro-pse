@@ -204,6 +204,7 @@ def display_results(m):
         print(
             f"Output for {key} has value of {obj.value} with pE tracking and {m.scaling_no_pE_outputs[key].value} with out pE tracking"
         )
+    m.eq_scaling_with_pE.display_reaktoro_state()
 
 
 def log_results(m, result_array=None):
