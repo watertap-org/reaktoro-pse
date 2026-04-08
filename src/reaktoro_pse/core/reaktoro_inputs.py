@@ -87,7 +87,6 @@ class ReaktoroConstraints(dict):
                 self[key].update_scaling_factor(scaling_factor)
             else:
                 self[key].register_constraint(key, scaling_factor)
-        print(self)
 
 
 class ReaktoroInputSpec:
@@ -107,7 +106,6 @@ class ReaktoroInputSpec:
             self.fixed_solvent_speciation = {}
             self.fixed_solvent_type = {}
             self.fixed_species = {}
-            self.default_scale = 10
             # execute default configuration options, user can update settings
             self.register_charge_neutrality()
             self.default_speciation()
@@ -576,7 +574,7 @@ class ReaktoroInputSpec:
             for mol, idx in species_list:
                 sum_species.append(mol * w[idx])
             return (
-                (props.elementAmount(idxe) - sum(sum_species)) * self.default_scale
+                (props.elementAmount(idxe) - sum(sum_species))
             ) * self.rkt_constraints[f"{element}_constraint"].scaling_factor
 
         constraint.id = f"{element}_constraint"
@@ -600,7 +598,6 @@ class ReaktoroInputSpec:
         idxe = self.state.system.elements().index(element)
         constraint.fn = (
             lambda props, w: ((props.elementAmount(idxe) - w[idx]))
-            * self.default_scale
             * self.rkt_constraints[f"{element}_constraint"].scaling_factor
         )
         spec_object.addConstraint(constraint)
@@ -636,21 +633,9 @@ class ReaktoroInputSpec:
         idxs = self.state.system.species().index(species)
         constraint.fn = (
             lambda props, w: ((props.speciesAmount(idxs) - w[idx]))
-            * self.default_scale
             * self.rkt_constraints[f"{species}_constraint"].scaling_factor
         )
         spec_object.addConstraint(constraint)
-
-    # def write_pH_constraint(self, spec_object):
-    #     """writes a pH constraint for reaktoro"""
-    #     spec_object.openTo("H+")
-    #     idx = spec_object.addInput("pH")
-    #     constraint = rkt.EquationConstraint()
-    #     constraint.id = f"pH_constraint"
-
-    #     idxH = self.state.system.species().index("H+")
-    #     constraint.fn = lambda props, w: (w[idx] + props.speciesActivityLg(idxH))
-    #     spec_object.addConstraint(constraint)
 
     def write_pOH_constraint(self, spec_object):
         """writes a pOH constraint for reaktoro"""
@@ -682,7 +667,6 @@ class ReaktoroInputSpec:
         constraint.id = f"charge"
         constraint.fn = (
             lambda props, w: props.charge()
-            * self.default_scale
             * self.rkt_constraints[f"charge"].scaling_factor
         )
 
