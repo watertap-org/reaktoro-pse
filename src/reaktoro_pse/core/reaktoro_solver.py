@@ -181,8 +181,8 @@ class ReaktoroSolver:
         self.bfgs_hessian_memory = bfgs_hessian_memory
         self.bfgs_epsilon = bfgs_epsilon
         self.auto_scale_constraint = auto_scale_constraint
-        if self.input_specs.assert_charge_neutrality:
-            self.conditions.charge(0)
+        # if self.input_specs.assert_charge_neutrality:
+        #     self.conditions.charge(0)
 
     def set_system_bounds(
         self,

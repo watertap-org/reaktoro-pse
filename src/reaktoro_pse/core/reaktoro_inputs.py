@@ -107,6 +107,7 @@ class ReaktoroInputSpec:
             self.fixed_solvent_speciation = {}
             self.fixed_solvent_type = {}
             self.fixed_species = {}
+            self.default_scale = 10
             # execute default configuration options, user can update settings
             self.register_charge_neutrality()
             self.default_speciation()
@@ -287,6 +288,7 @@ class ReaktoroInputSpec:
                 self.rkt_inputs[RktInputTypes.enthalpy].set_lower_bound(None)
             elif input_name == RktInputTypes.pH:
                 specs_object.pH()
+                # self.write_pH_constraint(specs_object)
                 self.rkt_inputs[RktInputTypes.pH] = self.state.inputs[RktInputTypes.pH]
                 self.rkt_inputs[RktInputTypes.pH].set_lower_bound(-1)
                 self.rkt_inputs[RktInputTypes.pH].set_upper_bound(14)
@@ -316,7 +318,7 @@ class ReaktoroInputSpec:
             specs_object.unknownTemperature()
             # self.write_empty_con(specs_object, "open_temperature")
         if assert_charge_neutrality:
-            specs_object.charge()
+            # specs_object.charge()
             if self.neutrality_ion is not None:
                 if self.neutrality_ion == RktInputTypes.pH:
                     specs_object.openTo("H+")
@@ -328,7 +330,6 @@ class ReaktoroInputSpec:
                     if self.neutrality_ion not in specs_object.namesInputs():
                         # needs to be a species!
                         specs_object.openTo(self.neutrality_ion)
-
         self._find_element_sums()
         # add/check if vars in rkt Inputs
         if dissolve_species_in_rkt:
@@ -356,6 +357,9 @@ class ReaktoroInputSpec:
             self.write_speciesAmount_constraint(specs_object, specie, input_name)
         if self.exact_speciation == False or self.fixed_solvent_type != {}:
             self.add_solvent_constraints(specs_object)
+        if assert_charge_neutrality:
+            # specs_object.charge()
+            self.write_charge_balance_constraint(specs_object)
         self.write_empty_constraints(specs_object)
 
     def add_solvent_constraints(self, specs_object):
@@ -564,13 +568,15 @@ class ReaktoroInputSpec:
             rkt_inputs=[self.rkt_inputs[cv[1]] for cv in self.constraint_dict[element]],
         )
 
+        idxe = self.state.system.elements().index(element)
+
         def _constraint_fn(props, w):
             """constraint function to sum up all species"""
             sum_species = []
             for mol, idx in species_list:
                 sum_species.append(mol * w[idx])
             return (
-                (props.elementAmount(element) - sum(sum_species))
+                (props.elementAmount(idxe) - sum(sum_species)) * self.default_scale
             ) * self.rkt_constraints[f"{element}_constraint"].scaling_factor
 
         constraint.id = f"{element}_constraint"
@@ -591,9 +597,10 @@ class ReaktoroInputSpec:
             f"{element}_constraint",
             rkt_inputs=[self.rkt_inputs[element]],
         )
-
+        idxe = self.state.system.elements().index(element)
         constraint.fn = (
-            lambda props, w: ((props.elementAmount(element) - w[idx]))
+            lambda props, w: ((props.elementAmount(idxe) - w[idx]))
+            * self.default_scale
             * self.rkt_constraints[f"{element}_constraint"].scaling_factor
         )
         spec_object.addConstraint(constraint)
@@ -604,8 +611,9 @@ class ReaktoroInputSpec:
         idx = spec_object.addInput(element)
         constraint = rkt.EquationConstraint()
         constraint.id = f"{element}_constraint"
+        idxe = self.rkt_state.system.elements().index(element)
         constraint.fn = lambda props, w: (
-            (props.elementAmountInPhase(element, phase) - w[idx])
+            (props.elementAmountInPhase(idxe, phase) - w[idx])
         )
 
         spec_object.addConstraint(constraint)
@@ -625,11 +633,24 @@ class ReaktoroInputSpec:
             f"{species}_constraint",
             rkt_inputs=[rkt_ref],
         )
+        idxs = self.state.system.species().index(species)
         constraint.fn = (
-            lambda props, w: ((props.speciesAmount(species) - w[idx]))
+            lambda props, w: ((props.speciesAmount(idxs) - w[idx]))
+            * self.default_scale
             * self.rkt_constraints[f"{species}_constraint"].scaling_factor
         )
         spec_object.addConstraint(constraint)
+
+    # def write_pH_constraint(self, spec_object):
+    #     """writes a pH constraint for reaktoro"""
+    #     spec_object.openTo("H+")
+    #     idx = spec_object.addInput("pH")
+    #     constraint = rkt.EquationConstraint()
+    #     constraint.id = f"pH_constraint"
+
+    #     idxH = self.state.system.species().index("H+")
+    #     constraint.fn = lambda props, w: (w[idx] + props.speciesActivityLg(idxH))
+    #     spec_object.addConstraint(constraint)
 
     def write_pOH_constraint(self, spec_object):
         """writes a pOH constraint for reaktoro"""
@@ -637,7 +658,34 @@ class ReaktoroInputSpec:
         idx = spec_object.addInput("pOH")
         constraint = rkt.EquationConstraint()
         constraint.id = f"pOH_constraint"
-        constraint.fn = lambda props, w: w[idx] + props.speciesActivityLg("OH-")
+
+        idxOH = self.rkt_state.system.species().index("OH-")
+        constraint.fn = lambda props, w: w[idx] + props.speciesActivityLg(idxOH)
+        spec_object.addConstraint(constraint)
+
+    def write_charge_balance_constraint(self, spec_object):
+        """writes a charge balance constraint for reaktoro"""
+        # spec_object.charge()
+        # idx = spec_object.addInput("charge_balance")
+        spc = []
+        for iput in self.rkt_inputs:
+            if self.rkt_inputs[iput].io_type in [
+                RktInputTypes.specie,
+                RktInputTypes.element,
+            ]:
+                spc.append(self.rkt_inputs[iput])
+        self.rkt_constraints.register_constraint(
+            f"charge",
+            rkt_inputs=spc,
+        )
+        constraint = rkt.EquationConstraint()
+        constraint.id = f"charge"
+        constraint.fn = (
+            lambda props, w: props.charge()
+            * self.default_scale
+            * self.rkt_constraints[f"charge"].scaling_factor
+        )
+
         spec_object.addConstraint(constraint)
 
     def write_empty_con(self, spec_object, spc):
