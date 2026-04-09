@@ -104,6 +104,9 @@ def build_modifer_blocks(parallel_mode=False):
         m.parallel_block_manager = ReaktoroBlockManager()
     else:
         m.parallel_block_manager = None
+
+    solver_options = {"solver_tolerance": 1e-10, "epsilon": 1e-200}
+
     m.eq_acidifier_block = ReaktoroBlock(
         aqueous_phase={
             "composition": m.feed_composition,
@@ -126,6 +129,7 @@ def build_modifer_blocks(parallel_mode=False):
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
         reaktoro_block_manager=m.parallel_block_manager,
+        reaktoro_solve_options=solver_options,
     )
     m.eq_scaling_no_pE = ReaktoroBlock(
         aqueous_phase={
@@ -149,6 +153,7 @@ def build_modifer_blocks(parallel_mode=False):
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
         reaktoro_block_manager=m.parallel_block_manager,
+        reaktoro_solve_options=solver_options,
     )
     m.eq_scaling_with_pE = ReaktoroBlock(
         aqueous_phase={
@@ -173,6 +178,7 @@ def build_modifer_blocks(parallel_mode=False):
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
         reaktoro_block_manager=m.parallel_block_manager,
+        reaktoro_solve_options=solver_options,
     )
     if parallel_mode:
         m.parallel_block_manager.build_reaktoro_blocks()

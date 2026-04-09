@@ -79,6 +79,8 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
     m.feed_pressure.fix()
     m.feed_pH = Var(initialize=7, bounds=(4, 12), units=pyunits.dimensionless)
     m.feed_pH.fix()
+    m.feed_pE = Var(initialize=4, bounds=(-4, 12), units=pyunits.dimensionless)
+    m.feed_pE.fix()
     m.precipitator_composition = Var(
         list(m.feed_composition.keys()),
         initialize=1,
@@ -221,6 +223,8 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         hess_options = {}
     else:
         hess_options = {"hessian_type": hess_type}
+    solver_options = {"solver_tolerance": 1e-10, "epsilon": 1e-200}
+
     m.eq_feed_properties = ReaktoroBlock(
         system_state={
             "temperature": m.feed_temperature,
@@ -246,6 +250,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         build_speciation_block=False,
         assert_charge_neutrality_on_property_block=True,
         hessian_options=hess_options,
+        reaktoro_solve_options=solver_options,
     )
 
     # """ need to get precipitator enthalpy to find required power input """
@@ -274,6 +279,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         reaktoro_block_manager=m.parallel_block_manager,
         assert_charge_neutrality_on_property_block=True,
         hessian_options=hess_options,
+        reaktoro_solve_options=solver_options,
     )
 
     m.eq_treated_properties = ReaktoroBlock(
@@ -301,6 +307,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         assert_charge_neutrality_on_property_block=True,
         build_speciation_block=False,
         hessian_options=hess_options,
+        reaktoro_solve_options=solver_options,
     )
     # assert False
     if parallel_mode:
