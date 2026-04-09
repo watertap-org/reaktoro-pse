@@ -224,12 +224,6 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         "S2O6-2",
         "S2O8-2",
         "S5O6-2",
-        "HO2-",
-        "HClO2(aq)",
-        "HClO(aq)",
-        "H2S2O4(aq)",
-        "H2O2(aq)",
-        "ClO-",
         "ClO2-",
         "ClO3-",
         "ClO4-",
@@ -242,7 +236,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         hess_options = {}
     else:
         hess_options = {"hessian_type": hess_type}
-    solver_options = {"solver_tolerance": 1e-10, "epsilon": 1e-80}
+    solver_options = {"solver_tolerance": 1e-12, "epsilon": 1e-100}
 
     m.eq_feed_properties = ReaktoroBlock(
         system_state={
