@@ -23,7 +23,7 @@ class ReaktoroSolverOptions:
         CONFIG.declare(
             "solver_tolerance",
             ConfigValue(
-                default=1e-9,
+                default=1e-8,
                 domain=float,
                 description="Tolerance for Reaktoro solver",
                 doc="""Tolerance for primary Reaktoro solver""",

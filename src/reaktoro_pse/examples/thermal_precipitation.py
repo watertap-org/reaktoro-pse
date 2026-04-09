@@ -120,6 +120,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
             ("speciesAmount", "Anhydrite"),
             ("molarEnthalpy", None),
             ("pH", None),
+            ("pE", None),
             ("vaporPressure", "H2O(g)"),
         ],
         initialize=1e-5,
@@ -236,13 +237,14 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         hess_options = {}
     else:
         hess_options = {"hessian_type": hess_type}
-    solver_options = {"solver_tolerance": 1e-12, "epsilon": 1e-100}
+    solver_options = {"solver_tolerance": 1e-8, "epsilon": 1e-40}
 
     m.eq_feed_properties = ReaktoroBlock(
         system_state={
             "temperature": m.feed_temperature,
             "pressure": m.feed_pressure,
             "pH": m.feed_pH,
+            "pE": m.feed_pE,
         },
         aqueous_phase={
             "composition": m.feed_composition,
@@ -273,6 +275,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
             "temperature": m.precipitator_temperature,
             "pressure": m.feed_pressure,
             "pH": m.feed_pH,
+            "pE": m.feed_pE,
         },
         aqueous_phase={
             "composition": m.precipitator_composition,
@@ -302,6 +305,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
             "temperature": m.precipitator_temperature,
             "pressure": m.feed_pressure,
             "pH": m.precipitation_properties[("pH", None)],
+            "pE": m.precipitation_properties[("pE", None)],
         },
         aqueous_phase={
             "composition": m.treated_composition,
@@ -440,6 +444,7 @@ def display_results(m):
         f'Calcite precipitation {m.precipitation_properties[("speciesAmount", "Calcite")].value} mol/s'
     )
     print(f'precipitator pH {m.precipitation_properties[("pH", None)].value}')
+    print(f'precipitator pE {m.precipitation_properties[("pE", None)].value}')
 
 
 if __name__ == "__main__":
