@@ -16,13 +16,9 @@ from reaktoro_pse.core.util_classes.cyipopt_solver import (
 from pyomo.environ import (
     ConcreteModel,
     Var,
-    Objective,
-    Constraint,
     assert_optimal_termination,
     units as pyunits,
 )
-
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
 
