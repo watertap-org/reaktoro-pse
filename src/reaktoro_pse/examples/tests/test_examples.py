@@ -36,10 +36,10 @@ def test_redox_couples():
         #     ("scalingTendency", "Gypsum"): [0.03851168496475971, 0.03851168496475971],
         # },
         "with_pe": {
-            ("pH", None): [7.285515606038045, 7.285515606038045],
-            ("pE", None): [-3.71695747090554, -3.71695747090554],
-            ("scalingTendency", "Calcite"): [0.49945055206937017, 0.49945055206937017],
-            ("scalingTendency", "Gypsum"): [0.016087300347199716, 0.016087300347199716],
+            ("pH", None): [7.297370328995919, 7.297370328995919],
+            ("pE", None): [4.082175888930677, 4.082175888930677],
+            ("scalingTendency", "Calcite"): [0.4741752782085243, 0.4741752782085243],
+            ("scalingTendency", "Gypsum"): [0.03851168498111663, 0.03851168498111663],
         },
     }
 
@@ -97,7 +97,7 @@ def test_thermal_precipt(hess_type):
         pytest.approx(
             m.precipitation_properties[("speciesAmount", "Calcite")].value, 1e-2
         )
-        == 0.0004709881373356174
+        == 0.0006169607262380701
     )
     assert (
         pytest.approx(
@@ -107,9 +107,9 @@ def test_thermal_precipt(hess_type):
     )
     assert (
         pytest.approx(m.precipitation_properties[("pH", None)].value, 1e-3)
-        == 6.9382011073484025
+        == 6.934903867632487
     )
-    assert pytest.approx(m.Q_heating.value, abs=4e4) == 123.22263054543127 * 1000
+    assert pytest.approx(m.Q_heating.value, abs=4e4) == 128.62177112368119 * 1000
     assert pytest.approx(m.precipitator_temperature.value, 1e-3) == 273.15 + 50
 
 

@@ -227,10 +227,8 @@ def log_results(m, result_array=None):
             float(m.modified_properties_water_removal.value)
         )
         for key, obj in m.scaling_with_pE_outputs.items():
-            result_array["no_pe"][key].append(float(obj.value))
-            result_array["with_pe"][key].append(
-                float(m.scaling_no_pE_outputs[key].value)
-            )
+            result_array["with_pe"][key].append(float(obj.value))
+            result_array["no_pe"][key].append(float(m.scaling_no_pE_outputs[key].value))
     return result_array
 
 
