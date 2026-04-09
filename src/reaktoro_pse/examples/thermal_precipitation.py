@@ -224,7 +224,8 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         hess_options = {}
     else:
         hess_options = {"hessian_type": hess_type}
-    solver_options = {"solver_tolerance": 1e-8, "epsilon": 1e-40}
+
+    solver_options = {"solver_tolerance": 1e-8, "epsilon": 1e-60}
 
     m.eq_feed_properties = ReaktoroBlock(
         system_state={

@@ -107,11 +107,11 @@ def test_thermal_precipt(hess_type):
     )
     assert (
         pytest.approx(m.precipitation_properties[("pH", None)].value, 1e-3)
-        == 6.965357182573605
+        == 6.965357182573612
     )
     assert (
         pytest.approx(m.precipitation_properties[("pE", None)].value, 1e-3)
-        == -1.3288405242755406
+        == -1.379623397148334
     )
     assert pytest.approx(m.Q_heating.value, abs=4e4) == 123.99859118830717 * 1000
     assert pytest.approx(m.precipitator_temperature.value, 1e-3) == 273.15 + 50
