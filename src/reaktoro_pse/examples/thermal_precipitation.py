@@ -216,19 +216,6 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
     # note how we included nitrogen as one of gas species, this will prevent
     # PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)"""
 
-    # We will exclude species here that are present in zero concentration and we do not expect to participate
-    # their presence can also cause issues in getting reliable results, for example H2O2(aq) has
-    # zero charge, and thus could alter total O/H balance. We remove it as we do not expect any
-    # free H2O2 in this system.
-    exclude_species_list = [
-        "S2O5-2",
-        "S2O6-2",
-        "S2O8-2",
-        "S5O6-2",
-        "ClO2-",
-        "ClO3-",
-        "ClO4-",
-    ]
     if parallel_mode:
         m.parallel_block_manager = ReaktoroBlockManager()
     else:
@@ -261,7 +248,6 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",
         dissolve_species_in_reaktoro=True,
-        exclude_species_list=exclude_species_list,
         reaktoro_block_manager=m.parallel_block_manager,
         build_speciation_block=False,
         assert_charge_neutrality_on_property_block=True,
@@ -293,7 +279,6 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         database_file="supcrtbl",
         dissolve_species_in_reaktoro=True,
         build_speciation_block=True,
-        exclude_species_list=exclude_species_list,
         reaktoro_block_manager=m.parallel_block_manager,
         assert_charge_neutrality_on_property_block=True,
         hessian_options=hess_options,
@@ -322,7 +307,6 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",
         dissolve_species_in_reaktoro=True,
-        exclude_species_list=exclude_species_list,
         reaktoro_block_manager=m.parallel_block_manager,
         assert_charge_neutrality_on_property_block=True,
         build_speciation_block=False,
