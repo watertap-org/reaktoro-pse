@@ -34,8 +34,10 @@ class ReaktoroSolverOptions:
             ConfigValue(
                 default=True,
                 domain=bool,
-                description="Option to automatically scale Reaktoro constraints",
-                doc="""If True, Reaktoro constraints will be automatically scaled based on their values""",
+                description="Option to automatically scale Reaktoro constraints.",
+                doc="""If True, Reaktoro constraints will be automatically scaled based on their values.
+                These constraints are written in Reaktoro solver it self, and not pyomo, as such they only impact the
+                Reaktoro solver and precision. This should ensure that all elements are solved to same tolerance.""",
             ),
         )
         CONFIG.declare(
