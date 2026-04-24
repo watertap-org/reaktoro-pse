@@ -117,7 +117,7 @@ class RktInput:
             self.value = None
 
     def set_rkt_scaling_factor(self, factor, compute_scale_factor=False):
-        if factor == 0 and compute_scale_factor:
+        if factor is None or (factor == 0 and compute_scale_factor):
             factor = 1
         elif compute_scale_factor:
             factor = 1 / factor

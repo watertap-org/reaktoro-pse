@@ -181,8 +181,6 @@ class ReaktoroSolver:
         self.bfgs_hessian_memory = bfgs_hessian_memory
         self.bfgs_epsilon = bfgs_epsilon
         self.auto_scale_constraint = auto_scale_constraint
-        # if self.input_specs.assert_charge_neutrality:
-        #     self.conditions.charge(0)
 
     def set_system_bounds(
         self,
@@ -231,11 +229,18 @@ class ReaktoroSolver:
 
     def update_scaling_factors(self):
         for constraint in self.input_specs.rkt_constraints:
+            # grab the constraint object
             constraint_obj = self.input_specs.rkt_constraints[constraint]
-
+            # Constraints are always summing across inputs
+            # either total sum of speices converted to amount of elements
+            # H=2*H2O+3*HCO3 etc.
+            # sum of species used for charge neutrality constraint
+            # charge= sum(charge_species_i*mol_species_i for i in all true species)
+            # the total scaling factor is then inverse sum of
+            # input values being summed or a single value if no summation occurs
             sf = 0
-            for rkt_input in constraint_obj.rkt_inputs:
-                sf += rkt_input.rkt_scaling_factor**-1
+            for rkt_input, rkt_multiplier in constraint_obj:
+                sf += (rkt_input.rkt_scaling_factor / rkt_multiplier) ** -1
             constraint_obj.scaling_factor = sf**-1
 
     def get_outputs(self):

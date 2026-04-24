@@ -65,20 +65,39 @@ class ReaktoroInputExport:
 
 
 class ReaktoroConstraintContainer:
-    def __init__(self, constraint_name, scaling_factor=1, rkt_inputs=None):
+    def __init__(
+        self,
+        constraint_name,
+        scaling_factor=1,
+        rkt_inputs=None,
+        input_multipliers=None,
+    ):
         self.constraint_name = constraint_name
         self.scaling_factor = scaling_factor
         self.rkt_inputs = rkt_inputs
+        if input_multipliers is None and rkt_inputs is not None:
+            input_multipliers = [1 for _ in rkt_inputs]
+        self.input_multipliers = input_multipliers
 
     def update_scaling_factor(self, scaling_factor):
         self.scaling_factor = scaling_factor
 
+    def __iter__(self):
+        for rkt_input, multiplier in zip(self.rkt_inputs, self.input_multipliers):
+            yield rkt_input, multiplier
+
 
 class ReaktoroConstraints(dict):
-    def register_constraint(self, constraint_name, scaling_factor=1, rkt_inputs=None):
+    def register_constraint(
+        self,
+        constraint_name,
+        scaling_factor=1,
+        rkt_inputs=None,
+        input_multipliers=None,
+    ):
         if constraint_name not in self:
             self[constraint_name] = ReaktoroConstraintContainer(
-                constraint_name, scaling_factor, rkt_inputs
+                constraint_name, scaling_factor, rkt_inputs, input_multipliers
             )
 
     def update_scaling_factors(self, update_dict):
@@ -564,6 +583,7 @@ class ReaktoroInputSpec:
         self.rkt_constraints.register_constraint(
             f"{element}_constraint",
             rkt_inputs=[self.rkt_inputs[cv[1]] for cv in self.constraint_dict[element]],
+            input_multipliers=[cv[0] for cv in self.constraint_dict[element]],
         )
 
         idxe = self.state.system.elements().index(element)
