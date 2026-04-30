@@ -748,6 +748,18 @@ class ReaktoroBlockData(ProcessBlockData):
             ):
                 assert_charge_neutrality = False
             exact_speciation = True
+        else:
+            if ion_for_balancing not in block.rkt_state.database_elements:
+                _log.warning(
+                    f"""The charge neutrality ion {ion_for_balancing} is not an element,
+                    and inexact speciation is provided. Ignore this warning, if you want to only adjust specie ratios to
+                    achieve charge neutrality, otherwise supply an element (such as "S" instead of "SO4-2")
+                    to find the amount of element that should be added or removed to achieve charge neutrality. Adjustment 
+                    of specie ratios should in general be done when exact speciation is provided ('exact_speciation=True') 
+                    as otherwise Reaktoro solver might not converge, as shifting specie ratios might be insufficient to
+                    achieve a charge neutral solution.
+                """,
+                )
         block.rkt_inputs.register_charge_neutrality(
             assert_neutrality=assert_charge_neutrality,
             ion=ion_for_balancing,
