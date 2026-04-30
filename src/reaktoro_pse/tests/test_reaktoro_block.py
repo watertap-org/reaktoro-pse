@@ -169,7 +169,7 @@ def test_blockBuild(build_rkt_state_with_species):
     assert pytest.approx(m.composition["H2O"].value, 1e-3) == 68.0601837
 
 
-def test_blockBuild(build_rkt_state_with_species, caplog):
+def test_blockBuild_with_specie_balance_warning(build_rkt_state_with_species, caplog):
     m = build_rkt_state_with_species
     m.outputs.display()
     with caplog.at_level(logging.WARNING):

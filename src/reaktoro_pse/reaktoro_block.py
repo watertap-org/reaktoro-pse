@@ -749,7 +749,10 @@ class ReaktoroBlockData(ProcessBlockData):
                 assert_charge_neutrality = False
             exact_speciation = True
         else:
-            if ion_for_balancing not in block.rkt_state.database_elements:
+            if assert_charge_neutrality is True and (
+                ion_for_balancing is None
+                or ion_for_balancing not in block.rkt_state.database_elements
+            ):
                 _log.warning(
                     f"""The charge neutrality ion {ion_for_balancing} is not an element,
                     and inexact speciation is provided. Ignore this warning, if you want to only adjust specie ratios to
