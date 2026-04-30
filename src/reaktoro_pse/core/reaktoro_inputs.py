@@ -13,6 +13,7 @@ import reaktoro as rkt
 from reaktoro_pse.core.util_classes.rkt_inputs import RktInputs, RktInput, RktInputTypes
 from reaktoro_pse.core.reaktoro_state import ReaktoroState
 import idaes.logger as idaeslog
+import re as re
 
 _log = idaeslog.getLogger(__name__)
 
@@ -371,6 +372,14 @@ class ReaktoroInputSpec:
                 self.active_species.append(specie)
         self.all_inclusive_constraint_dict[element].append((coeff, specie))
 
+    def _check_element_in_molecule(self, element: str, molecule: str) -> bool:
+        """
+        This determines if an element string is in a larger (e.g., molecule) string.
+        Example: "S" in "SO4" returns True. "S" in "SiO4" returns False.
+        """
+        pattern = rf"{element}(?![a-z])"
+        return bool(re.search(pattern, molecule))
+
     def _find_element_sums(self):
         """
         Here in we will take all input species, elements, and chemicals and organize them such that
@@ -537,11 +546,12 @@ class ReaktoroInputSpec:
                 sum_species.append(mol * w[idx])
             return props.elementAmount(element) - sum(sum_species)
 
-        spec_object.openTo(element)
-        constraint = rkt.EquationConstraint()
-        constraint.id = f"{element}_constraint"
-        constraint.fn = _constraint_fn
-        spec_object.addConstraint(constraint)
+        if self.assert_charge_neutrality and not self._check_element_in_molecule(element, self.neutrality_ion):
+            spec_object.openTo(element)
+            constraint = rkt.EquationConstraint()
+            constraint.id = f"{element}_constraint"
+            constraint.fn = _constraint_fn
+            spec_object.addConstraint(constraint)
 
     def write_elementAmount_constraint(self, spec_object, element, input_name=None):
         """writes a elements amount constraint for reaktoro"""
