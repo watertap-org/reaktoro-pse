@@ -164,7 +164,7 @@ Reaktoro-pse depends on the following packages and/or versions:
 ### Installation (Conda)
 ```sh
 conda activate $YOUR_ENV
-conda install cyipopt reaktoro
+conda install -c conda-forge cyipopt reaktoro
 pip install git+https://github.com/watertap-org/reaktoro-pse.git
 ```
 
@@ -174,7 +174,7 @@ pip install git+https://github.com/watertap-org/reaktoro-pse.git
 git clone https://github.com/watertap-org/reaktoro-pse.git
 conda create --name reaktoro-pse-dev --yes python=3.12
 conda activate reaktoro-pse-dev
-conda install cyipopt reaktoro
+conda install -c conda-forge cyipopt reaktoro
 install -e.
 ```
 ### Running tests
