@@ -254,7 +254,17 @@ class ReaktoroBlockData(ProcessBlockData):
             domain=str,
             description="How Reaktoro maintains charge neutrality (pH, ion, or element)",
             doc="""This will unfix specified ion during equilibrium calculations while enforcing charge==0 constraint
-              in reaktoro, if exact speciation is provided, pH will be used by default""",
+              in reaktoro, if exact speciation is provided, pH will be used by default. 
+              NOTE: There is a critical difference between using an ion (specie) or element for charge neutrality calculations. 
+                - ion(species, eg. Cl-, SO4-2, etc.): will use the specie to achieve a charge balance without changing the 
+                    amount of elements in the system. This should generally be only used whe exact speciation (exact_speciation=True) is provided, as
+                    Reaktoro will attempt to achieve charge balance by shifting specie ratios with out changing total amount of elements (or total element 
+                    related to species, e.g. for pH it will adjust H+ concentration to achieve charge neutrality without changing total amount of H in the 
+                    system). 
+                - element(eg. Cl, S, etc.): This is most stable method of achieving charge neutrality and should be used when exact speciation is 
+                    not provided, as it will let Reaktoro increase or decrease amount of specified element and all related species to achieve 
+                    charge neutrality.
+                - pH: will adjust amount of H+ in the system with out changing total amount of H in the system.""",
         ),
     )
     CONFIG.declare(
