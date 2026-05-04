@@ -305,7 +305,6 @@ class ReaktoroInputSpec:
                 self.rkt_inputs[RktInputTypes.enthalpy].set_lower_bound(None)
             elif input_name == RktInputTypes.pH:
                 specs_object.pH()
-                # self.write_pH_constraint(specs_object)
                 self.rkt_inputs[RktInputTypes.pH] = self.state.inputs[RktInputTypes.pH]
                 self.rkt_inputs[RktInputTypes.pH].set_lower_bound(-1)
                 self.rkt_inputs[RktInputTypes.pH].set_upper_bound(14)
