@@ -9,6 +9,8 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
+import logging
+
 import pytest
 
 from reaktoro_pse.reaktoro_block import ReaktoroBlock
@@ -30,6 +32,9 @@ from reaktoro_pse.core.util_classes.cyipopt_solver import (
 )
 from watertap_solvers import get_solver
 from idaes.core.util.model_statistics import degrees_of_freedom
+import idaes.logger as idaeslog
+
+_log = idaeslog.getLogger(__name__)
 
 
 def build_comp(blk):
@@ -162,6 +167,43 @@ def test_blockBuild(build_rkt_state_with_species):
     assert_optimal_termination(result)
     m.display()
     assert pytest.approx(m.composition["H2O"].value, 1e-3) == 68.0601837
+
+
+def test_blockBuild_with_specie_balance_warning(build_rkt_state_with_species, caplog):
+    m = build_rkt_state_with_species
+    m.outputs.display()
+    with caplog.at_level(logging.WARNING):
+        m.property_block = ReaktoroBlock(
+            aqueous_phase={
+                "composition": m.composition,
+                "convert_to_rkt_species": True,
+            },
+            system_state={
+                "temperature": m.temp,
+                "pressure": m.pressure,
+                "pH": m.pH,
+            },
+            database="PhreeqcDatabase",
+            database_file="pitzer.dat",
+            outputs=m.outputs,
+            charge_neutrality_ion="SO4-2",
+        )
+    print(caplog.text)
+    assert f"""The charge neutrality ion SO4-2 is not an element,
+                    and inexact speciation is provided. Ignore this warning, if you want to only adjust specie ratios to
+                    achieve charge neutrality, otherwise supply an element (such as "S" instead of "SO4-2")
+                    to find the amount of element that should be added or removed to achieve charge neutrality. Adjustment 
+                    of specie ratios should in general be done when exact speciation is provided ('exact_speciation=True') 
+                    as otherwise Reaktoro solver might not converge, as shifting specie ratios might be insufficient to
+                    achieve a charge neutral solution.""".replace(
+        " ", ""
+    ).replace(
+        "\n", ""
+    ) in caplog.text.replace(
+        " ", ""
+    ).replace(
+        "\n", ""
+    )
 
 
 def test_blockBuild_with_pE(build_rkt_state_with_species_and_pE):
