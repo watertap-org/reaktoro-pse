@@ -279,7 +279,6 @@ class ReaktoroInputSpec:
         self, specs_object, assert_charge_neutrality, dissolve_species_in_rkt
     ):
         # ignore elements for constraints
-
         pressure_not_set = True
         temperature_not_set = True
         for input_name, _ in self.state.inputs.items():
@@ -334,7 +333,7 @@ class ReaktoroInputSpec:
             specs_object.unknownTemperature()
             # self.write_empty_con(specs_object, "open_temperature")
         if assert_charge_neutrality:
-            # specs_object.charge()
+            # constraint will be written below (L376)
             if self.neutrality_ion is not None:
                 if self.neutrality_ion == RktInputTypes.pH:
                     specs_object.openTo("H+")
@@ -374,7 +373,6 @@ class ReaktoroInputSpec:
         if self.exact_speciation == False or self.fixed_solvent_type != {}:
             self.add_solvent_constraints(specs_object)
         if assert_charge_neutrality:
-            # specs_object.charge()
             self.write_charge_balance_constraint(specs_object)
         self.write_empty_constraints(specs_object)
 
@@ -510,10 +508,6 @@ class ReaktoroInputSpec:
             self.rkt_inputs[specie].set_lower_bound(0)
 
             self.rkt_inputs[specie].io_type = RktInputTypes.chemical_specie
-        # elif specie in self.rkt_inputs:
-        #     self.rkt_inputs[specie].set_rkt_index(idx)
-        #     self.rkt_inputs[specie].set_rkt_input_name(input_name)
-        #     self.rkt_inputs[specie].set_lower_bound(0)
         else:
             raise KeyError(f"Specie is not found {specie}")
 
@@ -731,9 +725,6 @@ class ReaktoroInputSpec:
     def export_config(self):
         export_object = ReaktoroInputExport()
         export_object.copy_chem_inputs(self.rkt_chemical_inputs)
-        # export_object.rkt_constraints = {}
-        # for key, obj in self.rkt_constraints.items():
-        #     export_object.rkt_constraints[key] = obj.scaling_factors
         export_object.ignore_elements_for_constraints = (
             self.ignore_elements_for_constraints
         )
@@ -757,7 +748,6 @@ class ReaktoroInputSpec:
         self.fixed_solvent_speciation = export_object.fixed_solvent_speciation
         self.fixed_solvent_type = export_object.fixed_solvent_type
         self.rkt_chemical_inputs = export_object.rkt_chemical_inputs
-        # self.rkt_constraints.update_scaling_factors(export_object.rkt_constraints)
         self.assert_charge_neutrality = export_object.assert_charge_neutrality
         self.neutrality_ion = export_object.neutrality_ion
         self.dissolve_species_in_rkt = export_object.dissolve_species_in_rkt
