@@ -186,6 +186,7 @@ def test_pyomo_constraints(build_standard_state):
         == 1
     )
 
+
 def test_element_amount_in_phase(build_standard_state):
     rkt_outputs = build_standard_state
 

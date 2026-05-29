@@ -1015,7 +1015,9 @@ class ReaktoroOutputSpec:
 
     def _get_prop_name_val(self, prop_type, prop_name, prop_index=None):
         """get prop based on name/index and execute value call"""
-        return float(self._get_reaktoro_function(prop_type, prop_name, prop_index).val())
+        return float(
+            self._get_reaktoro_function(prop_type, prop_name, prop_index).val()
+        )
 
     def _get_prop_name(self, prop_type, prop_name, prop_index=None):
         """get prop based/index on name only"""
