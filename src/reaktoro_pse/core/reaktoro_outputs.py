@@ -1004,18 +1004,19 @@ class ReaktoroOutputSpec:
         value = getattr(prop_type.phaseProps(prop_index), prop_name)()
         return float(value)
 
+    def _get_reaktoro_function(self, prop_type, prop_name, prop_index=None):
+        """get reaktoro function result, handling None, tuple, and single index"""
+        if prop_index is None:
+            return getattr(prop_type, prop_name)()
+        elif isinstance(prop_index, tuple):
+            return getattr(prop_type, prop_name)(*prop_index)
+        else:
+            return getattr(prop_type, prop_name)(prop_index)
+
     def _get_prop_name_val(self, prop_type, prop_name, prop_index=None):
         """get prop based on name/index and execute value call"""
-        if prop_index is None:
-            value = getattr(prop_type, prop_name)
-        else:
-            value = getattr(prop_type, prop_name)(prop_index)
-        return float(value.val())
+        return float(self._get_reaktoro_function(prop_type, prop_name, prop_index).val())
 
     def _get_prop_name(self, prop_type, prop_name, prop_index=None):
         """get prop based/index on name only"""
-        if prop_index is None:
-            value = getattr(prop_type, prop_name)()
-        else:
-            value = getattr(prop_type, prop_name)(prop_index)
-        return float(value)
+        return float(self._get_reaktoro_function(prop_type, prop_name, prop_index))
