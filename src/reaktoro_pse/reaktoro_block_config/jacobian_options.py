@@ -80,7 +80,8 @@ class JacobianOptions:
                 doc="""
                 Defines methods for jacobian scaling:
                 - no_scaling -- jacobian scale == 1 for all outputs
-                - variable_output_scaling -- use output variable scaling factors (output_scale_i)                
+                - variable_output_scaling -- use output variable scaling factors (output_scale_i) 
+                - inverse_variable_output_scaling -- use inverse of output variable scaling factors (output_scale_i**-1)               
                 - variable_oi_scaling_inverse_sum -- sum squared of output/input variable scaling factors output_scale_i/((sum(input_scales_i)**-1)**-1)
                 - variable_oi_scaling_square_sum --  (default) use inverse of sum squared of output/input variable scaling factors output_scale_i/((sum(input_scales_i)**2)**0.5)
                 - jacobian_matrix_inverse_sum -- use inverse of sum of absolute values of jacobian matrix
