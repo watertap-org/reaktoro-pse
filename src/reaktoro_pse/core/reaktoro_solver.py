@@ -109,6 +109,7 @@ class ReaktoroSolver:
         export_object.bfgs_hessian_memory = self.bfgs_hessian_memory
         export_object.bfgs_epsilon = self.bfgs_epsilon
         export_object.block_name = self.block_name
+        export_object.auto_scale_constraint = self.auto_scale_constraint
         return export_object
 
     def load_from_export_object(self, export_object):
@@ -128,6 +129,7 @@ class ReaktoroSolver:
             export_object.bfgs_init_const_hessian_value,
             export_object.bfgs_hessian_memory,
             export_object.bfgs_epsilon,
+            export_object.auto_scale_constraint,
         )
 
     def equilibrate_state(self):
@@ -152,6 +154,7 @@ class ReaktoroSolver:
         bfgs_init_const_hessian_value=1e-16,
         bfgs_hessian_memory=3,
         bfgs_epsilon=1e-12,
+        auto_scale_constraint=True,
     ):
         """configuration for reaktro solver
 
@@ -177,8 +180,7 @@ class ReaktoroSolver:
         self.bfgs_init_const_hessian_value = bfgs_init_const_hessian_value
         self.bfgs_hessian_memory = bfgs_hessian_memory
         self.bfgs_epsilon = bfgs_epsilon
-        if self.input_specs.assert_charge_neutrality:
-            self.conditions.charge(0)
+        self.auto_scale_constraint = auto_scale_constraint
 
     def set_system_bounds(
         self,
@@ -210,6 +212,7 @@ class ReaktoroSolver:
             else:
                 value = params.get(input_key)
                 input_obj.set_temp_value(value)
+            input_obj.set_rkt_scaling_factor(value, compute_scale_factor=True)
             unit = input_obj.main_unit
             self._input_params[input_key] = value
             if input_key == RktInputTypes.temperature:
@@ -221,6 +224,24 @@ class ReaktoroSolver:
             else:
                 # TODO figure out how deal with units...
                 self.conditions.set(input_obj.get_rkt_input_name(), value)
+        if self.auto_scale_constraint:
+            self.update_scaling_factors()
+
+    def update_scaling_factors(self):
+        for constraint in self.input_specs.rkt_constraints:
+            # grab the constraint object
+            constraint_obj = self.input_specs.rkt_constraints[constraint]
+            # Constraints are always summing across inputs
+            # either total sum of speices converted to amount of elements
+            # H=2*H2O+3*HCO3 etc.
+            # sum of species used for charge neutrality constraint
+            # charge= sum(charge_species_i*mol_species_i for i in all true species)
+            # the total scaling factor is then inverse sum of
+            # input values being summed or a single value if no summation occurs
+            sf = 0
+            for rkt_input, rkt_multiplier in constraint_obj:
+                sf += (rkt_input.rkt_scaling_factor / rkt_multiplier) ** -1
+            constraint_obj.scaling_factor = sf**-1
 
     def get_outputs(self):
         output_arr = []
