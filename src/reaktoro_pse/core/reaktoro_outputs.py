@@ -809,7 +809,7 @@ class ReaktoroOutputSpec:
         pyomo_var=None,
         multi_sub_index=False,
     ):
-        if multi_sub_index:
+        if multi_sub_index or property_sub_index is not None:
             index = (property_name, property_index, property_sub_index)
         else:
             index = (property_name, property_index)
