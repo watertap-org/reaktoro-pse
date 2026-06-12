@@ -190,17 +190,17 @@ def test_pyomo_constraints(build_standard_state):
 def test_element_amount_in_phase(build_standard_state):
     rkt_outputs = build_standard_state
 
-    rkt_outputs.register_output("elementAmountInPhase", ("Na", "AqueousPhase"))
-    assert ("elementAmountInPhase", ("Na", "AqueousPhase")) in rkt_outputs.rkt_outputs
-    assert ("elementAmountInPhase", ("Na", "AqueousPhase")) in rkt_outputs.user_outputs
+    rkt_outputs.register_output("elementAmountInPhase", "Na", "AqueousPhase")
+    assert ("elementAmountInPhase", "Na", "AqueousPhase") in rkt_outputs.rkt_outputs
+    assert ("elementAmountInPhase", "Na", "AqueousPhase") in rkt_outputs.user_outputs
     assert (
         rkt_outputs.rkt_outputs[
-            ("elementAmountInPhase", ("Na", "AqueousPhase"))
+            ("elementAmountInPhase", "Na", "AqueousPhase")
         ].property_type
         == PropTypes.chem_prop
     )
 
     value = rkt_outputs.evaluate_property(
-        rkt_outputs.rkt_outputs[("elementAmountInPhase", ("Na", "AqueousPhase"))]
+        rkt_outputs.rkt_outputs[("elementAmountInPhase", "Na", "AqueousPhase")]
     )
     assert pytest.approx(value, 1e-3) == 0.5

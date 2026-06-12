@@ -740,3 +740,32 @@ def test_indexed_blockBuild_with_speciation_block(
     m.display()
     assert pytest.approx(m.CaO[(0, "CaO")].value, 1e-3) == 0.01732553618254949
     assert pytest.approx(m.CaO[(1, "CaO")].value, 1e-3) == 0.011351679127420139
+
+def test_blockBuild_element_amount_in_phase(build_rkt_state_with_species):
+    m = build_rkt_state_with_species
+    m.outputs_element = Var(
+        [
+            ("speciesAmount", "Na+"),
+            ("elementAmountInPhase", "Na", "AqueousPhase"),
+        ],
+        initialize=0,
+        units=pyunits.mol / pyunits.s,
+    )
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+        },
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        outputs=m.outputs_element,
+    )
+    m.property_block.initialize()
+    assert pytest.approx(
+        m.outputs_element["elementAmountInPhase", "Na", "AqueousPhase"].value, 1e-3
+    ) == 0.5

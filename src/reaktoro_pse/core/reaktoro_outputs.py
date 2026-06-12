@@ -762,6 +762,7 @@ class ReaktoroOutputSpec:
         self,
         property_name,
         property_index=None,
+        property_sub_index=None,
         get_all_indexes=False,
         pyomo_var=None,
         ignore_indexes=None,
@@ -771,12 +772,16 @@ class ReaktoroOutputSpec:
         Keywords:
         property_name -- prop name (specieisActivityLn, pH etc)
         property_index -- prop index if any (H+, etc) (default: None)
+        property_sub_index -- second index for dual-argument props
         get_all_indexes -- if user want to get all possible indexs for specfied prop (default: False)
         pyomo_var -- pyomo var that should be used for the output of this property (optional: will be auto built) (default: None)
         """
         if get_all_indexes:
             self.get_all_indexes(property_name, ignore_indexes)
         else:
+            # if sub_index provided, pack into tuple for dual-argument reaktoro props
+            if property_sub_index is not None:
+                property_index = (property_index, property_sub_index)
             property_type, get_function = self.get_prop_type(
                 property_name, property_index
             )
@@ -796,7 +801,10 @@ class ReaktoroOutputSpec:
         get_function=None,
         pyomo_var=None,
     ):
-        index = (property_name, property_index)
+        if isinstance(property_index, tuple):
+            index = (property_name,) + property_index
+        else:
+            index = (property_name, property_index)
         if index not in self.user_outputs:
             prop_type = None
             if "specie" in property_name:
