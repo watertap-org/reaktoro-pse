@@ -811,8 +811,10 @@ class ReaktoroOutputSpec:
     ):
         if multi_sub_index or property_sub_index is not None:
             index = (property_name, property_index, property_sub_index)
+            multi_sub_index = True
         else:
             index = (property_name, property_index)
+        print(multi_sub_index, index)
         if index not in self.user_outputs:
             prop_type = None
             if "specie" in property_name:

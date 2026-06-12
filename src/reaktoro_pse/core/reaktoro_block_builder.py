@@ -245,17 +245,35 @@ class ReaktoroBlockBuilder:
                         )
 
         @self.block.Constraint(self.solver.output_specs.user_outputs)
-        def output_constraints(fs, prop, prop_index):
-            prop_object = self.solver.output_specs.user_outputs[(prop, prop_index)]
+        def output_constraints(fs, prop, prop_index, sub_prop_index=None):
+            if (
+                prop,
+                prop_index,
+                sub_prop_index,
+            ) not in self.solver.output_specs.user_outputs:
+                prop_object = self.solver.output_specs.user_outputs[(prop, prop_index)]
+            else:
+                prop_object = self.solver.output_specs.user_outputs[
+                    (prop, prop_index, sub_prop_index)
+                ]
             if prop_object.property_type == PropTypes.pyomo_built_prop:
                 return prop_object.pyomo_build_options.build_constraint_function(
                     prop_object
                 )
             else:
-                return (
-                    prop_object.get_pyomo_var()
-                    == self.block.reaktoro_model.outputs[(prop, prop_index)]
-                )
+                if (
+                    prop,
+                    prop_index,
+                    sub_prop_index,
+                ) not in self.solver.output_specs.user_outputs:
+                    rkt_model_object = self.block.reaktoro_model.outputs[
+                        (prop, prop_index)
+                    ]
+                else:
+                    rkt_model_object = self.block.reaktoro_model.outputs[
+                        (prop, prop_index, sub_prop_index)
+                    ]
+                return prop_object.get_pyomo_var() == rkt_model_object
 
     def initialize(self, presolve_during_initialization=False):
         """initialize reaktoro block

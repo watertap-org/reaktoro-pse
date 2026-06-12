@@ -847,12 +847,14 @@ class ReaktoroBlockData(ProcessBlockData):
                             output_key,
                             get_all_indexes=True,
                             ignore_indexes=ignore_species,
+                            multi_sub_index=multi_sub_index,
                         )
                     elif isinstance(output_var, list):
                         block.rkt_outputs.register_output(
                             output_key,
                             get_all_indexes=True,
                             ignore_indexes=output_var,
+                            multi_sub_index=multi_sub_index,
                         )
                     else:
                         block.rkt_outputs.register_output(
@@ -860,6 +862,7 @@ class ReaktoroBlockData(ProcessBlockData):
                             output_prop,
                             property_sub_index=property_sub_index,
                             pyomo_var=output_var,
+                            multi_sub_index=multi_sub_index,
                         )
 
     def convert_outputs_to_dict(self):
