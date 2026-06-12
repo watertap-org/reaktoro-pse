@@ -195,9 +195,15 @@ def test_blockBuild_with_specie_balance_warning(build_rkt_state_with_species, ca
                     to find the amount of element that should be added or removed to achieve charge neutrality. Adjustment
                     of specie ratios should in general be done when exact speciation is provided ('exact_speciation=True')
                     as otherwise Reaktoro solver might not converge, as shifting specie ratios might be insufficient to
-                    achieve a charge neutral solution.""".replace(" ", "").replace(
+                    achieve a charge neutral solution.""".replace(
+        " ", ""
+    ).replace(
         "\n", ""
-    ) in caplog.text.replace(" ", "").replace("\n", "")
+    ) in caplog.text.replace(
+        " ", ""
+    ).replace(
+        "\n", ""
+    )
 
 
 def test_blockBuild_with_pE(build_rkt_state_with_species_and_pE):
