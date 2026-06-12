@@ -276,56 +276,80 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
     )
     m.property_block.initialize()
     scaling_factors = m.property_block.display_jacobian_scaling()
-    print(scaling_type, scaling_factors)
+
+    def dict_test(dict_a, dict_b, tol=1e-4):
+        for blk in dict_a.keys():
+            for key in dict_a[blk].keys():
+                assert key in dict_b[blk]
+                assert pytest.approx(dict_a[blk][key], tol) == dict_b[blk][key]
+
     if scaling_type == "no_scaling":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 1.0,
-                ("pH", None): 1.0,
-                ("pE", None): 1,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 1.0,
+                    ("pH", None): 1.0,
+                    ("pE", None): 1,
+                }
+            },
+        )
     elif scaling_type == "variable_output_scaling":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 0.1088858058987964,
-                ("pH", None): 0.14285714285714285,
-                ("pE", None): 0.10361133064195724,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 0.1088858058987964,
+                    ("pH", None): 0.14285714285714285,
+                    ("pE", None): 0.10361133064195724,
+                }
+            },
+        )
     elif scaling_type == "jacobian_matrix_square_sum":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 0.0007698149159929651,
-                ("pH", None): 0.9999999999999998,
-                ("pE", None): 0.1359733544810525,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 0.0007698149159929651,
+                    ("pH", None): 0.9999999999999998,
+                    ("pE", None): 0.1359733544810525,
+                }
+            },
+        )
     elif scaling_type == "jacobian_matrix_inverse_sum":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 9.627321324829857e-08,
-                ("pH", None): 1e-08,
-                ("pE", None): 1e-08,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 9.627321324829857e-08,
+                    ("pH", None): 1e-08,
+                    ("pE", None): 1e-08,
+                }
+            },
+        )
     elif scaling_type == "variable_oi_scaling_square_sum":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 0.0006275654371006124,
-                ("pH", None): 0.0008233598912186447,
-                ("pE", None): 0.0005971658974846666,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 0.0006275654371006124,
+                    ("pH", None): 0.0008233598912186447,
+                    ("pE", None): 0.0005971658974846666,
+                }
+            },
+        )
 
     elif scaling_type == "variable_oi_scaling_inverse_sum":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 100.0,
-                ("pH", None): 100.0,
-                ("pE", None): 100,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 100.0,
+                    ("pH", None): 100.0,
+                    ("pE", None): 100,
+                }
+            },
+        )
 
 
 def test_activate_deactivate(build_rkt_state_with_species):

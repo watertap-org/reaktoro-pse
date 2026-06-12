@@ -549,11 +549,12 @@ class ConvertedPropTypes:
                     sum(activities)
                     + sum(
                         log_k
-                    )  # this is positive here and in log10 fom, so we add instead of subtract
+                    )  # this is positive here and in log10 form, so we add instead of subtract
                 )
             except OverflowError:
                 print("overflow error in scalingTendency calc_sat_dir")
                 si = 1e100
+
             return si
 
         def calc_scaling_tendency_derivative(x):

@@ -23,16 +23,27 @@ class ReaktoroSolverOptions:
         CONFIG.declare(
             "solver_tolerance",
             ConfigValue(
-                default=1e-8,
+                default=1e-9,
                 domain=float,
                 description="Tolerance for Reaktoro solver",
                 doc="""Tolerance for primary Reaktoro solver""",
             ),
         )
         CONFIG.declare(
+            "auto_scale_constraints",
+            ConfigValue(
+                default=True,
+                domain=bool,
+                description="Option to automatically scale Reaktoro constraints.",
+                doc="""If True, Reaktoro constraints will be automatically scaled based on their values.
+                These constraints are written in Reaktoro solver it self, and not pyomo, as such they only impact the
+                Reaktoro solver and precision. This should ensure that all elements are solved to same tolerance.""",
+            ),
+        )
+        CONFIG.declare(
             "epsilon",
             ConfigValue(
-                default=1e-32,
+                default=1e-40,
                 domain=float,
                 description="epsilon for Reaktoro solver",
                 doc="""Defines what is considered to be 0 for ion composition""",

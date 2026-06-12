@@ -202,6 +202,7 @@ def display_results(m):
     for key, obj in m.desal_scaling.items():
         print(f"{key}, {obj.value}")
     print(f"feed pH {m.feed_pH.value}, desal pH {m.desal_pH.value}")
+    m.eq_desal_properties.display_reaktoro_state()
 
 
 def solve(m):

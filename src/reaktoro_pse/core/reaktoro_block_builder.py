@@ -43,6 +43,7 @@ _log = idaeslog.getLogger(__name__)
 class JacScalingTypes:
     no_scaling = "no_scaling"
     variable_output_scaling = "variable_output_scaling"
+    inverse_variable_output_scaling = "inverse_variable_output_scaling"
     jacobian_matrix_square_sum = "jacobian_matrix_square_sum"
     jacobian_matrix_inverse_sum = "jacobian_matrix_inverse_sum"
     manual_scaling = "manual_scaling"
@@ -377,6 +378,18 @@ class ReaktoroBlockBuilder:
                 )
                 sf = out_sf
                 self.solver.jacobian_scaling_values[i] = sf
+        elif (
+            self.jacobian_scaling_type
+            == JacScalingTypes.inverse_variable_output_scaling
+        ):
+            for i, (key, obj) in enumerate(
+                self.solver.output_specs.rkt_outputs.items()
+            ):
+                out_sf = self.get_rkt_scale(
+                    obj, use_default_scaling=use_default_scaling
+                )
+                sf = out_sf
+                self.solver.jacobian_scaling_values[i] = 1 / sf
         elif (
             self.jacobian_scaling_type
             == JacScalingTypes.variable_oi_scaling_inverse_sum
