@@ -192,18 +192,12 @@ def test_blockBuild_with_specie_balance_warning(build_rkt_state_with_species, ca
     assert f"""The charge neutrality ion SO4-2 is not an element,
                     and inexact speciation is provided. Ignore this warning, if you want to only adjust specie ratios to
                     achieve charge neutrality, otherwise supply an element (such as "S" instead of "SO4-2")
-                    to find the amount of element that should be added or removed to achieve charge neutrality. Adjustment 
-                    of specie ratios should in general be done when exact speciation is provided ('exact_speciation=True') 
+                    to find the amount of element that should be added or removed to achieve charge neutrality. Adjustment
+                    of specie ratios should in general be done when exact speciation is provided ('exact_speciation=True')
                     as otherwise Reaktoro solver might not converge, as shifting specie ratios might be insufficient to
-                    achieve a charge neutral solution.""".replace(
-        " ", ""
-    ).replace(
+                    achieve a charge neutral solution.""".replace(" ", "").replace(
         "\n", ""
-    ) in caplog.text.replace(
-        " ", ""
-    ).replace(
-        "\n", ""
-    )
+    ) in caplog.text.replace(" ", "").replace("\n", "")
 
 
 def test_blockBuild_with_pE(build_rkt_state_with_species_and_pE):
@@ -765,11 +759,12 @@ def test_indexed_blockBuild_with_speciation_block(
     assert pytest.approx(m.CaO[(0, "CaO")].value, 1e-3) == 0.01732553618254949
     assert pytest.approx(m.CaO[(1, "CaO")].value, 1e-3) == 0.011351679127420139
 
+
 def test_blockBuild_element_amount_in_phase(build_rkt_state_with_species):
     m = build_rkt_state_with_species
     m.outputs_element = Var(
         [
-            ("speciesAmount", "Na+"),
+            ("speciesAmount", "Na+", None),
             ("elementAmountInPhase", "Na", "AqueousPhase"),
         ],
         initialize=0,
@@ -790,6 +785,10 @@ def test_blockBuild_element_amount_in_phase(build_rkt_state_with_species):
         outputs=m.outputs_element,
     )
     m.property_block.initialize()
-    assert pytest.approx(
-        m.outputs_element["elementAmountInPhase", "Na", "AqueousPhase"].value, 1e-3
-    ) == 0.5
+    m.outputs_element.display()
+    assert (
+        pytest.approx(
+            m.outputs_element["elementAmountInPhase", "Na", "AqueousPhase"].value, 1e-3
+        )
+        == 0.5
+    )

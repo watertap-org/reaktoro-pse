@@ -36,6 +36,7 @@ class RktOutput:
         property_type,
         property_name,
         property_index=None,
+        property_sub_index=None,
         get_function=None,
         pyomo_var=None,
         value=None,
@@ -45,6 +46,7 @@ class RktOutput:
         self.property_type = property_type
         self.property_name = property_name  # properties from which to extract data
         self.property_index = property_index  # index if any
+        self.property_sub_index = property_sub_index
         self.jacobian_index = (
             property_name,
             property_index,
@@ -81,7 +83,10 @@ class RktOutput:
     def compute_values(self, prop_object, supported_props):
         if self.calculation_options is None:
             return self.get_function(
-                prop_object, self.property_name, self.property_index
+                prop_object,
+                self.property_name,
+                self.property_index,
+                self.property_sub_index,
             )
         else:
             for idx, prop in self.calculation_options.properties.items():
@@ -767,6 +772,7 @@ class ReaktoroOutputSpec:
         get_all_indexes=False,
         pyomo_var=None,
         ignore_indexes=None,
+        multi_sub_index=False,
     ):
         """register a reaktoro output, couple it to property type.
 
@@ -780,18 +786,17 @@ class ReaktoroOutputSpec:
         if get_all_indexes:
             self.get_all_indexes(property_name, ignore_indexes)
         else:
-            # if sub_index provided, pack into tuple for dual-argument reaktoro props
-            if property_sub_index is not None:
-                property_index = (property_index, property_sub_index)
             property_type, get_function = self.get_prop_type(
-                property_name, property_index
+                property_name, property_index, property_sub_index
             )
             self.process_output(
                 property_type=property_type,
                 property_name=property_name,
                 property_index=property_index,
+                property_sub_index=property_sub_index,
                 get_function=get_function,
                 pyomo_var=pyomo_var,
+                multi_sub_index=multi_sub_index,
             )
 
     def process_output(
@@ -799,11 +804,13 @@ class ReaktoroOutputSpec:
         property_type,
         property_name,
         property_index=None,
+        property_sub_index=None,
         get_function=None,
         pyomo_var=None,
+        multi_sub_index=False,
     ):
-        if isinstance(property_index, tuple):
-            index = (property_name,) + property_index
+        if multi_sub_index:
+            index = (property_name, property_index, property_sub_index)
         else:
             index = (property_name, property_index)
         if index not in self.user_outputs:
@@ -817,6 +824,7 @@ class ReaktoroOutputSpec:
                     property_type=property_type,
                     property_name=property_name,
                     property_index=property_index,
+                    property_sub_index=property_sub_index,
                     get_function=get_function,
                     pyomo_var=pyomo_var,
                 )
@@ -838,6 +846,7 @@ class ReaktoroOutputSpec:
                     property_type=property_type,
                     property_name=property_name,
                     property_index=property_index,
+                    property_sub_index=property_sub_index,
                     pyomo_var=pyomo_var,
                 )
 
@@ -851,6 +860,7 @@ class ReaktoroOutputSpec:
                     property_type=property_type,
                     property_name=property_name,
                     property_index=property_index,
+                    property_sub_index=property_sub_index,
                     get_function=get_function,
                     pyomo_var=pyomo_var,
                 )
@@ -895,7 +905,9 @@ class ReaktoroOutputSpec:
                 f"{property_name} is not supported for automatic indexing"
             )
 
-    def get_prop_type(self, property_name, property_index=None):
+    def get_prop_type(
+        self, property_name, property_index=None, property_sub_index=None
+    ):
         """this function will try differernt property types useing standard
         call functions to figure out property type (aquous, chem, etc) and how
         to get the actual value prop.value(), prop.value(index), prop.value(index).val()
@@ -940,12 +952,13 @@ class ReaktoroOutputSpec:
                             prop,
                             property_name,
                             property_index,
+                            property_sub_index,
                         )
                         return supported_props, func_attempt
                 except (TypeError, KeyError, AttributeError, RuntimeError):
                     pass
         raise NotImplementedError(
-            f"""The {property_name}, {property_index} was not found,
+            f"""The {property_name}, {property_index}, {property_sub_index} was not found,
                 its either not supported, or requested index is not in present.
             """
         )
@@ -996,38 +1009,52 @@ class ReaktoroOutputSpec:
 
     #### start of possible call function to extract values from reactoro properties #####
 
-    def _func_tester(self, func, prop_type, prop_name, prop_index):
+    def _func_tester(self, func, prop_type, prop_name, prop_index, property_sub_index):
         """test function for reaktoro properties,
         The props can return errors due to not fully configured state, as such
         we want to accept those props as real, only if they specify explicit runtime error
         """
         try:
-            value = func(prop_type, prop_name, prop_index)
+            value = func(prop_type, prop_name, prop_index, property_sub_index)
 
         except RuntimeError as error:
             if "Unable to interpolate" not in str(error):
                 raise error
 
-    def _get_prop_phase_name_val(self, prop_type, prop_name, prop_index):
+    def _get_prop_phase_name_val(
+        self, prop_type, prop_name, prop_index, property_sub_index=None
+    ):
         """get prop based on phase, used for chem_props.phaseProp"""
         value = getattr(prop_type.phaseProps(prop_index), prop_name)()
         return float(value)
 
-    def _get_reaktoro_function(self, prop_type, prop_name, prop_index=None):
+    def _get_reaktoro_function(
+        self, prop_type, prop_name, prop_index=None, property_sub_index=None
+    ):
         """get reaktoro function result, handling None, tuple, and single index"""
         if prop_index is None:
             return getattr(prop_type, prop_name)()
-        elif isinstance(prop_index, tuple):
-            return getattr(prop_type, prop_name)(*prop_index)
+        elif property_sub_index is not None:
+            return getattr(prop_type, prop_name)(prop_index, property_sub_index)
         else:
             return getattr(prop_type, prop_name)(prop_index)
 
-    def _get_prop_name_val(self, prop_type, prop_name, prop_index=None):
+    def _get_prop_name_val(
+        self, prop_type, prop_name, prop_index=None, property_sub_index=None
+    ):
         """get prop based on name/index and execute value call"""
         return float(
-            self._get_reaktoro_function(prop_type, prop_name, prop_index).val()
+            self._get_reaktoro_function(
+                prop_type, prop_name, prop_index, property_sub_index
+            ).val()
         )
 
-    def _get_prop_name(self, prop_type, prop_name, prop_index=None):
+    def _get_prop_name(
+        self, prop_type, prop_name, prop_index=None, property_sub_index=None
+    ):
         """get prop based/index on name only"""
-        return float(self._get_reaktoro_function(prop_type, prop_name, prop_index))
+        return float(
+            self._get_reaktoro_function(
+                prop_type, prop_name, prop_index, property_sub_index
+            )
+        )
