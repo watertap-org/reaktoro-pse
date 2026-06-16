@@ -795,7 +795,6 @@ class ReaktoroBlockData(ProcessBlockData):
 
         # configure outputs
         index = self.index()
-
         block.rkt_outputs = ReaktoroOutputSpec(block.rkt_state)
 
         if self.config.outputs is None:
@@ -811,13 +810,27 @@ class ReaktoroBlockData(ProcessBlockData):
         else:
 
             # build user requested outputs
+            # track if user supplied subindexing or not (e.g. property, index, index)
+            multi_sub_index = False
             for output_key, output_var in self.config.outputs.items():
                 if index is None or index in output_key:
                     if isinstance(output_key, tuple):
                         if len(output_key) == 2:
                             output_key, output_prop = output_key
-                        if len(output_key) == 3:
+                            property_sub_index = None
+                        elif len(output_key) == 3 and index is not None:
                             _, output_key, output_prop = output_key
+                            property_sub_index = None
+                        elif len(output_key) == 3 and index is None:
+                            output_key, output_prop, property_sub_index = output_key
+                            multi_sub_index = True
+                        elif len(output_key) == 4 and index is not None:
+                            _, output_key, output_prop, property_sub_index = output_key
+                            multi_sub_index = True
+                        else:
+                            raise ValueError(
+                                "Output key must be a tuple of length 2 or 3"
+                            )
                     else:
                         output_prop = None
                     if isinstance(output_var, bool):
@@ -834,16 +847,22 @@ class ReaktoroBlockData(ProcessBlockData):
                             output_key,
                             get_all_indexes=True,
                             ignore_indexes=ignore_species,
+                            multi_sub_index=multi_sub_index,
                         )
                     elif isinstance(output_var, list):
                         block.rkt_outputs.register_output(
                             output_key,
                             get_all_indexes=True,
                             ignore_indexes=output_var,
+                            multi_sub_index=multi_sub_index,
                         )
                     else:
                         block.rkt_outputs.register_output(
-                            output_key, output_prop, pyomo_var=output_var
+                            output_key,
+                            output_prop,
+                            property_sub_index=property_sub_index,
+                            pyomo_var=output_var,
+                            multi_sub_index=multi_sub_index,
                         )
 
     def convert_outputs_to_dict(self):

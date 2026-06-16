@@ -192,8 +192,8 @@ def test_blockBuild_with_specie_balance_warning(build_rkt_state_with_species, ca
     assert f"""The charge neutrality ion SO4-2 is not an element,
                     and inexact speciation is provided. Ignore this warning, if you want to only adjust specie ratios to
                     achieve charge neutrality, otherwise supply an element (such as "S" instead of "SO4-2")
-                    to find the amount of element that should be added or removed to achieve charge neutrality. Adjustment 
-                    of specie ratios should in general be done when exact speciation is provided ('exact_speciation=True') 
+                    to find the amount of element that should be added or removed to achieve charge neutrality. Adjustment
+                    of specie ratios should in general be done when exact speciation is provided ('exact_speciation=True')
                     as otherwise Reaktoro solver might not converge, as shifting specie ratios might be insufficient to
                     achieve a charge neutral solution.""".replace(
         " ", ""
@@ -764,3 +764,56 @@ def test_indexed_blockBuild_with_speciation_block(
     m.display()
     assert pytest.approx(m.CaO[(0, "CaO")].value, 1e-3) == 0.01732553618254949
     assert pytest.approx(m.CaO[(1, "CaO")].value, 1e-3) == 0.011351679127420139
+
+
+def test_blockBuild_element_amount_in_phase(build_rkt_state_with_species):
+    m = build_rkt_state_with_species
+    m.outputs_element = Var(
+        [
+            ("speciesAmount", "Na+", None),
+            ("elementAmountInPhase", "Na", "AqueousPhase"),
+            ("elementAmountInPhase", "Ca", "AqueousPhase"),
+            ("pH", None, None),
+        ],
+        initialize=0,
+        units=pyunits.mol / pyunits.s,
+    )
+    m.CaO = Var(["CaO"], initialize=0.002, units=pyunits.mol / pyunits.s)
+    m.CaO.fix()
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+        },
+        chemistry_modifier=m.CaO,
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        outputs=m.outputs_element,
+        build_speciation_block=True,
+    )
+    m.property_block.initialize()
+    m.outputs_element.display()
+    m.outputs_element["pH", None, None].fix(11.5)
+    m.CaO.unfix()
+    cy_solver = get_cyipopt_watertap_solver()
+    cy_solver.options["max_iter"] = 20
+    result = cy_solver.solve(m, tee=True)
+    m.display()
+    assert_optimal_termination(result)
+    assert (
+        pytest.approx(
+            m.outputs_element["elementAmountInPhase", "Na", "AqueousPhase"].value, 1e-3
+        )
+        == 0.5
+    )
+    assert (
+        pytest.approx(
+            m.outputs_element["elementAmountInPhase", "Ca", "AqueousPhase"].value, 1e-3
+        )
+        == m.CaO["CaO"].value + m.composition["Ca"].value
+    )
