@@ -79,6 +79,8 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
     m.feed_pressure.fix()
     m.feed_pH = Var(initialize=7, bounds=(4, 12), units=pyunits.dimensionless)
     m.feed_pH.fix()
+    m.feed_pE = Var(initialize=4, bounds=(-4, 12), units=pyunits.dimensionless)
+    m.feed_pE.fix()
     m.precipitator_composition = Var(
         list(m.feed_composition.keys()),
         initialize=1,
@@ -118,6 +120,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
             ("speciesAmount", "Anhydrite"),
             ("molarEnthalpy", None),
             ("pH", None),
+            ("pE", None),
             ("vaporPressure", "H2O(g)"),
         ],
         initialize=1e-5,
@@ -210,22 +213,6 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         "Ca": "Ca+2",
         "HCO3": "HCO3-",
     }
-    # We will exclude species here that are present in zero concentration and we do not expect to participate
-    exclude_species_list = [
-        "S2O5-2",
-        "S2O6-2",
-        "S2O8-2",
-        "S5O6-2",
-        "HO2-",
-        "HClO2(aq)",
-        "HClO(aq)",
-        "H2S2O4(aq)",
-        "H2O2(aq)",
-        "ClO-",
-        "ClO2-",
-        "ClO3-",
-        "ClO4-",
-    ]
     # note how we included nitrogen as one of gas species, this will prevent
     # PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)"""
 
@@ -237,11 +224,15 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         hess_options = {}
     else:
         hess_options = {"hessian_type": hess_type}
+
+    solver_options = {"solver_tolerance": 1e-8, "epsilon": 1e-60}
+
     m.eq_feed_properties = ReaktoroBlock(
         system_state={
             "temperature": m.feed_temperature,
             "pressure": m.feed_pressure,
             "pH": m.feed_pH,
+            "pE": m.feed_pE,
         },
         aqueous_phase={
             "composition": m.feed_composition,
@@ -258,11 +249,11 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",
         dissolve_species_in_reaktoro=True,
-        exclude_species_list=exclude_species_list,
         reaktoro_block_manager=m.parallel_block_manager,
         build_speciation_block=False,
         assert_charge_neutrality_on_property_block=True,
         hessian_options=hess_options,
+        reaktoro_solve_options=solver_options,
     )
 
     # """ need to get precipitator enthalpy to find required power input """
@@ -271,6 +262,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
             "temperature": m.precipitator_temperature,
             "pressure": m.feed_pressure,
             "pH": m.feed_pH,
+            "pE": m.feed_pE,
         },
         aqueous_phase={
             "composition": m.precipitator_composition,
@@ -288,10 +280,10 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         database_file="supcrtbl",
         dissolve_species_in_reaktoro=True,
         build_speciation_block=True,
-        exclude_species_list=exclude_species_list,
         reaktoro_block_manager=m.parallel_block_manager,
         assert_charge_neutrality_on_property_block=True,
         hessian_options=hess_options,
+        reaktoro_solve_options=solver_options,
     )
 
     m.eq_treated_properties = ReaktoroBlock(
@@ -299,6 +291,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
             "temperature": m.precipitator_temperature,
             "pressure": m.feed_pressure,
             "pH": m.precipitation_properties[("pH", None)],
+            "pE": m.precipitation_properties[("pE", None)],
         },
         aqueous_phase={
             "composition": m.treated_composition,
@@ -315,11 +308,11 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         database="SupcrtDatabase",  # need to specify new data base to use
         database_file="supcrtbl",
         dissolve_species_in_reaktoro=True,
-        exclude_species_list=exclude_species_list,
         reaktoro_block_manager=m.parallel_block_manager,
         assert_charge_neutrality_on_property_block=True,
         build_speciation_block=False,
         hessian_options=hess_options,
+        reaktoro_solve_options=solver_options,
     )
     # assert False
     if parallel_mode:
@@ -436,6 +429,7 @@ def display_results(m):
         f'Calcite precipitation {m.precipitation_properties[("speciesAmount", "Calcite")].value} mol/s'
     )
     print(f'precipitator pH {m.precipitation_properties[("pH", None)].value}')
+    print(f'precipitator pE {m.precipitation_properties[("pE", None)].value}')
 
 
 if __name__ == "__main__":

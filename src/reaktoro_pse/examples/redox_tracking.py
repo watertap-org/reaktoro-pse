@@ -16,13 +16,9 @@ from reaktoro_pse.core.util_classes.cyipopt_solver import (
 from pyomo.environ import (
     ConcreteModel,
     Var,
-    Objective,
-    Constraint,
     assert_optimal_termination,
     units as pyunits,
 )
-
-from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
 
@@ -108,6 +104,9 @@ def build_modifer_blocks(parallel_mode=False):
         m.parallel_block_manager = ReaktoroBlockManager()
     else:
         m.parallel_block_manager = None
+
+    solver_options = {"solver_tolerance": 1e-10, "epsilon": 1e-200}
+
     m.eq_acidifier_block = ReaktoroBlock(
         aqueous_phase={
             "composition": m.feed_composition,
@@ -130,6 +129,7 @@ def build_modifer_blocks(parallel_mode=False):
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
         reaktoro_block_manager=m.parallel_block_manager,
+        reaktoro_solve_options=solver_options,
     )
     m.eq_scaling_no_pE = ReaktoroBlock(
         aqueous_phase={
@@ -153,6 +153,7 @@ def build_modifer_blocks(parallel_mode=False):
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
         reaktoro_block_manager=m.parallel_block_manager,
+        reaktoro_solve_options=solver_options,
     )
     m.eq_scaling_with_pE = ReaktoroBlock(
         aqueous_phase={
@@ -177,6 +178,7 @@ def build_modifer_blocks(parallel_mode=False):
         # we are modifying state and must speciate inputs before adding acid to find final prop state.
         build_speciation_block=True,
         reaktoro_block_manager=m.parallel_block_manager,
+        reaktoro_solve_options=solver_options,
     )
     if parallel_mode:
         m.parallel_block_manager.build_reaktoro_blocks()
@@ -204,6 +206,7 @@ def display_results(m):
         print(
             f"Output for {key} has value of {obj.value} with pE tracking and {m.scaling_no_pE_outputs[key].value} with out pE tracking"
         )
+    m.eq_scaling_with_pE.display_reaktoro_state()
 
 
 def log_results(m, result_array=None):
@@ -224,10 +227,8 @@ def log_results(m, result_array=None):
             float(m.modified_properties_water_removal.value)
         )
         for key, obj in m.scaling_with_pE_outputs.items():
-            result_array["no_pe"][key].append(float(obj.value))
-            result_array["with_pe"][key].append(
-                float(m.scaling_no_pE_outputs[key].value)
-            )
+            result_array["with_pe"][key].append(float(obj.value))
+            result_array["no_pe"][key].append(float(m.scaling_no_pE_outputs[key].value))
     return result_array
 
 

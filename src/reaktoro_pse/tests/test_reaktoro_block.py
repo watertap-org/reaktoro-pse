@@ -9,6 +9,8 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
+import logging
+
 import pytest
 
 from reaktoro_pse.reaktoro_block import ReaktoroBlock
@@ -30,6 +32,9 @@ from reaktoro_pse.core.util_classes.cyipopt_solver import (
 )
 from watertap_solvers import get_solver
 from idaes.core.util.model_statistics import degrees_of_freedom
+import idaes.logger as idaeslog
+
+_log = idaeslog.getLogger(__name__)
 
 
 def build_comp(blk):
@@ -164,6 +169,43 @@ def test_blockBuild(build_rkt_state_with_species):
     assert pytest.approx(m.composition["H2O"].value, 1e-3) == 68.0601837
 
 
+def test_blockBuild_with_specie_balance_warning(build_rkt_state_with_species, caplog):
+    m = build_rkt_state_with_species
+    m.outputs.display()
+    with caplog.at_level(logging.WARNING):
+        m.property_block = ReaktoroBlock(
+            aqueous_phase={
+                "composition": m.composition,
+                "convert_to_rkt_species": True,
+            },
+            system_state={
+                "temperature": m.temp,
+                "pressure": m.pressure,
+                "pH": m.pH,
+            },
+            database="PhreeqcDatabase",
+            database_file="pitzer.dat",
+            outputs=m.outputs,
+            charge_neutrality_ion="SO4-2",
+        )
+    print(caplog.text)
+    assert f"""The charge neutrality ion SO4-2 is not an element,
+                    and inexact speciation is provided. Ignore this warning, if you want to only adjust specie ratios to
+                    achieve charge neutrality, otherwise supply an element (such as "S" instead of "SO4-2")
+                    to find the amount of element that should be added or removed to achieve charge neutrality. Adjustment
+                    of specie ratios should in general be done when exact speciation is provided ('exact_speciation=True')
+                    as otherwise Reaktoro solver might not converge, as shifting specie ratios might be insufficient to
+                    achieve a charge neutral solution.""".replace(
+        " ", ""
+    ).replace(
+        "\n", ""
+    ) in caplog.text.replace(
+        " ", ""
+    ).replace(
+        "\n", ""
+    )
+
+
 def test_blockBuild_with_pE(build_rkt_state_with_species_and_pE):
     m = build_rkt_state_with_species_and_pE
     m.outputs.display()
@@ -234,56 +276,80 @@ def test_block_jacobian_scaling(build_rkt_state_with_species, scaling_type):
     )
     m.property_block.initialize()
     scaling_factors = m.property_block.display_jacobian_scaling()
-    print(scaling_type, scaling_factors)
+
+    def dict_test(dict_a, dict_b, tol=1e-4):
+        for blk in dict_a.keys():
+            for key in dict_a[blk].keys():
+                assert key in dict_b[blk]
+                assert pytest.approx(dict_a[blk][key], tol) == dict_b[blk][key]
+
     if scaling_type == "no_scaling":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 1.0,
-                ("pH", None): 1.0,
-                ("pE", None): 1,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 1.0,
+                    ("pH", None): 1.0,
+                    ("pE", None): 1,
+                }
+            },
+        )
     elif scaling_type == "variable_output_scaling":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 0.1088858058987964,
-                ("pH", None): 0.14285714285714285,
-                ("pE", None): 0.10361133064195724,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 0.1088858058987964,
+                    ("pH", None): 0.14285714285714285,
+                    ("pE", None): 0.10361133064195724,
+                }
+            },
+        )
     elif scaling_type == "jacobian_matrix_square_sum":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 0.0007698149159929651,
-                ("pH", None): 0.9999999999999998,
-                ("pE", None): 0.1359733544810525,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 0.0007698149159929651,
+                    ("pH", None): 0.9999999999999998,
+                    ("pE", None): 0.1359733544810525,
+                }
+            },
+        )
     elif scaling_type == "jacobian_matrix_inverse_sum":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 9.627321324829857e-08,
-                ("pH", None): 1e-08,
-                ("pE", None): 1e-08,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 9.627321324829857e-08,
+                    ("pH", None): 1e-08,
+                    ("pE", None): 1e-08,
+                }
+            },
+        )
     elif scaling_type == "variable_oi_scaling_square_sum":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 0.0006275654371006124,
-                ("pH", None): 0.0008233598912186447,
-                ("pE", None): 0.0005971658974846666,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 0.0006275654371006124,
+                    ("pH", None): 0.0008233598912186447,
+                    ("pE", None): 0.0005971658974846666,
+                }
+            },
+        )
 
     elif scaling_type == "variable_oi_scaling_inverse_sum":
-        assert scaling_factors == {
-            "property_block": {
-                ("scalingTendency", "Calcite"): 100.0,
-                ("pH", None): 100.0,
-                ("pE", None): 100,
-            }
-        }
+        dict_test(
+            scaling_factors,
+            {
+                "property_block": {
+                    ("scalingTendency", "Calcite"): 100.0,
+                    ("pH", None): 100.0,
+                    ("pE", None): 100,
+                }
+            },
+        )
 
 
 def test_activate_deactivate(build_rkt_state_with_species):
@@ -698,3 +764,56 @@ def test_indexed_blockBuild_with_speciation_block(
     m.display()
     assert pytest.approx(m.CaO[(0, "CaO")].value, 1e-3) == 0.01732553618254949
     assert pytest.approx(m.CaO[(1, "CaO")].value, 1e-3) == 0.011351679127420139
+
+
+def test_blockBuild_element_amount_in_phase(build_rkt_state_with_species):
+    m = build_rkt_state_with_species
+    m.outputs_element = Var(
+        [
+            ("speciesAmount", "Na+", None),
+            ("elementAmountInPhase", "Na", "AqueousPhase"),
+            ("elementAmountInPhase", "Ca", "AqueousPhase"),
+            ("pH", None, None),
+        ],
+        initialize=0,
+        units=pyunits.mol / pyunits.s,
+    )
+    m.CaO = Var(["CaO"], initialize=0.002, units=pyunits.mol / pyunits.s)
+    m.CaO.fix()
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+        },
+        chemistry_modifier=m.CaO,
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        outputs=m.outputs_element,
+        build_speciation_block=True,
+    )
+    m.property_block.initialize()
+    m.outputs_element.display()
+    m.outputs_element["pH", None, None].fix(11.5)
+    m.CaO.unfix()
+    cy_solver = get_cyipopt_watertap_solver()
+    cy_solver.options["max_iter"] = 20
+    result = cy_solver.solve(m, tee=True)
+    m.display()
+    assert_optimal_termination(result)
+    assert (
+        pytest.approx(
+            m.outputs_element["elementAmountInPhase", "Na", "AqueousPhase"].value, 1e-3
+        )
+        == 0.5
+    )
+    assert (
+        pytest.approx(
+            m.outputs_element["elementAmountInPhase", "Ca", "AqueousPhase"].value, 1e-3
+        )
+        == m.CaO["CaO"].value + m.composition["Ca"].value
+    )

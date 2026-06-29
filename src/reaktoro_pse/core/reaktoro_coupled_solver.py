@@ -248,7 +248,6 @@ class ReaktoroCoupledSolver:
                 len(self.input_specs.rkt_inputs.rkt_input_list),
             )
         )
-
         prop_prop_jac = property_jac.T[[self.prop_jac_propagation_idx]][0].T
         end_idx = 0
         start_idx = 0

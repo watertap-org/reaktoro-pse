@@ -43,6 +43,7 @@ _log = idaeslog.getLogger(__name__)
 class JacScalingTypes:
     no_scaling = "no_scaling"
     variable_output_scaling = "variable_output_scaling"
+    inverse_variable_output_scaling = "inverse_variable_output_scaling"
     jacobian_matrix_square_sum = "jacobian_matrix_square_sum"
     jacobian_matrix_inverse_sum = "jacobian_matrix_inverse_sum"
     manual_scaling = "manual_scaling"
@@ -244,17 +245,35 @@ class ReaktoroBlockBuilder:
                         )
 
         @self.block.Constraint(self.solver.output_specs.user_outputs)
-        def output_constraints(fs, prop, prop_index):
-            prop_object = self.solver.output_specs.user_outputs[(prop, prop_index)]
+        def output_constraints(fs, prop, prop_index, sub_prop_index=None):
+            if (
+                prop,
+                prop_index,
+                sub_prop_index,
+            ) not in self.solver.output_specs.user_outputs:
+                prop_object = self.solver.output_specs.user_outputs[(prop, prop_index)]
+            else:
+                prop_object = self.solver.output_specs.user_outputs[
+                    (prop, prop_index, sub_prop_index)
+                ]
             if prop_object.property_type == PropTypes.pyomo_built_prop:
                 return prop_object.pyomo_build_options.build_constraint_function(
                     prop_object
                 )
             else:
-                return (
-                    prop_object.get_pyomo_var()
-                    == self.block.reaktoro_model.outputs[(prop, prop_index)]
-                )
+                if (
+                    prop,
+                    prop_index,
+                    sub_prop_index,
+                ) not in self.solver.output_specs.user_outputs:
+                    rkt_model_object = self.block.reaktoro_model.outputs[
+                        (prop, prop_index)
+                    ]
+                else:
+                    rkt_model_object = self.block.reaktoro_model.outputs[
+                        (prop, prop_index, sub_prop_index)
+                    ]
+                return prop_object.get_pyomo_var() == rkt_model_object
 
     def initialize(self, presolve_during_initialization=False):
         """initialize reaktoro block
@@ -377,6 +396,18 @@ class ReaktoroBlockBuilder:
                 )
                 sf = out_sf
                 self.solver.jacobian_scaling_values[i] = sf
+        elif (
+            self.jacobian_scaling_type
+            == JacScalingTypes.inverse_variable_output_scaling
+        ):
+            for i, (key, obj) in enumerate(
+                self.solver.output_specs.rkt_outputs.items()
+            ):
+                out_sf = self.get_rkt_scale(
+                    obj, use_default_scaling=use_default_scaling
+                )
+                sf = out_sf
+                self.solver.jacobian_scaling_values[i] = 1 / sf
         elif (
             self.jacobian_scaling_type
             == JacScalingTypes.variable_oi_scaling_inverse_sum

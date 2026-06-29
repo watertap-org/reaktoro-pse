@@ -4,6 +4,9 @@
 ## 1. Overview
 This is a package for configuring [Reaktoro](https://reaktoro.org/index.html) as a gray box model in [Pyomo](https://pyomo.readthedocs.io/en/stable/), [IDAES-PSE](https://idaes-pse.readthedocs.io/en/stable/), and [WaterTAP](https://watertap.readthedocs.io/en/stable/) modeling libraries. This package is not meant to replace or act as a higher level API for Reaktoro - it is only meant to enable setting up Reaktoro equilibrium problems as blocks on Pyomo models and automate transferring Reaktoro data into Pyomo variables. 
 
+If you find this tool useful for your research, please consider citing the [paper](https://pubs.acs.org/doi/abs/10.1021/acsestengg.5c01008):
+> Akkor, I., Amusat, O. O., Vecchiarelli, P., Gounaris, C. E., Knueven, B., & Dudchenko, A. V. “Optimization of Desalination Systems with Detailed Water Chemistry through Integration of Reaktoro in WaterTAP.” ACS ES&T Engineering, vol. 6, no. 5, 2026, pp. 1464–1477.
+
 ## 2. Prerequisites
 **The user must familiarize thyself with Reaktoro options and usage, especially when selecting Reaktoro provided databases, database files, and activity models for aqueous, solid, and gas phases. This package does not automatically select any of these options, and will use ideal models by default.**
 
@@ -164,7 +167,7 @@ Reaktoro-pse depends on the following packages and/or versions:
 ### Installation (Conda)
 ```sh
 conda activate $YOUR_ENV
-conda install cyipopt reaktoro
+conda install -c conda-forge cyipopt reaktoro
 pip install git+https://github.com/watertap-org/reaktoro-pse.git
 ```
 
@@ -174,7 +177,7 @@ pip install git+https://github.com/watertap-org/reaktoro-pse.git
 git clone https://github.com/watertap-org/reaktoro-pse.git
 conda create --name reaktoro-pse-dev --yes python=3.12
 conda activate reaktoro-pse-dev
-conda install cyipopt reaktoro
+conda install -c conda-forge cyipopt reaktoro
 install -e.
 ```
 ### Running tests
