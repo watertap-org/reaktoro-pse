@@ -281,6 +281,7 @@ class ReaktoroInputSpec:
         # ignore elements for constraints
         pressure_not_set = True
         temperature_not_set = True
+        open_pe = True
         for input_name, _ in self.state.inputs.items():
             if input_name == RktInputTypes.temperature:
                 specs_object.temperature()
@@ -309,6 +310,7 @@ class ReaktoroInputSpec:
                 self.rkt_inputs[RktInputTypes.pH].set_upper_bound(14)
             elif input_name == RktInputTypes.pE:
                 specs_object.pE()
+                open_pe = False
                 self.rkt_inputs[RktInputTypes.pE] = self.state.inputs[RktInputTypes.pE]
                 self.rkt_inputs[RktInputTypes.pE].set_lower_bound(None)
                 self.rkt_inputs[RktInputTypes.pE].set_upper_bound(None)
@@ -332,6 +334,10 @@ class ReaktoroInputSpec:
         if temperature_not_set:
             specs_object.unknownTemperature()
             # self.write_empty_con(specs_object, "open_temperature")
+        if open_pe:
+            specs_object.openTo("e-")
+            self.write_empty_con(specs_object, "open_pe")
+            print("oppend Pe")
         if assert_charge_neutrality:
             # constraint will be written below (L376)
             if self.neutrality_ion is not None:
