@@ -390,9 +390,9 @@ class ConvertedPropTypes:
             property_name="alkalinity",
             property_index=None,
         )
-        output.calculate_value = lambda x: (x["alkalinity", None].value * 100.09 * 1000)
+        output.calculate_value = lambda x: (x["alkalinity", None].value * 100.09 * 1000 / 2)
         output.calculate_derivative_conversion = lambda x: (
-            x["alkalinity", None].derivative * 100.09 * 1000
+            x["alkalinity", None].derivative * 100.09 * 1000 / 2
         )
         return output
 
