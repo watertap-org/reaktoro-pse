@@ -29,8 +29,7 @@ jobs:
      - name: Generate dist files
        run: |
          pip install build wheel
-
-         python -m build --wheel --outdir dist/
+         python -m build
 
      - name: Check that the dist directory's size is below PyPI's maximum
        run: |
