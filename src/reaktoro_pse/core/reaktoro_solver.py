@@ -241,6 +241,7 @@ class ReaktoroSolver:
             sf = 0
             for rkt_input, rkt_multiplier in constraint_obj:
                 sf += (rkt_input.rkt_scaling_factor / rkt_multiplier) ** -1
+            # print(constraint, sf)
             constraint_obj.scaling_factor = sf**-1
 
     def get_outputs(self):
