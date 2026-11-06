@@ -275,8 +275,13 @@ def test_state_with_species_mass_basis(build_rkt_state_with_species_mass_basis):
         "pH": None,
     }
     for key, inp in rkt_state.inputs.items():
+        if key in ["pH", "temperature", "pressure"]:
+            assert inp.get_unit_conversion_value() is None
         # print(key, inp.get_unit_conversion_value())
-        assert pytest.approx(test_dict[key], 1e-3) == inp.get_unit_conversion_value()
+        else:
+            assert (
+                pytest.approx(test_dict[key], 1e-3) == inp.get_unit_conversion_value()
+            )
     # print(test_dict)
 
 
