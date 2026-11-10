@@ -23,6 +23,7 @@ from reaktoro_pse.core.reaktoro_inputs import (
 from reaktoro_pse.core.reaktoro_jacobian import (
     ReaktoroJacobianSpec,
 )
+from reaktoro_pse.core.util_classes.hessian_functions import HESSIAN_DEFAULTS
 import cyipopt
 import idaes.logger as idaeslog
 
@@ -108,6 +109,8 @@ class ReaktoroSolver:
         export_object.bfgs_init_const_hessian_value = self.bfgs_init_const_hessian_value
         export_object.bfgs_hessian_memory = self.bfgs_hessian_memory
         export_object.bfgs_epsilon = self.bfgs_epsilon
+        export_object.sr1_skip_tolerance = self.sr1_skip_tolerance
+        export_object.hessian_input_scaling = self.hessian_input_scaling
         export_object.block_name = self.block_name
         export_object.auto_scale_constraint = self.auto_scale_constraint
         return export_object
@@ -130,6 +133,16 @@ class ReaktoroSolver:
             export_object.bfgs_hessian_memory,
             export_object.bfgs_epsilon,
             export_object.auto_scale_constraint,
+            sr1_skip_tolerance=getattr(
+                export_object,
+                "sr1_skip_tolerance",
+                HESSIAN_DEFAULTS["sr1_skip_tolerance"],
+            ),
+            hessian_input_scaling=getattr(
+                export_object,
+                "hessian_input_scaling",
+                HESSIAN_DEFAULTS["hessian_input_scaling"],
+            ),
         )
 
     def equilibrate_state(self):
@@ -147,14 +160,16 @@ class ReaktoroSolver:
         presolve_epsilon=1e-12,
         max_iters=500,
         presolve_max_iters=500,
-        hessian_type="ZeroHessian",
-        bfgs_initialization_type="scalar1",
-        bfgs_init_min_hessian_value=1e-32,
-        bfgs_init_max_hessian_value=1e8,
-        bfgs_init_const_hessian_value=1e-16,
-        bfgs_hessian_memory=3,
-        bfgs_epsilon=1e-12,
+        hessian_type=HESSIAN_DEFAULTS["hessian_type"],
+        bfgs_initialization_type=HESSIAN_DEFAULTS["bfgs_initialization_type"],
+        bfgs_init_min_hessian_value=HESSIAN_DEFAULTS["bfgs_init_min_hessian_value"],
+        bfgs_init_max_hessian_value=HESSIAN_DEFAULTS["bfgs_init_max_hessian_value"],
+        bfgs_init_const_hessian_value=HESSIAN_DEFAULTS["bfgs_init_const_hessian_value"],
+        bfgs_hessian_memory=HESSIAN_DEFAULTS["bfgs_hessian_memory"],
+        bfgs_epsilon=HESSIAN_DEFAULTS["bfgs_epsilon"],
         auto_scale_constraint=True,
+        sr1_skip_tolerance=HESSIAN_DEFAULTS["sr1_skip_tolerance"],
+        hessian_input_scaling=HESSIAN_DEFAULTS["hessian_input_scaling"],
     ):
         """configuration for reaktro solver
 
@@ -180,6 +195,8 @@ class ReaktoroSolver:
         self.bfgs_init_const_hessian_value = bfgs_init_const_hessian_value
         self.bfgs_hessian_memory = bfgs_hessian_memory
         self.bfgs_epsilon = bfgs_epsilon
+        self.sr1_skip_tolerance = sr1_skip_tolerance
+        self.hessian_input_scaling = hessian_input_scaling
         self.auto_scale_constraint = auto_scale_constraint
 
     def set_system_bounds(

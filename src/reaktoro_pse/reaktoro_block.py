@@ -935,6 +935,8 @@ class ReaktoroBlockData(ProcessBlockData):
             bfgs_hessian_memory=self.config.hessian_options.bfgs_hessian_memory,
             bfgs_epsilon=self.config.hessian_options.bfgs_epsilon,
             auto_scale_constraint=self.config.reaktoro_solve_options.auto_scale_constraints,
+            sr1_skip_tolerance=self.config.hessian_options.sr1_skip_tolerance,
+            hessian_input_scaling=self.config.hessian_options.hessian_input_scaling,
         )
 
     def build_gray_box(self, block, speciation_block=False):

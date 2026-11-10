@@ -134,6 +134,8 @@ class ReaktoroCoupledSolver:
         )
         self.bfgs_hessian_memory = self.property_solver.bfgs_hessian_memory
         self.bfgs_epsilon = self.property_solver.bfgs_epsilon
+        self.sr1_skip_tolerance = self.property_solver.sr1_skip_tolerance
+        self.hessian_input_scaling = self.property_solver.hessian_input_scaling
 
     def modify_key(self, index, key):
         """utility for generating single tuple key"""

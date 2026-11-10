@@ -21,7 +21,7 @@ import idaes.logger as idaeslog
 from reaktoro_pse.core.util_classes.hessian_functions import (
     HessianApproximation,
     HessTypes,
-    BFGSInitializationTypes,
+    HESSIAN_DEFAULTS,
 )
 
 __author__ = "Ilayda Akkor, Alexander V. Dudchenko, Paul Vecchiarelli, Ben Knueven"
@@ -41,13 +41,25 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
         input_dict=None,
         outputs=None,
         hessian_type=None,
-        bfgs_initialization_type=BFGSInitializationTypes.GaussNewton,
-        bfgs_init_min_hessian_value=1e-32,
-        bfgs_init_max_hessian_value=1e8,
-        bfgs_init_const_hessian_value=1e-16,
-        bfgs_hessian_memory=3,
-        bfgs_epsilon=1e-12,
+        bfgs_initialization_type=HESSIAN_DEFAULTS["bfgs_initialization_type"],
+        bfgs_init_min_hessian_value=HESSIAN_DEFAULTS["bfgs_init_min_hessian_value"],
+        bfgs_init_max_hessian_value=HESSIAN_DEFAULTS["bfgs_init_max_hessian_value"],
+        bfgs_init_const_hessian_value=HESSIAN_DEFAULTS["bfgs_init_const_hessian_value"],
+        bfgs_hessian_memory=HESSIAN_DEFAULTS["bfgs_hessian_memory"],
+        bfgs_epsilon=HESSIAN_DEFAULTS["bfgs_epsilon"],
+        sr1_skip_tolerance=HESSIAN_DEFAULTS["sr1_skip_tolerance"],
+        hessian_input_scaling=HESSIAN_DEFAULTS["hessian_input_scaling"],
+        hessian_support=None,
     ):
+        """configure gray box
+
+        Args:
+            hessian_type: if None, all hessian options are taken from reaktoro_solver
+            hessian_support: list (one per output) of input indexes the output
+                depends on, None means all inputs
+            hessian_input_scaling: if True, quasi-Newton updates are done in
+                inputs scaled by the scaling factors of the gray box input variables
+        """
         # assign a Reaktoro state object to instance
         self.reaktoro_solver = reaktoro_solver
         if hessian_type is None:
@@ -60,8 +72,16 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
             bfgs_init_max_hessian_value = reaktoro_solver.bfgs_init_max_hessian_value
             bfgs_initialization_type = reaktoro_solver.bfgs_initialization_type
             bfgs_epsilon = reaktoro_solver.bfgs_epsilon
+            sr1_skip_tolerance = getattr(
+                reaktoro_solver, "sr1_skip_tolerance", sr1_skip_tolerance
+            )
+            hessian_input_scaling = getattr(
+                reaktoro_solver, "hessian_input_scaling", hessian_input_scaling
+            )
         else:
             hess_type = hessian_type
+        self.hessian_input_scaling = hessian_input_scaling
+        self._input_vars = None
         if inputs is None:
             self.inputs = reaktoro_solver.input_specs.rkt_inputs.rkt_input_list
         else:
@@ -89,6 +109,8 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
                 bfgs_init_max_hessian_value=bfgs_init_max_hessian_value,
                 bfgs_initialization_type=bfgs_initialization_type,
                 bfgs_epsilon=bfgs_epsilon,
+                sr1_skip_tolerance=sr1_skip_tolerance,
+                hessian_support=hessian_support,
             )
             setattr(self, "evaluate_hessian_outputs", self._evaluate_hessian_outputs)
 
@@ -111,6 +133,8 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
         block_components = [obj for obj in pyomo_block.component_objects(pyo.Var)]
         for block in block_components:
             if "inputs" in block.name:
+                # keep reference for reading input scaling factors later
+                self._input_vars = block
                 for var in self.inputs:
                     block[var].value = 1  # self.input_dict[var].get_pyomo_var_value()
                     block[var].setlb(self.input_dict[var].get_lower_bound())
@@ -154,9 +178,27 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
 
         return self.reaktoro_solver.get_jacobian_scaling()
 
+    def get_input_scaling_factors(self):
+        """scaling factors of gray box input variables (1 if not set)"""
+        if self._input_vars is None:
+            return np.ones(len(self.inputs))
+        return np.array(
+            [
+                iscale.get_scaling_factor(self._input_vars[var], default=1)
+                for var in self.inputs
+            ],
+            dtype=float,
+        )
+
     def _evaluate_hessian_outputs(self):
         """Evaluate the Hessian matrix of the outputs with respect to the inputs."""
-
+        # make sure jacobian corresponds to current inputs (only re-solves
+        # reaktoro if inputs changed since the last evaluation)
+        self.evaluate_outputs()
+        if self.hessian_input_scaling and self.hessian_calculator.input_scaling is None:
+            # scaling factors are set during block initialization, so read them on
+            # first hessian evaluation, they are kept fixed afterwards
+            self.hessian_calculator.set_input_scaling(self.get_input_scaling_factors())
         low_triangular_hessian = self.hessian_calculator.get_hessian(
             self._input_values,
             self.jacobian_matrix,

@@ -122,6 +122,14 @@ class AggregateSolverState:
             output_end + 1,
         )  # need to offset by 1
 
+    def get_hessian_support(self):
+        """for each aggregated output, indexes of aggregated inputs of same block"""
+        input_blocks = np.array(self.input_blk_indexes)
+        return [
+            np.flatnonzero(input_blocks == block_idx)
+            for block_idx in self.output_blk_indexes
+        ]
+
     def register_scaling_vals(self, scaling_func, input_scaling_func):
         self.jacobian_scaling_obj.append(scaling_func)
         self.input_scaling_obj.append(input_scaling_func)
@@ -350,6 +358,11 @@ class ReaktoroBlockManagerData(ProcessBlockData):
             bfgs_init_const_hessian_value=self.config.hessian_options.bfgs_init_const_hessian_value,
             bfgs_hessian_memory=self.config.hessian_options.bfgs_hessian_memory,
             bfgs_epsilon=self.config.hessian_options.bfgs_epsilon,
+            sr1_skip_tolerance=self.config.hessian_options.sr1_skip_tolerance,
+            hessian_input_scaling=self.config.hessian_options.hessian_input_scaling,
+            # outputs of a block only depend on inputs of the same block, restricting
+            # hessian to block diagonal avoids spurious coupling between blocks
+            hessian_support=self.aggregate_solver_state.get_hessian_support(),
         )
         self.reaktoro_model = ExternalGreyBoxBlock(external_model=external_model)
         for block_idx, block in enumerate(self.registered_blocks):

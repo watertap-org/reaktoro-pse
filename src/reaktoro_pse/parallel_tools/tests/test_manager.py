@@ -48,6 +48,9 @@ from pyomo.contrib.pynumero.interfaces.external_grey_box import (
         "BFGS_mod",  # Does not work on this example
         "BFGS_damp",
         "BFGS_ipopt",
+        "SR1",
+        "PSB",
+        "SR1_lagrangian",
     ],
 )
 def test_blockBuild_with_speciation_block(build_rkt_state_with_species, hess_type):
