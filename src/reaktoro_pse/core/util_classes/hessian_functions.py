@@ -76,7 +76,7 @@ class QuasiNewtonInitializationTypes:
 # single source of default values, used by HessianOptions, ReaktoroSolver,
 # ReaktoroGrayBox and HessianApproximation
 HESSIAN_DEFAULTS = {
-    "hessian_type": HessTypes.LBFGS,
+    "hessian_type": HessTypes.SR1,
     "quasi_newton_initialization_type": QuasiNewtonInitializationTypes.GaussNewton,
     "quasi_newton_init_min_value": 1e-32,
     "quasi_newton_init_max_value": 1e8,

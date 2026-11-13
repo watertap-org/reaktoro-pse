@@ -66,7 +66,9 @@ class HessianOptions:
                 - BFGS_mod - modified BFGS
                 - BFGS_damp - damped BFGS
                 - BFGS_ipopt - BFGS with ipopt update step
-                - SR1 - symmetric rank one, per output, allows indefinite curvature
+                - SR1 - symmetric rank one, per output, allows indefinite curvature (default,
+                  with GaussNewton initialization, most robust in benchmarks on softening and
+                  RO flowsheets)
                 - PSB - Powell symmetric Broyden, per output, allows indefinite curvature
                 - SR1_lagrangian - symmetric rank one on the Lagrangian of each block
                     """,
