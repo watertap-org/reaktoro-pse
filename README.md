@@ -20,7 +20,7 @@ If you find this tool useful for your research, please consider citing the [pape
 * **Aqueous activity models:** [ActivityModelIdealAqueous](https://reaktoro.org/api/namespaceReaktoro.html#ae431d4c8a1f283910ae1cf35024091b8)
 * **Gas activity models:** [ActivityModelIdealGas](https://reaktoro.org/api/namespaceReaktoro.html#a7a0788a5a863d987a88b81303d80b427)
 * **Solid activity models:** [ActivityModelIdealSolution](https://reaktoro.org/api/namespaceReaktoro.html#a6581d5c0cde36cae6d9c46dbc32d56f8)
-* **Ion exchange activity modells:** [ActivityModelIonExchange](https://reaktoro.org/api/namespaceReaktoro.html#a6581d5c0cde36cae6d9c46dbc32d56f8)
+* **Ion exchange activity models:** [ActivityModelIonExchange](https://reaktoro.org/api/namespaceReaktoro.html#a6581d5c0cde36cae6d9c46dbc32d56f8)
 
 ## 3. Inputs and outputs of the Reaktoro blocks
 The Reaktoro blocks built by this package are designed to solve an equilibrium problem using user provided apparent species or true species, temperature, pressure, and pH, which are broken down to base elements and equilibrated within Reaktoro to provide exact speciation and equilibrium state. Using this state the block can return various information supported by Reaktoro:
@@ -35,7 +35,7 @@ The Reaktoro blocks built by this package are designed to solve an equilibrium p
   * scalingTendency - scaling tendencies of a phase (10^saturation index)
   * pH - solution pH
 
-If a property  is not available in converted property types, reaktoro-pse can access any property from reaktoro which wil use numerical derivatives when exact derivatives are not available:
+If a property is not available in converted property types, reaktoro-pse can access any property from reaktoro which will use numerical derivatives when exact derivatives are not available:
 * [Chemical properties](https://reaktoro.org/api/classReaktoro_1_1ChemicalProps.html)
 * [Aqueous properties](https://reaktoro.org/api/classReaktoro_1_1AqueousProps.html)
 * Pyomo build properties, which are custom properties built in Pyomo that use chemical properties or aqueous properties as inputs 
@@ -88,14 +88,14 @@ Currently, repo includes several tutorials and examples.
 
 These comparisons further demonstrate how to setup Reaktoro-pse for each type of calculation.
 
-1. [Water removal from solution (e.g evaporative processes)](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/water_removal_comparison.py)
+1. [Water removal from solution (e.g., evaporative processes)](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/water_removal_comparison.py)
 2. [Vapor pressure calculation at different temperatures](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/vapor_pressure_comparison.py)
 3. [Precipitation of mineral phases](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/precipitation_comparison.py)
-4.  [Mixing of two solution](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/solution_mixing_comparison.py)
+4. [Mixing of two solutions](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/solution_mixing_comparison.py)
 
 ## 5. Solvers 
-To-date, this has only been tested with [cyipopt](https://cyipopt.readthedocs.io/en/stable/) - other solvers have not been tested. 
-* For accessing other [HSL linear solvers](http://www.hsl.rl.ac.uk/ipopt/) beyond MUMPS (such as MA27, MA57, etc. solver common to WaterTAP and IDAES-PSE) follow [these instructions](https://cyipopt.readthedocs.io/en/latest/install.html) for adding it to cyipopt.
+To date, this has only been tested with [cyipopt](https://cyipopt.readthedocs.io/en/stable/) - other solvers have not been tested. 
+* For accessing other [HSL linear solvers](http://www.hsl.rl.ac.uk/ipopt/) beyond MUMPS (such as MA27, MA57, etc., solvers common to WaterTAP and IDAES-PSE) follow [these instructions](https://cyipopt.readthedocs.io/en/latest/install.html) for adding them to cyipopt.
 
 ## 6. Known issues
 
@@ -127,7 +127,7 @@ In some cases you might experience a failed solve with error
 
     EXIT: Iterates diverging; problem might be unbounded.
     
-This, in general, is a result of bad scaling. If your model solves with out a ReaktoroBlock, then the likely culprit is autoscaling for Jacobian (and possibly variables as well). In this case its recommend to provide manual scaling for the jacobian via user scaling option when building Reaktoro, for example as follows (check thermal_precipitation.py example): 
+This, in general, is a result of bad scaling. If your model solves with out a ReaktoroBlock, then the likely culprit is autoscaling for Jacobian (and possibly variables as well). In this case, it's recommended to provide manual scaling for the jacobian via user scaling option when building Reaktoro, for example as follows (check thermal_precipitation.py example): 
 
     jacobian_options={
         "user_scaling": {
@@ -145,7 +145,7 @@ An alternative is to increase the divergence tolerance:
     solver.options["diverging_iterates_tol"] = 1e30
 
 ## 7. Requesting new features or issues
-Please include a minimal example using Reaktoro for your specific feature or issue request if possible. Please also include full traceback for errors the occur. 
+Please include a minimal example using Reaktoro for your specific feature or issue request if possible. Please also include full traceback for errors that occur. 
 
 ## 8. Compatibility
 Reaktoro-pse depends on the following packages and/or versions:
@@ -167,8 +167,8 @@ Reaktoro-pse depends on the following packages and/or versions:
 ### Installation (Conda)
 ```sh
 conda activate $YOUR_ENV
+pip install reaktoro-pse
 conda install -c conda-forge cyipopt reaktoro
-pip install git+https://github.com/watertap-org/reaktoro-pse.git
 ```
 
 ## For Contributors
@@ -178,7 +178,7 @@ git clone https://github.com/watertap-org/reaktoro-pse.git
 conda create --name reaktoro-pse-dev --yes python=3.12
 conda activate reaktoro-pse-dev
 conda install -c conda-forge cyipopt reaktoro
-install -e.
+install -e .
 ```
 ### Running tests
 
