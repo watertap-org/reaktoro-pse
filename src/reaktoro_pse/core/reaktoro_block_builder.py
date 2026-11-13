@@ -358,6 +358,49 @@ class ReaktoroBlockBuilder:
                 self.species_amount_offset_type,
             )
 
+    def get_species_amount_offset_report(self):
+        """compare reaktoro species amounts with floored outputs, returns
+        output key -> dict with:
+            reaktoro_value: amount from reaktoro (last gray box evaluation, or last
+                reaktoro solve, e.g. initialize, if the gray box was not evaluated yet)
+            floored_value: value returned by the gray box
+            output_var_value: current value of the user output var
+            offset: unscaled offset a
+            scaling_factor: scaling factor of the output var
+            scaled_amount: reaktoro_value * scaling_factor
+            error: floored_value - reaktoro_value
+            relative_error: error / reaktoro_value (inf if reaktoro_value <= 0)
+        """
+        external_model, block_index = self.get_gray_box_floor_target()
+        report = {}
+        for key in self.species_amount_offset_index:
+            obj = self.solver.output_specs.user_outputs[key]
+            var = obj.get_pyomo_var()
+            # same scaling factor (and default) as the gray box floor
+            sf = iscale.get_scaling_factor(var, default=1)
+            a = self.species_amount_zero_offset / sf
+            raw = None
+            if external_model is not None:
+                gb_key = key if block_index is None else (block_index, key)
+                raw = external_model.get_raw_output(gb_key)
+            if raw is None:
+                raw = obj.value
+            floored = float(
+                floor_species_amount(raw, a, self.species_amount_offset_type)
+            )
+            error = floored - raw
+            report[key] = {
+                "reaktoro_value": raw,
+                "floored_value": floored,
+                "output_var_value": var.value,
+                "offset": a,
+                "scaling_factor": sf,
+                "scaled_amount": raw * sf,
+                "error": error,
+                "relative_error": error / raw if raw > 0 else float("inf"),
+            }
+        return report
+
     def initialize(self, presolve_during_initialization=False):
         """initialize reaktoro block
         Args:

@@ -551,8 +551,28 @@ def test_species_amount_zero_offset(build_rkt_state_with_species, offset, offset
         calcite = ("speciesAmount", "Calcite")
         shift = m.mineral_outputs[calcite].value - raw[calcite].value
         assert 0 < shift < 1e-3 * a
+    # report compares reaktoro amounts (from the gray box) with floored outputs
+    report = m.property_block.get_species_amount_offset_report()
+    status = m.property_block.check_species_amount_offsets()
+    assert set(report) == set(offset_index)
     if disabled:
+        assert status == {}
         return
+    for key, r in report.items():
+        assert r["reaktoro_value"] == pytest.approx(raw[key].value, rel=1e-12)
+        assert r["offset"] == pytest.approx(a, rel=1e-12)
+        assert r["floored_value"] == pytest.approx(
+            _offset_value(raw[key].value, a, offset_type), rel=1e-12
+        )
+        assert r["output_var_value"] == m.mineral_outputs[key].value
+    assert status == {brucite: "absent", ("speciesAmount", "Calcite"): "ok"}
+    # calcite is shifted by more than a tiny tolerance
+    calcite_rel_error = report[("speciesAmount", "Calcite")]["relative_error"]
+    assert calcite_rel_error > 0
+    with pytest.raises(RuntimeError, match="Calcite"):
+        m.property_block.check_species_amount_offsets(
+            relative_tolerance=calcite_rel_error / 2, raise_error=True
+        )
     # value based rescaling keeps the user scaling factor of offset outputs
     m.property_block.update_block_scaling()
     assert iscale.get_scaling_factor(m.mineral_outputs[brucite]) == sf

@@ -1097,6 +1097,81 @@ class ReaktoroBlockData(ProcessBlockData):
         _log.info("-----Displaying information for property block ------")
         self.rkt_block_builder.display_state()
 
+    def get_species_amount_offset_report(self):
+        """Compares species amounts returned by Reaktoro with the floored values the
+        output vars are set to (species_amount_zero_offset), see
+        ReaktoroBlockBuilder.get_species_amount_offset_report for the fields.
+        Only species with an offset are included (speciation block outputs never are).
+        """
+        return self.rkt_block_builder.get_species_amount_offset_report()
+
+    def check_species_amount_offsets(
+        self,
+        relative_tolerance=1e-2,
+        absent_scaled_amount=1e-8,
+        raise_error=False,
+        display=True,
+    ):
+        """Checks error introduced by species_amount_zero_offset, use after a solve.
+
+        Each species with an offset is classified as:
+            absent: scaled reaktoro amount <= absent_scaled_amount (e.g. ~1e-40 from
+                Reaktoro), the output var sits at the offset a
+            ok: present, relative error of the output var <= relative_tolerance
+            distorted: present, but the offset changes its amount by more than
+                relative_tolerance (amount is comparable to a), consider smaller
+                species_amount_zero_offset or a larger scaling factor for its output var
+
+        Keywords:
+        relative_tolerance -- allowed relative error for present species
+        absent_scaled_amount -- scaled amount below which a species is treated as absent
+        raise_error -- raise a RuntimeError if any species is distorted, otherwise log a warning
+        display -- log the comparison
+
+        Returns:
+            dict of output key -> status (absent, ok, distorted)
+        """
+        report = self.get_species_amount_offset_report()
+        status = {}
+        for key, r in report.items():
+            if r["scaled_amount"] <= absent_scaled_amount:
+                status[key] = "absent"
+            elif r["relative_error"] > relative_tolerance:
+                status[key] = "distorted"
+            else:
+                status[key] = "ok"
+        if display:
+            _log.info(
+                f"{'output':<40}{'reaktoro':>14}{'floored':>14}{'output var':>14}"
+                f"{'offset':>14}{'rel. error':>14}  status"
+            )
+            for key, r in report.items():
+                var_value = r["output_var_value"]
+                var_value = float("nan") if var_value is None else var_value
+                # relative error of absent species (~1e-40) is meaningless
+                rel_error = (
+                    f"{'-':>14}"
+                    if status[key] == "absent"
+                    else f"{r['relative_error']:>14.4e}"
+                )
+                _log.info(
+                    f"{str(key):<40}{r['reaktoro_value']:>14.4e}{r['floored_value']:>14.4e}"
+                    f"{var_value:>14.4e}{r['offset']:>14.4e}"
+                    f"{rel_error}  {status[key]}"
+                )
+        distorted = [key for key, s in status.items() if s == "distorted"]
+        if distorted:
+            msg = (
+                f"{self.name}: species_amount_zero_offset changes the amount of present species "
+                f"{distorted} by more than {relative_tolerance} (relative), their amounts are "
+                f"comparable to the offset, consider a smaller species_amount_zero_offset or "
+                f"larger scaling factors for these outputs"
+            )
+            if raise_error:
+                raise RuntimeError(msg)
+            _log.warning(msg)
+        return status
+
     def update_block_scaling(self, update_on_speciation_block=True):
         """This will update the scaling of input and output constraints on all blocks, can be
         helpful when chemistry changes dramatically between solves.

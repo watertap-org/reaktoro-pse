@@ -253,5 +253,15 @@ def test_species_amount_offset_with_manager(
                 pytest.approx(m.mineral_outputs[keys[0]].value, rel=1e-9)
                 == (calcite_raw.value**2 + a**2) ** 0.5
             )
+        # report reads reaktoro values from the shared gray box, in both modes
+        report = m.property_block.get_species_amount_offset_report()
+        assert set(report) == set(keys[:2])
+        for key, r in report.items():
+            assert pytest.approx(r["output_var_value"], rel=1e-9) == r["floored_value"]
+        assert report[keys[1]]["reaktoro_value"] < 1e-30
+        assert m.property_block.check_species_amount_offsets() == {
+            keys[0]: "ok",
+            keys[1]: "absent",
+        }
     finally:
         m.reaktoro_manager.terminate_workers()

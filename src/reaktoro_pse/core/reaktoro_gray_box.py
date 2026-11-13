@@ -225,6 +225,13 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
             for idx, (var, offset, _) in self._output_floors.items()
         }
 
+    def get_raw_output(self, output_key):
+        """reaktoro value of an output (before floors) from the last gray box
+        evaluation, None if the gray box has not been evaluated yet"""
+        if self._raw_rkt_result is None:
+            return None
+        return float(self._raw_rkt_result[self.outputs.index(output_key)])
+
     def apply_output_floors(self, jacobian_matrix, outputs):
         """returns floored copies of jacobian and outputs, inputs are not modified"""
         if not self._output_floors:
