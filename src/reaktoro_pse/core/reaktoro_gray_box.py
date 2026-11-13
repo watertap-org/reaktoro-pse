@@ -177,14 +177,15 @@ class ReaktoroGrayBox(ExternalGreyBoxModel):
         # initialize Pyomo block for External Model
         block_components = [obj for obj in pyomo_block.component_objects(pyo.Var)]
         for block in block_components:
-            if "inputs" in block.name:
+            # match on local name, full name includes parent blocks (e.g. m.inputs_blk)
+            if block.local_name == "inputs":
                 # keep reference for reading input scaling factors later
                 self._input_vars = block
                 for var in self.inputs:
                     block[var].value = 1  # self.input_dict[var].get_pyomo_var_value()
                     block[var].setlb(self.input_dict[var].get_lower_bound())
                     block[var].setub(self.input_dict[var].get_upper_bound())
-            elif "outputs" in block.name:
+            elif block.local_name == "outputs":
                 for prop in self.outputs:
                     block[prop].setlb(None)
                     block[prop].setub(None)

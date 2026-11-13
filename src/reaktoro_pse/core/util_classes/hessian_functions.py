@@ -29,6 +29,7 @@ and the skip tests consistent across inputs of very different magnitudes.
 The returned matrix always has the same lower triangular sparsity pattern,
 as required by PyNumero.
 """
+
 import functools
 import numpy as np
 
@@ -132,6 +133,18 @@ def accepts_deprecated_hessian_options(func):
 _DIAGONAL_TYPES = (HessTypes.ZeroHessian, HessTypes.sparse_16)
 _LAGRANGIAN_TYPES = (HessTypes.SR1_lagrangian,)
 _SR1_TYPES = (HessTypes.SR1, HessTypes.SR1_lagrangian)
+# types whose update needs B s != 0, they never move away from a zero matrix
+_BFGS_FAMILY_TYPES = (
+    HessTypes.BFGS,
+    HessTypes.CBFGS,
+    HessTypes.BFGS_mod,
+    HessTypes.BFGS_damp,
+    HessTypes.BFGS_ipopt,
+    HessTypes.LBFGS,
+)
+_INITIALIZATION_TYPES = tuple(
+    v for k, v in vars(QuasiNewtonInitializationTypes).items() if not k.startswith("_")
+)
 SR1_SAFEGUARD_CAP = 10.0
 
 
@@ -158,9 +171,6 @@ class HessianMemory:
         self.inputs.append(inputs.copy())
         self.jacobian.append(jacobian.copy())
         self.trim_memory()
-
-    def get_range(self, start=0, end_offset=0):
-        return range(start, len(self.inputs) + end_offset)
 
 
 class _Element:
@@ -235,6 +245,19 @@ class HessianApproximation:
         self.init_max_hessian_value = quasi_newton_init_max_value
         self.init_const_hessian_value = quasi_newton_init_const_value
         self.bfgs_matrix_not_initialized = True
+        if quasi_newton_initialization_type not in _INITIALIZATION_TYPES:
+            raise ValueError(
+                f"Unknown quasi-Newton initialization type {quasi_newton_initialization_type}, "
+                f"expected one of {_INITIALIZATION_TYPES}"
+            )
+        if (
+            quasi_newton_initialization_type == QuasiNewtonInitializationTypes.zero
+            and self.hessian_matrix_type in _BFGS_FAMILY_TYPES
+        ):
+            _log.warning(
+                f"Initialization type 'zero' with {self.hessian_matrix_type}: BFGS updates "
+                "of a zero matrix are always skipped, the hessian will stay zero"
+            )
         self.quasi_newton_initialization_type = quasi_newton_initialization_type
         self.hessian_support = hessian_support
         self.elements = None
@@ -462,7 +485,9 @@ class HessianApproximation:
         if _nonzero(Hs) and _nonzero(s):
             y_s = y @ s
             sHs = s @ Hs
-            if sHs - y_s > 0:
+            if sHs > 0:
+                # full BFGS update when curvature condition holds (delta = 1), damped
+                # otherwise (y_s < phi*sHs guarantees sHs - y_s > 0)
                 if y_s >= phi * sHs:
                     delta = 1
                 else:
@@ -550,6 +575,9 @@ class HessianApproximation:
                     el.matrix = np.zeros((el.size, el.size))
                 else:
                     el.matrix = np.identity(el.size) * self.init_const_hessian_value
+        if self.hessian_matrix_type == HessTypes.LBFGS:
+            # LBFGS rebuilds matrices from its own initial matrix on every update
+            return
         if self.check_step() and self.bfgs_matrix_not_initialized:
             self.bfgs_matrix_not_initialized = False
             n = len(self.hessian_memory.inputs)
@@ -626,7 +654,8 @@ class HessianApproximation:
         stored pairs on every call, using single initial matrix scaled from most recent pair
         """
         n = len(self.hessian_memory.inputs)
-        if n < 2:
+        # matrices only depend on stored pairs, which do not change on a repeated point
+        if n < 2 or not self.new_point:
             return
         for el in self.elements:
             pairs = [self._element_vectors(el, r - 1, r) for r in range(1, n)]
@@ -661,7 +690,13 @@ class HessianApproximation:
                 f"{len(bad)} hessian approximation matrices were not finite, resetting them"
             )
             for el in bad:
-                el.matrix = np.identity(el.size) * self.init_const_hessian_value
+                if (
+                    self.quasi_newton_initialization_type
+                    == QuasiNewtonInitializationTypes.zero
+                ):
+                    el.matrix = np.zeros((el.size, el.size))
+                else:
+                    el.matrix = np.identity(el.size) * self.init_const_hessian_value
             self.bfgs_matrix_not_initialized = True
 
     def _assemble(self):

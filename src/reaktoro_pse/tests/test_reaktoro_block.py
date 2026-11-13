@@ -197,15 +197,9 @@ def test_blockBuild_with_specie_balance_warning(build_rkt_state_with_species, ca
                     to find the amount of element that should be added or removed to achieve charge neutrality. Adjustment
                     of specie ratios should in general be done when exact speciation is provided ('exact_speciation=True')
                     as otherwise Reaktoro solver might not converge, as shifting specie ratios might be insufficient to
-                    achieve a charge neutral solution.""".replace(
-        " ", ""
-    ).replace(
+                    achieve a charge neutral solution.""".replace(" ", "").replace(
         "\n", ""
-    ) in caplog.text.replace(
-        " ", ""
-    ).replace(
-        "\n", ""
-    )
+    ) in caplog.text.replace(" ", "").replace("\n", "")
 
 
 def test_blockBuild_with_pE(build_rkt_state_with_species_and_pE):
@@ -563,6 +557,47 @@ def test_species_amount_zero_offset(build_rkt_state_with_species, offset, offset
     assert (
         pytest.approx(m.mineral_outputs[brucite].value, rel=1e-3, abs=1e-14) == a / 10
     )
+
+
+def test_species_amount_offset_value_based_scaling(build_rkt_state_with_species):
+    """offset outputs without a user scaling factor are scaled from their values, and
+    rescaling (update_block_scaling) keeps following values, while a user scaling
+    factor is kept"""
+    m = build_rkt_state_with_species
+    calcite = ("speciesAmount", "Calcite")
+    brucite = ("speciesAmount", "Brucite")
+    m.mineral_outputs = Var([calcite, brucite], initialize=1e-3, bounds=(0, None))
+    sf = 1e3
+    # only brucite has a user scaling factor
+    iscale.set_scaling_factor(m.mineral_outputs[brucite], sf)
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+            "activity_model": "ActivityModelPitzer",
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+        },
+        mineral_phase={"phase_components": ["Calcite", "Brucite"]},
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        outputs=m.mineral_outputs,
+    )
+    m.property_block.initialize()
+    raw = m.property_block.rkt_solver.output_specs.user_outputs
+    calcite_sf = iscale.get_scaling_factor(m.mineral_outputs[calcite])
+    assert pytest.approx(calcite_sf, rel=1e-12) == 1 / raw[calcite].value
+    # chemistry changes, rescaling follows the new value for calcite only
+    raw[calcite].value *= 10
+    m.property_block.update_block_scaling()
+    assert (
+        pytest.approx(iscale.get_scaling_factor(m.mineral_outputs[calcite]), rel=1e-12)
+        == calcite_sf / 10
+    )
+    assert iscale.get_scaling_factor(m.mineral_outputs[brucite]) == sf
 
 
 @pytest.mark.parametrize("coupling_type", [True, False])

@@ -71,6 +71,8 @@ class ReaktoroBlockBuilder:
         self.configure_jacobian_scaling()
         self.configure_species_amount_offset()
         self.species_amount_offset_index = {}  # filled in build_output_constraints
+        # scaling factors of offset outputs computed from values (not user provided)
+        self._value_based_sf = {}
         self.reaktoro_initialize_function = None  # used to provide external solve call
         self.get_jacobian_matrix_function = None
         self.display_reaktoro_state_function = (
@@ -440,8 +442,15 @@ class ReaktoroBlockBuilder:
                 if key in self.species_amount_offset_index:
                     # the offset is set from the user scaling factor, rescaling from values
                     # (use_default_scaling=False) would scale absent species by 1/offset
-                    # and shrink the offset to ~epsilon, so keep the user scaling factor
-                    sf = self.get_rkt_scale(obj, use_default_scaling=True)
+                    # and shrink the offset to ~epsilon, so keep a user scaling factor.
+                    # Scaling factors set here from values (no user scaling factor)
+                    # are recorded and still follow values on rescale.
+                    user_sf = iscale.get_scaling_factor(obj.get_pyomo_var())
+                    if user_sf is not None and user_sf != self._value_based_sf.get(key):
+                        sf = user_sf
+                    else:
+                        sf = self.get_rkt_scale(obj, use_default_scaling)
+                        self._value_based_sf[key] = sf
                     floored = floor_species_amount(
                         obj.value,
                         self.get_species_amount_offset(key, sf),
