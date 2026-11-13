@@ -23,7 +23,10 @@ from reaktoro_pse.core.reaktoro_inputs import (
 from reaktoro_pse.core.reaktoro_jacobian import (
     ReaktoroJacobianSpec,
 )
-from reaktoro_pse.core.util_classes.hessian_functions import HESSIAN_DEFAULTS
+from reaktoro_pse.core.util_classes.hessian_functions import (
+    HESSIAN_DEFAULTS,
+    accepts_deprecated_hessian_options,
+)
 import cyipopt
 import idaes.logger as idaeslog
 
@@ -103,13 +106,17 @@ class ReaktoroSolver:
         export_object.max_iters = self.solver_options.optima.maxiters
         export_object.presolve_max_iters = self.presolve_options.optima.maxiters
         export_object.hessian_type = self.hessian_type
-        export_object.bfgs_initialization_type = self.bfgs_initialization_type
-        export_object.bfgs_init_min_hessian_value = self.bfgs_init_min_hessian_value
-        export_object.bfgs_init_max_hessian_value = self.bfgs_init_max_hessian_value
-        export_object.bfgs_init_const_hessian_value = self.bfgs_init_const_hessian_value
-        export_object.bfgs_hessian_memory = self.bfgs_hessian_memory
-        export_object.bfgs_epsilon = self.bfgs_epsilon
+        export_object.quasi_newton_initialization_type = (
+            self.quasi_newton_initialization_type
+        )
+        export_object.quasi_newton_init_min_value = self.quasi_newton_init_min_value
+        export_object.quasi_newton_init_max_value = self.quasi_newton_init_max_value
+        export_object.quasi_newton_init_const_value = self.quasi_newton_init_const_value
+        export_object.lbfgs_memory = self.lbfgs_memory
+        export_object.quasi_newton_epsilon = self.quasi_newton_epsilon
         export_object.sr1_skip_tolerance = self.sr1_skip_tolerance
+        export_object.quasi_newton_update_cap = self.quasi_newton_update_cap
+        export_object.quasi_newton_norm_cap = self.quasi_newton_norm_cap
         export_object.hessian_input_scaling = self.hessian_input_scaling
         export_object.block_name = self.block_name
         export_object.auto_scale_constraint = self.auto_scale_constraint
@@ -126,17 +133,27 @@ class ReaktoroSolver:
             export_object.max_iters,
             export_object.presolve_max_iters,
             export_object.hessian_type,
-            export_object.bfgs_initialization_type,
-            export_object.bfgs_init_min_hessian_value,
-            export_object.bfgs_init_max_hessian_value,
-            export_object.bfgs_init_const_hessian_value,
-            export_object.bfgs_hessian_memory,
-            export_object.bfgs_epsilon,
+            export_object.quasi_newton_initialization_type,
+            export_object.quasi_newton_init_min_value,
+            export_object.quasi_newton_init_max_value,
+            export_object.quasi_newton_init_const_value,
+            export_object.lbfgs_memory,
+            export_object.quasi_newton_epsilon,
             export_object.auto_scale_constraint,
             sr1_skip_tolerance=getattr(
                 export_object,
                 "sr1_skip_tolerance",
                 HESSIAN_DEFAULTS["sr1_skip_tolerance"],
+            ),
+            quasi_newton_update_cap=getattr(
+                export_object,
+                "quasi_newton_update_cap",
+                HESSIAN_DEFAULTS["quasi_newton_update_cap"],
+            ),
+            quasi_newton_norm_cap=getattr(
+                export_object,
+                "quasi_newton_norm_cap",
+                HESSIAN_DEFAULTS["quasi_newton_norm_cap"],
             ),
             hessian_input_scaling=getattr(
                 export_object,
@@ -151,6 +168,7 @@ class ReaktoroSolver:
     def display_state(self):
         print(self.state.state)
 
+    @accepts_deprecated_hessian_options
     def set_solver_options(
         self,
         epsilon=1e-32,
@@ -161,14 +179,18 @@ class ReaktoroSolver:
         max_iters=500,
         presolve_max_iters=500,
         hessian_type=HESSIAN_DEFAULTS["hessian_type"],
-        bfgs_initialization_type=HESSIAN_DEFAULTS["bfgs_initialization_type"],
-        bfgs_init_min_hessian_value=HESSIAN_DEFAULTS["bfgs_init_min_hessian_value"],
-        bfgs_init_max_hessian_value=HESSIAN_DEFAULTS["bfgs_init_max_hessian_value"],
-        bfgs_init_const_hessian_value=HESSIAN_DEFAULTS["bfgs_init_const_hessian_value"],
-        bfgs_hessian_memory=HESSIAN_DEFAULTS["bfgs_hessian_memory"],
-        bfgs_epsilon=HESSIAN_DEFAULTS["bfgs_epsilon"],
+        quasi_newton_initialization_type=HESSIAN_DEFAULTS[
+            "quasi_newton_initialization_type"
+        ],
+        quasi_newton_init_min_value=HESSIAN_DEFAULTS["quasi_newton_init_min_value"],
+        quasi_newton_init_max_value=HESSIAN_DEFAULTS["quasi_newton_init_max_value"],
+        quasi_newton_init_const_value=HESSIAN_DEFAULTS["quasi_newton_init_const_value"],
+        lbfgs_memory=HESSIAN_DEFAULTS["lbfgs_memory"],
+        quasi_newton_epsilon=HESSIAN_DEFAULTS["quasi_newton_epsilon"],
         auto_scale_constraint=True,
         sr1_skip_tolerance=HESSIAN_DEFAULTS["sr1_skip_tolerance"],
+        quasi_newton_update_cap=HESSIAN_DEFAULTS["quasi_newton_update_cap"],
+        quasi_newton_norm_cap=HESSIAN_DEFAULTS["quasi_newton_norm_cap"],
         hessian_input_scaling=HESSIAN_DEFAULTS["hessian_input_scaling"],
     ):
         """configuration for reaktro solver
@@ -189,13 +211,15 @@ class ReaktoroSolver:
         self.presolve = presolve
         self.solver.setOptions(self.solver_options)
         self.hessian_type = hessian_type
-        self.bfgs_initialization_type = bfgs_initialization_type
-        self.bfgs_init_min_hessian_value = bfgs_init_min_hessian_value
-        self.bfgs_init_max_hessian_value = bfgs_init_max_hessian_value
-        self.bfgs_init_const_hessian_value = bfgs_init_const_hessian_value
-        self.bfgs_hessian_memory = bfgs_hessian_memory
-        self.bfgs_epsilon = bfgs_epsilon
+        self.quasi_newton_initialization_type = quasi_newton_initialization_type
+        self.quasi_newton_init_min_value = quasi_newton_init_min_value
+        self.quasi_newton_init_max_value = quasi_newton_init_max_value
+        self.quasi_newton_init_const_value = quasi_newton_init_const_value
+        self.lbfgs_memory = lbfgs_memory
+        self.quasi_newton_epsilon = quasi_newton_epsilon
         self.sr1_skip_tolerance = sr1_skip_tolerance
+        self.quasi_newton_update_cap = quasi_newton_update_cap
+        self.quasi_newton_norm_cap = quasi_newton_norm_cap
         self.hessian_input_scaling = hessian_input_scaling
         self.auto_scale_constraint = auto_scale_constraint
 

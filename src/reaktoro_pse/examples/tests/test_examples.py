@@ -10,8 +10,10 @@
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
 import pytest
+import idaes.core.util.scaling as iscale
 from reaktoro_pse.examples import (
     biogas_combustion,
+    evaporative_crystallizer,
     simple_desalination,
     simple_ion_exchange,
     thermal_precipitation,
@@ -152,3 +154,27 @@ def test_biogas(hess_type):
 
     assert pytest.approx(m.air_to_fuel_ratio.value, 1e-3) == 3.8751662012681587
     assert pytest.approx(m.exhaust_temperature.value, 1e-3) == 2000
+
+
+def test_evaporative_crystallizer_needs_species_amount_offset():
+    """absent minerals pin bounded solids vars at their bound without an offset, the
+    optimization does not converge, with the default offset it does"""
+    m, converged = evaporative_crystallizer.main(
+        species_amount_zero_offset=0, species_amount_offset_type=None
+    )
+    assert not converged
+
+    m, converged = evaporative_crystallizer.main()
+    assert converged
+    assert pytest.approx(m.evaporation.value, 1e-3) == 0.9122
+    raw = m.crystallizer.rkt_solver.output_specs.user_outputs
+    present = {key[1] for key in m.solids if raw[key].value > 1e-12}
+    assert present == {"Magnesite", "Gypsum", "Halite"}
+    a = 1e-4 / iscale.get_scaling_factor(m.solids["speciesAmount", "Calcite"])
+    # absent minerals sit at the offset, present minerals are shifted by ~a**2/(2n)
+    assert pytest.approx(m.solids["speciesAmount", "Calcite"].value, 1e-3) == a
+    halite = ("speciesAmount", "Halite")
+    a_halite = 1e-4 / iscale.get_scaling_factor(m.solids[halite])
+    n = raw[halite].value
+    # (1% tolerance covers ipopt constraint violation on a ~1e-7 shift)
+    assert pytest.approx(m.solids[halite].value - n, 1e-2) == a_halite**2 / (2 * n)

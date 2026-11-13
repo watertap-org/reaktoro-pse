@@ -16,7 +16,7 @@ from scipy.sparse import coo_matrix
 from reaktoro_pse.core.util_classes.hessian_functions import (
     HessianApproximation,
     HessTypes,
-    BFGSInitializationTypes,
+    QuasiNewtonInitializationTypes,
     _nonzero,
 )
 
@@ -65,17 +65,17 @@ def test_check_step_detects_zero_sum_step():
 @pytest.mark.parametrize(
     "init_type",
     [
-        BFGSInitializationTypes.scalar1,
-        BFGSInitializationTypes.scalar2,
-        BFGSInitializationTypes.scalar3,
-        BFGSInitializationTypes.scalar4,
-        BFGSInitializationTypes.GaussNewton,
-        BFGSInitializationTypes.constant,
+        QuasiNewtonInitializationTypes.scalar1,
+        QuasiNewtonInitializationTypes.scalar2,
+        QuasiNewtonInitializationTypes.scalar3,
+        QuasiNewtonInitializationTypes.scalar4,
+        QuasiNewtonInitializationTypes.GaussNewton,
+        QuasiNewtonInitializationTypes.constant,
     ],
 )
 def test_initializations_return_hessian(init_type):
     hc = HessianApproximation(
-        hessian_type=HessTypes.LBFGS, bfgs_initialization_type=init_type
+        hessian_type=HessTypes.LBFGS, quasi_newton_initialization_type=init_type
     )
     hess = run_points(hc, POINTS[:3])
     assert isinstance(hess, coo_matrix)
@@ -94,7 +94,7 @@ def test_initializations_return_hessian(init_type):
     ],
 )
 def test_repeated_point_does_not_change_hessian(hess_type):
-    hc = HessianApproximation(hessian_type=hess_type, bfgs_hessian_memory=6)
+    hc = HessianApproximation(hessian_type=hess_type, lbfgs_memory=6)
     first = run_points(hc, POINTS[:3]).toarray()
     n_mem = len(hc.hessian_memory.inputs)
     # re-evaluate at the same point, e.g. with ipopt asking again
@@ -112,14 +112,17 @@ def test_repeated_point_rescales_with_new_duals():
 
 @pytest.mark.parametrize(
     "init_type",
-    [BFGSInitializationTypes.scalar1, BFGSInitializationTypes.GaussNewton],
+    [
+        QuasiNewtonInitializationTypes.scalar1,
+        QuasiNewtonInitializationTypes.GaussNewton,
+    ],
 )
 def test_lbfgs_satisfies_latest_secant(init_type):
     """with a consistent B0 the unrolled update must give B s_k = y_k for the latest pair"""
     hc = HessianApproximation(
         hessian_type=HessTypes.LBFGS,
-        bfgs_hessian_memory=6,
-        bfgs_initialization_type=init_type,
+        lbfgs_memory=6,
+        quasi_newton_initialization_type=init_type,
     )
     hess = full(run_points(hc, POINTS))
     s = POINTS[-1] - POINTS[-2]
@@ -169,10 +172,11 @@ def run_quadratic(hc, points, mat, duals=np.array([1.0])):
 @pytest.mark.parametrize("mat", [A, A_INDEF], ids=["definite", "indefinite"])
 def test_sr1_recovers_quadratic_hessian(mat):
     """SR1 terminates finitely on quadratics: after n linearly independent steps
-    without skipped updates the matrix equals the true hessian (Nocedal & Wright thm 6.1)"""
+    without skipped updates the matrix equals the true hessian (Nocedal & Wright thm 6.1)
+    """
     hc = HessianApproximation(
         hessian_type=HessTypes.SR1,
-        bfgs_initialization_type=BFGSInitializationTypes.zero,
+        quasi_newton_initialization_type=QuasiNewtonInitializationTypes.zero,
     )
     hess = full(run_quadratic(hc, SR1_POINTS, mat))
     np.testing.assert_allclose(hess, mat, rtol=1e-8, atol=1e-10)
@@ -188,11 +192,12 @@ def test_bfgs_cannot_represent_indefinite_curvature():
 
 @pytest.mark.parametrize("mat", [A, A_INDEF], ids=["definite", "indefinite"])
 @pytest.mark.parametrize(
-    "init_type", [BFGSInitializationTypes.zero, BFGSInitializationTypes.scalar1]
+    "init_type",
+    [QuasiNewtonInitializationTypes.zero, QuasiNewtonInitializationTypes.scalar1],
 )
 def test_psb_satisfies_secant(mat, init_type):
     hc = HessianApproximation(
-        hessian_type=HessTypes.PSB, bfgs_initialization_type=init_type
+        hessian_type=HessTypes.PSB, quasi_newton_initialization_type=init_type
     )
     hess = full(run_quadratic(hc, POINTS, mat))
     s = POINTS[-1] - POINTS[-2]
@@ -267,7 +272,7 @@ def test_full_support_without_cross_block_restriction_couples_blocks():
     outside of the block, so it does not couple blocks)"""
     hc = HessianApproximation(
         hessian_type=HessTypes.BFGS,
-        bfgs_initialization_type=BFGSInitializationTypes.scalar1,
+        quasi_newton_initialization_type=QuasiNewtonInitializationTypes.scalar1,
     )
     duals = np.array([1.5, -0.5])
     for x in TWO_BLOCK_POINTS:
@@ -288,12 +293,15 @@ def test_support_validation():
 
 def test_scaling_invariance_of_sr1():
     """SR1 is invariant to linear change of variables when the initial matrix is,
-    so result in unscaled space must not depend on the scaling factors"""
+    so result in unscaled space must not depend on the scaling factors
+    (safeguards compare norms, which are not scaling invariant, so they are off)"""
     results = []
     for scaling in [None, [1e3, 1.0, 1e-3]]:
         hc = HessianApproximation(
             hessian_type=HessTypes.SR1,
-            bfgs_initialization_type=BFGSInitializationTypes.zero,
+            quasi_newton_initialization_type=QuasiNewtonInitializationTypes.zero,
+            quasi_newton_update_cap=0,
+            quasi_newton_norm_cap=0,
             input_scaling=scaling,
         )
         results.append(full(run_quadratic(hc, SR1_POINTS, A_INDEF)))
@@ -305,8 +313,8 @@ def test_scaling_changes_initial_matrix():
     scaling = np.array([10.0, 1.0, 0.1])
     hc = HessianApproximation(
         hessian_type=HessTypes.SR1,
-        bfgs_initialization_type=BFGSInitializationTypes.constant,
-        bfgs_init_const_hessian_value=1.0,
+        quasi_newton_initialization_type=QuasiNewtonInitializationTypes.constant,
+        quasi_newton_init_const_value=1.0,
         input_scaling=scaling,
     )
     hess = full(hc.get_hessian(POINTS[0], jac(POINTS[0]), np.array([1.0])))
@@ -331,7 +339,7 @@ def test_sr1_lagrangian_recovers_lagrangian_hessian():
     duals = np.array([0.7, -1.3])
     hc = HessianApproximation(
         hessian_type=HessTypes.SR1_lagrangian,
-        bfgs_initialization_type=BFGSInitializationTypes.zero,
+        quasi_newton_initialization_type=QuasiNewtonInitializationTypes.zero,
     )
     assert hc.hessian_matrix_type == HessTypes.SR1_lagrangian
     for x in SR1_POINTS:
@@ -396,3 +404,169 @@ def test_aggregate_solver_hessian_support():
             agg.register_output(blk, f"out{o}")
     support = agg.get_hessian_support()
     assert [list(s) for s in support] == [[0, 1], [2, 3, 4], [2, 3, 4]]
+
+
+###############################################################################
+# deprecated bfgs_* option names
+
+
+def test_deprecated_option_names_hessian_approximation():
+    from reaktoro_pse.core.util_classes.hessian_functions import (
+        BFGSInitializationTypes,
+        QuasiNewtonInitializationTypes,
+    )
+
+    assert BFGSInitializationTypes is QuasiNewtonInitializationTypes
+    hess = HessianApproximation(
+        hessian_type=HessTypes.SR1,
+        bfgs_initialization_type="zero",
+        bfgs_hessian_memory=3,
+        bfgs_epsilon=1e-12,
+    )
+    assert hess.quasi_newton_initialization_type == "zero"
+    assert hess.hessian_memory.memory == 3
+    assert hess.epsilon == 1e-12
+    with pytest.raises(ValueError):
+        HessianApproximation(
+            bfgs_initialization_type="zero",
+            quasi_newton_initialization_type="scalar1",
+        )
+
+
+def test_deprecated_option_names_config_and_solver():
+    from reaktoro_pse.reaktoro_block_config.hessian_options import (
+        HessianOptions,
+        resolve_deprecated_hessian_options,
+    )
+    from reaktoro_pse.core.reaktoro_solver import ReaktoroSolver
+
+    cfg = HessianOptions().get_dict()(
+        {"bfgs_initialization_type": "scalar1", "bfgs_init_const_hessian_value": 1e-16}
+    )
+    resolve_deprecated_hessian_options(cfg)
+    assert cfg.quasi_newton_initialization_type == "scalar1"
+    assert cfg.quasi_newton_init_const_value == 1e-16
+    assert cfg.bfgs_initialization_type is None
+    # resolving again is a no-op
+    resolve_deprecated_hessian_options(cfg)
+    assert cfg.quasi_newton_initialization_type == "scalar1"
+    cfg = HessianOptions().get_dict()(
+        {
+            "bfgs_initialization_type": "scalar1",
+            "quasi_newton_initialization_type": "zero",
+        }
+    )
+    with pytest.raises(ValueError):
+        resolve_deprecated_hessian_options(cfg)
+
+    # solver keyword alias, without building a reaktoro solver
+    solver = ReaktoroSolver.__new__(ReaktoroSolver)
+
+    class _Opt:
+        class optima:
+            maxiters = None
+
+            class convergence:
+                tolerance = None
+
+    solver.solver_options = _Opt()
+    solver.presolve_options = _Opt()
+
+    class _Solver:
+        def setOptions(self, opts):
+            pass
+
+    solver.solver = _Solver()
+    solver.set_solver_options(bfgs_initialization_type="zero", bfgs_hessian_memory=4)
+    assert solver.quasi_newton_initialization_type == "zero"
+    assert solver.lbfgs_memory == 4
+
+
+################################################################################
+# safeguards (quasi_newton_update_cap, quasi_newton_norm_cap)
+
+
+def test_update_cap_skips_near_singular_sr1_update():
+    """r's is small relative to |r||s| but above sr1_skip_tolerance, plain SR1 adds
+    curvature ~1/cos(r, s) times larger than observed along the step"""
+    points = [np.array([0.0, 0.0]), np.array([1.0, 0.0])]
+    jacs = [np.array([[0.0, 0.0]]), np.array([[1e-4, 1.0]])]
+    norms = {}
+    for cap in [0.0, 100.0]:
+        hc = HessianApproximation(
+            hessian_type=HessTypes.SR1,
+            quasi_newton_initialization_type=QuasiNewtonInitializationTypes.zero,
+            quasi_newton_update_cap=cap,
+            quasi_newton_norm_cap=0,
+        )
+        for x, J in zip(points, jacs):
+            hess = hc.get_hessian(x, J, np.array([1.0]))
+        norms[cap] = np.linalg.norm(full(hess))
+        if cap > 0:
+            assert hc.safeguard_stats["updates_capped"] == 1
+    assert norms[0.0] > 1e3
+    assert norms[100.0] == 0
+
+
+@pytest.mark.parametrize(
+    "hess_type", [HessTypes.SR1, HessTypes.BFGS_ipopt, HessTypes.PSB]
+)
+def test_safeguards_do_not_change_well_conditioned_updates(hess_type):
+    """on a smooth quadratic the safeguards are inactive"""
+    hessians = []
+    for cap in [0.0, 100.0]:
+        hc = HessianApproximation(
+            hessian_type=hess_type,
+            quasi_newton_initialization_type=QuasiNewtonInitializationTypes.scalar1,
+            quasi_newton_update_cap=cap,
+            quasi_newton_norm_cap=cap,
+        )
+        hessians.append(full(run_quadratic(hc, POINTS, A)))
+        if cap > 0:
+            assert hc.safeguard_stats == {"updates_capped": 0, "norms_capped": 0}
+    np.testing.assert_allclose(hessians[0], hessians[1])
+
+
+@pytest.mark.parametrize("hess_type", [HessTypes.BFGS, HessTypes.LBFGS])
+def test_norm_cap_limits_gauss_newton_initial_matrix(hess_type):
+    """GaussNewton initial matrix diag(g^2) is huge for outputs with large gradient but
+    small curvature (e.g. y = b'x + 0.5 x'Ax with |b| >> |A|), norm cap bounds it
+    (checked after first step, later updates correct B along the steps)"""
+    b = np.array([100.0, -50.0, 80.0])
+    points = POINTS[:2]
+    cap = 10.0
+    norms = {}
+    for c in [0.0, cap]:
+        hc = HessianApproximation(
+            hessian_type=hess_type,
+            quasi_newton_initialization_type=QuasiNewtonInitializationTypes.GaussNewton,
+            quasi_newton_norm_cap=c,
+        )
+        for x in points:
+            hess = hc.get_hessian(x, np.array([b + A @ x]), np.array([1.0]))
+        norms[c] = np.linalg.norm(full(hess))
+    step = points[1] - points[0]
+    max_curv = np.linalg.norm(A @ step) / np.linalg.norm(step)
+    assert norms[0.0] > 100 * max_curv
+    assert norms[cap] <= cap * max_curv * (1 + 1e-12)
+
+
+@pytest.mark.parametrize(
+    "hess_type, expected",
+    [
+        (HessTypes.SR1, 10.0),
+        (HessTypes.SR1_lagrangian, 10.0),
+        (HessTypes.BFGS, 0.0),
+        (HessTypes.LBFGS, 0.0),
+        (HessTypes.PSB, 0.0),
+    ],
+)
+def test_default_safeguards_only_for_sr1(hess_type, expected):
+    hc = HessianApproximation(hessian_type=hess_type)
+    assert hc.update_cap == expected
+    assert hc.norm_cap == expected
+    # explicit value always wins
+    hc = HessianApproximation(
+        hessian_type=hess_type, quasi_newton_update_cap=0, quasi_newton_norm_cap=5
+    )
+    assert (hc.update_cap, hc.norm_cap) == (0.0, 5.0)

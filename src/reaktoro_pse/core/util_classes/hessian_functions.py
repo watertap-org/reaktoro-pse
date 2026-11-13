@@ -29,9 +29,11 @@ and the skip tests consistent across inputs of very different magnitudes.
 The returned matrix always has the same lower triangular sparsity pattern,
 as required by PyNumero.
 """
+import functools
 import numpy as np
 
 from scipy.sparse import coo_matrix
+from pyomo.common.deprecation import deprecation_warning
 import idaes.logger as idaeslog
 
 __author__ = "Ilayda Akkor, Alexander V. Dudchenko, Paul Vecchiarelli, Ben Knueven"
@@ -60,7 +62,7 @@ class HessTypes:
     sparse_16 = "sparse_16"
 
 
-class BFGSInitializationTypes:
+class QuasiNewtonInitializationTypes:
     scalar1 = "scalar1"
     scalar2 = "scalar2"
     scalar3 = "scalar3"
@@ -74,18 +76,63 @@ class BFGSInitializationTypes:
 # ReaktoroGrayBox and HessianApproximation
 HESSIAN_DEFAULTS = {
     "hessian_type": HessTypes.LBFGS,
-    "bfgs_initialization_type": BFGSInitializationTypes.GaussNewton,
-    "bfgs_init_min_hessian_value": 1e-32,
-    "bfgs_init_max_hessian_value": 1e8,
-    "bfgs_init_const_hessian_value": 1e-64,
-    "bfgs_hessian_memory": 6,
-    "bfgs_epsilon": 1e-16,
+    "quasi_newton_initialization_type": QuasiNewtonInitializationTypes.GaussNewton,
+    "quasi_newton_init_min_value": 1e-32,
+    "quasi_newton_init_max_value": 1e8,
+    "quasi_newton_init_const_value": 1e-64,
+    "lbfgs_memory": 6,
+    "quasi_newton_epsilon": 1e-16,
     "sr1_skip_tolerance": 1e-8,
+    # None: SR1_SAFEGUARD_CAP for SR1 types, off for others (benchmark on softening RO
+    # flowsheets: removes bad SR1 updates, makes BFGS/LBFGS slower)
+    "quasi_newton_update_cap": None,
+    "quasi_newton_norm_cap": None,
     "hessian_input_scaling": False,
 }
 
+# options were named bfgs_* before non BFGS quasi-Newton types (SR1, PSB) were added,
+# the old names are still accepted (with a deprecation warning)
+DEPRECATED_HESSIAN_OPTIONS = {
+    "bfgs_initialization_type": "quasi_newton_initialization_type",
+    "bfgs_init_min_hessian_value": "quasi_newton_init_min_value",
+    "bfgs_init_max_hessian_value": "quasi_newton_init_max_value",
+    "bfgs_init_const_hessian_value": "quasi_newton_init_const_value",
+    "bfgs_hessian_memory": "lbfgs_memory",
+    "bfgs_epsilon": "quasi_newton_epsilon",
+}
+BFGSInitializationTypes = QuasiNewtonInitializationTypes  # deprecated name
+
+
+def _warn_deprecated_option(old, new):
+    deprecation_warning(
+        f"Hessian option '{old}' is deprecated, use '{new}' instead",
+        version="0.4.1",
+    )
+
+
+def accepts_deprecated_hessian_options(func):
+    """decorator, maps deprecated bfgs_* keyword arguments to current names"""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        for old, new in DEPRECATED_HESSIAN_OPTIONS.items():
+            if old in kwargs:
+                value = kwargs.pop(old)
+                _warn_deprecated_option(old, new)
+                if new in kwargs and kwargs[new] != value:
+                    raise ValueError(
+                        f"Both '{old}' (deprecated) and '{new}' were given with different values"
+                    )
+                kwargs[new] = value
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 _DIAGONAL_TYPES = (HessTypes.ZeroHessian, HessTypes.sparse_16)
 _LAGRANGIAN_TYPES = (HessTypes.SR1_lagrangian,)
+_SR1_TYPES = (HessTypes.SR1, HessTypes.SR1_lagrangian)
+SR1_SAFEGUARD_CAP = 10.0
 
 
 class HessianMemory:
@@ -123,6 +170,7 @@ class _Element:
         self.support = np.asarray(support, dtype=int)
         self.outputs = list(outputs)
         self.matrix = None
+        self.curvatures = []  # recent |y|/|s|, used by quasi_newton_norm_cap
 
     @property
     def size(self):
@@ -132,48 +180,62 @@ class _Element:
 class HessianApproximation:
     """general classs for hessian approximation methods"""
 
+    @accepts_deprecated_hessian_options
     def __init__(
         self,
         hessian_type=None,
-        bfgs_init_min_hessian_value=HESSIAN_DEFAULTS["bfgs_init_min_hessian_value"],
-        bfgs_init_max_hessian_value=HESSIAN_DEFAULTS["bfgs_init_max_hessian_value"],
-        bfgs_init_const_hessian_value=HESSIAN_DEFAULTS["bfgs_init_const_hessian_value"],
-        bfgs_initialization_type=HESSIAN_DEFAULTS["bfgs_initialization_type"],
-        bfgs_hessian_memory=HESSIAN_DEFAULTS["bfgs_hessian_memory"],
-        bfgs_epsilon=HESSIAN_DEFAULTS["bfgs_epsilon"],
+        quasi_newton_init_min_value=HESSIAN_DEFAULTS["quasi_newton_init_min_value"],
+        quasi_newton_init_max_value=HESSIAN_DEFAULTS["quasi_newton_init_max_value"],
+        quasi_newton_init_const_value=HESSIAN_DEFAULTS["quasi_newton_init_const_value"],
+        quasi_newton_initialization_type=HESSIAN_DEFAULTS[
+            "quasi_newton_initialization_type"
+        ],
+        lbfgs_memory=HESSIAN_DEFAULTS["lbfgs_memory"],
+        quasi_newton_epsilon=HESSIAN_DEFAULTS["quasi_newton_epsilon"],
         sr1_skip_tolerance=HESSIAN_DEFAULTS["sr1_skip_tolerance"],
+        quasi_newton_update_cap=HESSIAN_DEFAULTS["quasi_newton_update_cap"],
+        quasi_newton_norm_cap=HESSIAN_DEFAULTS["quasi_newton_norm_cap"],
         hessian_support=None,
         input_scaling=None,
     ):
         """initialize hessian approximation class
         Args:
             hessian_type: type of hessian approximation to use (see HessTypes)
-            bfgs_init_min_hessian_value: minimum absolute value for initial matrix elements
-            bfgs_init_max_hessian_value: maximum absolute value for initial matrix elements
-            bfgs_init_const_hessian_value: constant value for initial matrix diagonal
-            bfgs_initialization_type: type of initialization for quasi-Newton matrix
-            bfgs_hessian_memory: number of iterates stored (used by LBFGS)
-            bfgs_epsilon: epsilon value for numerical stability in BFGS updates
+            quasi_newton_init_min_value: minimum absolute value for initial matrix elements
+            quasi_newton_init_max_value: maximum absolute value for initial matrix elements
+            quasi_newton_init_const_value: constant value for initial matrix diagonal
+            quasi_newton_initialization_type: type of initialization for quasi-Newton matrix
+            lbfgs_memory: number of iterates stored (used by LBFGS)
+            quasi_newton_epsilon: epsilon value for numerical stability in BFGS updates
             sr1_skip_tolerance: SR1 update is skipped if |r's| < tol*|s|*|r|
+            quasi_newton_update_cap: skip updates with |dB| > cap*max(|B|, |y|/|s|),
+                cumulative types only, 0 disables, None uses SR1_SAFEGUARD_CAP for SR1
+                types and disables for others
+            quasi_newton_norm_cap: scale matrices down to cap*max recent |y|/|s|,
+                all quasi-Newton types, 0 disables, None same as update cap
             hessian_support: list (one entry per output) of input indices the output
                 depends on, None means every output depends on every input
             input_scaling: array of input scaling factors D (x_scaled = D*x), None
                 means no scaling, can also be set later with set_input_scaling
         """
-        self.hessian_memory = HessianMemory(memory=bfgs_hessian_memory)
+        self.hessian_memory = HessianMemory(memory=lbfgs_memory)
         if hessian_type is None:
             self.hessian_matrix_type = HESSIAN_DEFAULTS["hessian_type"]
         else:
             self.hessian_matrix_type = hessian_type
         self.iters = 0
         self.new_point = True
-        self.epsilon = bfgs_epsilon
+        self.epsilon = quasi_newton_epsilon
         self.sr1_skip_tolerance = sr1_skip_tolerance
-        self.init_min_hessian_value = bfgs_init_min_hessian_value
-        self.init_max_hessian_value = bfgs_init_max_hessian_value
-        self.init_const_hessian_value = bfgs_init_const_hessian_value
+        self.update_cap = self._resolve_cap(quasi_newton_update_cap)
+        self.norm_cap = self._resolve_cap(quasi_newton_norm_cap)
+        # safeguard counters, for diagnostics
+        self.safeguard_stats = {"updates_capped": 0, "norms_capped": 0}
+        self.init_min_hessian_value = quasi_newton_init_min_value
+        self.init_max_hessian_value = quasi_newton_init_max_value
+        self.init_const_hessian_value = quasi_newton_init_const_value
         self.bfgs_matrix_not_initialized = True
-        self.bfgs_initialization_type = bfgs_initialization_type
+        self.quasi_newton_initialization_type = quasi_newton_initialization_type
         self.hessian_support = hessian_support
         self.elements = None
         self.hessian_matrix = None
@@ -193,9 +255,16 @@ class HessianApproximation:
 
     ########################################################################################
     # set up
+    def _resolve_cap(self, cap):
+        """None selects the default safeguard cap for the hessian type"""
+        if cap is None:
+            return SR1_SAFEGUARD_CAP if self.hessian_matrix_type in _SR1_TYPES else 0.0
+        return float(cap)
+
     def set_input_scaling(self, input_scaling):
         """set scaling factors D for inputs (x_scaled = D*x), must be called before
-        quasi-Newton matrices are created, otherwise stored matrices would be inconsistent"""
+        quasi-Newton matrices are created, otherwise stored matrices would be inconsistent
+        """
         if self.elements is not None and self.elements[0].matrix is not None:
             raise RuntimeError(
                 "Input scaling must be set before hessian approximation is started"
@@ -217,7 +286,9 @@ class HessianApproximation:
                 raise ValueError(
                     f"hessian_support has {len(self.hessian_support)} entries, expected {n_outputs} (one per output)"
                 )
-            supports = [np.unique(np.asarray(s, dtype=int)) for s in self.hessian_support]
+            supports = [
+                np.unique(np.asarray(s, dtype=int)) for s in self.hessian_support
+            ]
             for s in supports:
                 if s.size and (s.min() < 0 or s.max() >= n_inputs):
                     raise ValueError("hessian_support has input index out of range")
@@ -309,36 +380,36 @@ class HessianApproximation:
     def get_initial_matrix(self, s, y, g):
         """initial matrix of an element from step s, gradient change y and current gradient g"""
         n = len(s)
-        init_type = self.bfgs_initialization_type
-        if init_type == BFGSInitializationTypes.zero:
+        init_type = self.quasi_newton_initialization_type
+        if init_type == QuasiNewtonInitializationTypes.zero:
             return np.zeros((n, n))
         sigma = self.init_const_hessian_value
         if (
             _nonzero(y)
             and _nonzero(s)
-            and init_type != BFGSInitializationTypes.constant
+            and init_type != QuasiNewtonInitializationTypes.constant
         ):
             sTy = s @ y
             sTs = s @ s
             yTy = y @ y
-            if init_type == BFGSInitializationTypes.scalar1:
+            if init_type == QuasiNewtonInitializationTypes.scalar1:
                 if sTs != 0:
                     sigma = sTy / sTs
-            elif init_type == BFGSInitializationTypes.scalar2:
+            elif init_type == QuasiNewtonInitializationTypes.scalar2:
                 if sTy != 0:
                     sigma = yTy / sTy
-            elif init_type == BFGSInitializationTypes.scalar3:
+            elif init_type == QuasiNewtonInitializationTypes.scalar3:
                 if sTs != 0:
                     sigma = sTy / sTs / 2
                     if sTy != 0:
                         sigma += (yTy / sTy) / 2
-            elif init_type == BFGSInitializationTypes.scalar4:
+            elif init_type == QuasiNewtonInitializationTypes.scalar4:
                 if sTs != 0:
                     sigma = sTy / sTs
                 if sTy != 0:
                     sigma *= yTy / sTy
                 sigma = np.sign(sigma) * np.sqrt(np.abs(sigma))
-            elif init_type == BFGSInitializationTypes.GaussNewton:
+            elif init_type == QuasiNewtonInitializationTypes.GaussNewton:
                 # diagonal of g g^T
                 return self.apply_sigma_bounds(np.diag(g**2))
             else:
@@ -452,9 +523,9 @@ class HessianApproximation:
         """only store a new (s, y) pair if inputs changed since last call, re-evaluating
         at the same point (e.g. with new multipliers) must not consume history or
         re-apply the last update"""
-        self.new_point = len(
-            self.hessian_memory.inputs
-        ) == 0 or not np.array_equal(self.hessian_memory.inputs[-1], self.inputs)
+        self.new_point = len(self.hessian_memory.inputs) == 0 or not np.array_equal(
+            self.hessian_memory.inputs[-1], self.inputs
+        )
         if self.new_point:
             self.hessian_memory.memorize(self.inputs, self.jacobian_matrix)
 
@@ -472,7 +543,10 @@ class HessianApproximation:
           that step, that same step is then also used as first update"""
         for el in self.elements:
             if el.matrix is None:
-                if self.bfgs_initialization_type == BFGSInitializationTypes.zero:
+                if (
+                    self.quasi_newton_initialization_type
+                    == QuasiNewtonInitializationTypes.zero
+                ):
                     el.matrix = np.zeros((el.size, el.size))
                 else:
                     el.matrix = np.identity(el.size) * self.init_const_hessian_value
@@ -486,6 +560,38 @@ class HessianApproximation:
         if not _nonzero(self._outputs_dual_multipliers):
             self.bfgs_matrix_not_initialized = True
 
+    ########################################################################################
+    # safeguards
+    @staticmethod
+    def _curvature(s, y):
+        """magnitude of curvature observed along step, |y|/|s|"""
+        s_norm = np.linalg.norm(s)
+        return np.linalg.norm(y) / s_norm if s_norm > 0 else 0.0
+
+    def _record_curvature(self, el, s, y):
+        el.curvatures.append(self._curvature(s, y))
+        if len(el.curvatures) > self.hessian_memory.memory:
+            el.curvatures.pop(0)
+
+    def _update_too_large(self, B, new_matrix, s, y):
+        """quasi_newton_update_cap test, True if update should be skipped"""
+        if self.update_cap <= 0:
+            return False
+        ref = max(np.linalg.norm(B), self._curvature(s, y))
+        if ref == 0:
+            return True
+        return np.linalg.norm(new_matrix - B) > self.update_cap * ref
+
+    def _apply_norm_cap(self, el, curvatures):
+        """quasi_newton_norm_cap, scale matrix down to cap * max recent curvature"""
+        if self.norm_cap <= 0 or not curvatures:
+            return
+        limit = self.norm_cap * max(curvatures)
+        norm = np.linalg.norm(el.matrix)
+        if limit > 0 and norm > limit:
+            el.matrix = el.matrix * (limit / norm)
+            self.safeguard_stats["norms_capped"] += 1
+
     def _cumulative_update(self, rule):
         """update every element matrix with most recent stored step"""
         if not (self.new_point and len(self.hessian_memory.inputs) > 1):
@@ -493,9 +599,16 @@ class HessianApproximation:
         n = len(self.hessian_memory.inputs)
         for el in self.elements:
             s, y, g = self._element_vectors(el, n - 2, n - 1)
+            if not _nonzero(s):
+                continue
+            self._record_curvature(el, s, y)
             new_matrix = rule(el.matrix, s, y, g)
             if new_matrix is not None:
-                el.matrix = new_matrix
+                if self._update_too_large(el.matrix, new_matrix, s, y):
+                    self.safeguard_stats["updates_capped"] += 1
+                else:
+                    el.matrix = new_matrix
+            self._apply_norm_cap(el, el.curvatures)
 
     def _ipopt_update_test(self, s, y, initial_matrix):
         y_s = y @ s
@@ -510,7 +623,8 @@ class HessianApproximation:
     def _lbfgs_update(self):
         """Direct LBFGS based on Byrd, Nocedal & Schnabel, Representations of quasi-newton
         matrices and their use in limited memory methods. Matrix is rebuilt from the
-        stored pairs on every call, using single initial matrix scaled from most recent pair"""
+        stored pairs on every call, using single initial matrix scaled from most recent pair
+        """
         n = len(self.hessian_memory.inputs)
         if n < 2:
             return
@@ -537,6 +651,7 @@ class HessianApproximation:
                         bk.append(b)
             for a, b in zip(ak, bk):
                 el.matrix = el.matrix + np.outer(b, b) - np.outer(a, a)
+            self._apply_norm_cap(el, [self._curvature(s, y) for s, y, _ in pairs])
 
     def _reset_non_finite(self):
         """reset elements whose matrix became non finite"""

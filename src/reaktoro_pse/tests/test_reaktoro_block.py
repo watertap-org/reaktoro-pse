@@ -21,8 +21,10 @@ from pyomo.environ import (
     Var,
     Constraint,
     assert_optimal_termination,
+    value,
     units as pyunits,
 )
+import idaes.core.util.scaling as iscale
 
 from pyomo.contrib.pynumero.interfaces.external_grey_box import (
     ExternalGreyBoxModel,
@@ -455,6 +457,167 @@ def test_blockBuild_solids_gas(build_rkt_state_with_species):
     )
 
 
+def _offset_value(rkt_value, a, offset_type):
+    if offset_type == "smooth_floor":
+        return (rkt_value**2 + a**2) ** 0.5
+    return rkt_value + a
+
+
+@pytest.mark.parametrize(
+    "offset, offset_type",
+    [(1e-8, "additive"), (1e-4, "smooth_floor"), (0.0, "additive"), (1e-4, None)],
+)
+def test_species_amount_zero_offset(build_rkt_state_with_species, offset, offset_type):
+    """species that are not present (Brucite at pH 7) are returned by Reaktoro as epsilon,
+    the offset keeps the lower bounded output var away from 0, other outputs are untouched
+    """
+    m = build_rkt_state_with_species
+    m.mineral_outputs = Var(
+        [("speciesAmount", "Calcite"), ("speciesAmount", "Brucite"), ("pH", None)],
+        initialize=1e-3,
+    )
+    sf = 1e3
+    for key in [("speciesAmount", "Calcite"), ("speciesAmount", "Brucite")]:
+        m.mineral_outputs[key].setlb(0)
+        iscale.set_scaling_factor(m.mineral_outputs[key], sf)
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+            "activity_model": "ActivityModelPitzer",
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+        },
+        mineral_phase={"phase_components": ["Calcite", "Brucite"]},
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        outputs=m.mineral_outputs,
+        reaktoro_solve_options={
+            "species_amount_zero_offset": offset,
+            "species_amount_offset_type": offset_type,
+        },
+    )
+    m.property_block.initialize()
+    builder = m.property_block.rkt_block_builder
+    offset_index = builder.species_amount_offset_index
+    gray_box = m.property_block.reaktoro_model.get_external_model()
+    # gray box outputs (floored) and raw reaktoro values
+    rkt_out = m.property_block.reaktoro_model.outputs
+    raw = m.property_block.rkt_solver.output_specs.user_outputs
+    disabled = offset == 0 or offset_type is None
+    if disabled:
+        assert offset_index == {}
+        assert gray_box._output_floors == {}
+    else:
+        # only speciesAmount outputs get an offset
+        assert set(offset_index.keys()) == {
+            ("speciesAmount", "Calcite"),
+            ("speciesAmount", "Brucite"),
+        }
+    # offset is applied in the gray box, output constraints stay linear
+    for con in m.property_block.output_constraints.values():
+        assert con.body.polynomial_degree() == 1
+    a = 0.0 if disabled else offset / sf
+    for key in offset_index:
+        assert pytest.approx(builder.get_species_amount_offset(key), rel=1e-12) == a
+        # initialization is consistent with the gray box floor
+        expected = _offset_value(raw[key].value, a, offset_type)
+        assert (
+            pytest.approx(m.mineral_outputs[key].value, rel=1e-12, abs=1e-30)
+            == expected
+        )
+        assert pytest.approx(rkt_out[key].value, rel=1e-12, abs=1e-30) == expected
+    cy_solver = get_cyipopt_watertap_solver()
+    cy_solver.options["max_iter"] = 20
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    brucite = ("speciesAmount", "Brucite")
+    # reaktoro returns epsilon for brucite, the output var sits offset away from its bound
+    assert raw[brucite].value < 1e-30
+    # (abs tolerance covers ipopt constraint violation)
+    assert pytest.approx(m.mineral_outputs[brucite].value, rel=1e-3, abs=1e-13) == a
+    for key in [("speciesAmount", "Calcite"), ("pH", None)]:
+        expected = raw[key].value
+        if key in offset_index:
+            expected = _offset_value(expected, a, offset_type)
+        assert (
+            pytest.approx(m.mineral_outputs[key].value, rel=1e-9, abs=1e-30) == expected
+        )
+    if offset_type == "smooth_floor":
+        # present species are shifted by ~a**2/(2n), far less than a
+        calcite = ("speciesAmount", "Calcite")
+        shift = m.mineral_outputs[calcite].value - raw[calcite].value
+        assert 0 < shift < 1e-3 * a
+    if disabled:
+        return
+    # value based rescaling keeps the user scaling factor of offset outputs
+    m.property_block.update_block_scaling()
+    assert iscale.get_scaling_factor(m.mineral_outputs[brucite]) == sf
+    # user rescaling after initialization changes the offset on the next solve
+    iscale.set_scaling_factor(m.mineral_outputs[brucite], 10 * sf)
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    assert (
+        pytest.approx(m.mineral_outputs[brucite].value, rel=1e-3, abs=1e-14) == a / 10
+    )
+
+
+@pytest.mark.parametrize("coupling_type", [True, False])
+def test_species_amount_offset_not_applied_to_speciation(
+    build_rkt_state_with_species, coupling_type
+):
+    """species amounts passed from speciation block to property block are never offset,
+    only user speciesAmount outputs of the property block are"""
+    m = build_rkt_state_with_species
+    m.CaO = Var(["CaO"], initialize=0.001, units=pyunits.mol / pyunits.s)
+    m.CaO.fix()
+    m.mineral_outputs = Var([("speciesAmount", "Ca+2"), ("pH", None)], initialize=1e-3)
+    iscale.set_scaling_factor(m.mineral_outputs[("speciesAmount", "Ca+2")], 1e3)
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+        },
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        chemistry_modifier=m.CaO,
+        outputs=m.mineral_outputs,
+        direct_speciation_to_property_block_coupling=coupling_type,
+        build_speciation_block=True,
+        reaktoro_solve_options={
+            "species_amount_zero_offset": 1e-4,
+            "species_amount_offset_type": "smooth_floor",
+        },
+    )
+    m.property_block.initialize()
+    builder = m.property_block.rkt_block_builder
+    assert set(builder.species_amount_offset_index) == {("speciesAmount", "Ca+2")}
+    # terminal property block output is floored in the gray box
+    floors = m.property_block.reaktoro_model.get_external_model()._output_floors
+    assert len(floors) == 1
+    if coupling_type:
+        # speciation outputs stay inside the coupled solver, never in pyomo
+        assert m.property_block.coupled_solver.outputs
+        assert not hasattr(m.property_block.speciation_block, "rkt_block_builder")
+    else:
+        spec_block = m.property_block.speciation_block
+        assert spec_block.rkt_block_builder.species_amount_offset_index == {}
+        assert spec_block.reaktoro_model.get_external_model()._output_floors == {}
+        # property block inputs equal speciation outputs (an offset would be 1e-7 here)
+        for key in spec_block.reaktoro_model.outputs:
+            assert value(spec_block.outputs[key]) == pytest.approx(
+                value(spec_block.reaktoro_model.outputs[key]), rel=1e-6, abs=1e-30
+            )
+
+
 @pytest.mark.parametrize(
     "coupling_type",
     [True, False],
@@ -495,6 +658,35 @@ def test_blockBuild_with_speciation_block(build_rkt_state_with_species, coupling
 
     assert pytest.approx(m.outputs[("pH", None)].value, 1e-3) == 6.7496301
     assert pytest.approx(m.pH.value, 1e-3) == 6.401
+
+
+def test_coupled_solver_solves_without_initialize(build_rkt_state_with_species):
+    """coupled solver must work when initialize was skipped (e.g. state loaded from file)"""
+    m = build_rkt_state_with_species
+    m.CaO = Var(["CaO"], initialize=0.001, units=pyunits.mol / pyunits.s)
+    m.CaO.fix()
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+        },
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        chemistry_modifier=m.CaO,
+        outputs=m.outputs,
+        direct_speciation_to_property_block_coupling=True,
+        build_speciation_block=True,
+    )
+    coupled_solver = m.property_block.coupled_solver
+    assert coupled_solver.prop_block_not_equilibrated
+    jac, out = coupled_solver.solve_reaktoro_block()
+    assert not coupled_solver.prop_block_not_equilibrated
+    assert len(out) > 0
 
 
 def test_blockBuild_with_speciation_and_mixing(

@@ -199,3 +199,59 @@ def test_blockBuild_with_wateqf_data_base(build_rkt_state_with_species):
     assert pytest.approx(m.outputs[("pH", None)].value, 1e-3) == 8.02734612095523
     assert pytest.approx(m.pH.value, 1e-3) == 7.2526416924401556
     m.reaktoro_manager.terminate_workers()
+
+
+@pytest.mark.parametrize("parallel_mode", [False, True])
+def test_species_amount_offset_with_manager(
+    build_rkt_state_with_species, parallel_mode
+):
+    """managed blocks floor species amounts in the shared gray box like unmanaged blocks"""
+    import idaes.core.util.scaling as iscale
+
+    m = build_rkt_state_with_species
+    keys = [("speciesAmount", "Calcite"), ("speciesAmount", "Brucite"), ("pH", None)]
+    m.mineral_outputs = Var(keys, initialize=1e-3)
+    sf = 1e3
+    for key in keys[:2]:
+        m.mineral_outputs[key].setlb(0)
+        iscale.set_scaling_factor(m.mineral_outputs[key], sf)
+    m.reaktoro_manager = ReaktoroBlockManager(use_parallel_mode=parallel_mode)
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+            "activity_model": "ActivityModelPitzer",
+        },
+        system_state={"temperature": m.temp, "pressure": m.pressure, "pH": m.pH},
+        mineral_phase={"phase_components": ["Calcite", "Brucite"]},
+        database="PhreeqcDatabase",
+        database_file="pitzer.dat",
+        outputs=m.mineral_outputs,
+        reaktoro_solve_options={
+            "species_amount_zero_offset": 1e-4,
+            "species_amount_offset_type": "smooth_floor",
+        },
+        reaktoro_block_manager=m.reaktoro_manager,
+    )
+    m.reaktoro_manager.build_reaktoro_blocks()
+    try:
+        m.reaktoro_manager.initialize()
+        gray_box = m.reaktoro_manager.reaktoro_model.get_external_model()
+        floored = {gray_box.outputs[i] for i in gray_box._output_floors}
+        assert floored == {(0, keys[0]), (0, keys[1])}
+        cy_solver = get_cyipopt_watertap_solver()
+        cy_solver.options["max_iter"] = 20
+        result = cy_solver.solve(m, tee=True)
+        assert_optimal_termination(result)
+        a = 1e-4 / sf
+        brucite = m.mineral_outputs[keys[1]].value
+        assert pytest.approx(brucite, rel=1e-3, abs=1e-13) == a
+        calcite_raw = m.property_block.rkt_solver.output_specs.user_outputs[keys[0]]
+        if not parallel_mode:
+            # raw value is only tracked in the main process solver in serial mode
+            assert (
+                pytest.approx(m.mineral_outputs[keys[0]].value, rel=1e-9)
+                == (calcite_raw.value**2 + a**2) ** 0.5
+            )
+    finally:
+        m.reaktoro_manager.terminate_workers()

@@ -10,7 +10,7 @@
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
 
-from pyomo.common.config import ConfigValue, IsInstance, ConfigDict
+from pyomo.common.config import ConfigValue, IsInstance, ConfigDict, In
 
 
 class ReaktoroSolverOptions:
@@ -122,6 +122,45 @@ class ReaktoroSolverOptions:
                     this can help with solvability of some problems, but can
                     lead to unexpected results depending on database, activity coefficients, and inputs chosen.
                     This generally should not be needed""",
+                ),
+            )
+            CONFIG.declare(
+                "species_amount_zero_offset",
+                ConfigValue(
+                    default=1e-4,
+                    domain=float,
+                    description="Scaled offset added to speciesAmount outputs",
+                    doc="""Offset added to user provided speciesAmount output variables, in scaled units
+                    (output_var = reaktoro_amount + species_amount_zero_offset / scaling_factor of output_var).
+                    When a species or phase is not present Reaktoro returns its amount as epsilon (e.g. 1e-40)
+                    with zero derivatives. If the output variable (or a variable linked to it through
+                    equality constraints) has a lower bound of 0, it then sits at epsilon from the bound, which
+                    makes the problem degenerate and can prevent Ipopt from converging dual infeasibility.
+                    The offset keeps these variables away from the bound, at the cost of a mass balance error of
+                    offset/scaling_factor. Relies on user provided scaling factors on output variables, without
+                    them the scaling factor is computed from the output value and the offset has no effect for
+                    species that are not present. Set to 0 to disable. Species amounts passed from a
+                    speciation block to the property block are never offset.""",
+                ),
+            )
+            CONFIG.declare(
+                "species_amount_offset_type",
+                ConfigValue(
+                    default="smooth_floor",
+                    domain=In(["additive", "smooth_floor", None]),
+                    description="How species_amount_zero_offset is applied",
+                    doc="""With a = species_amount_zero_offset / scaling_factor of output_var:
+                    - additive: output_var = reaktoro_amount + a, every species is shifted by a
+                    - smooth_floor: output_var = sqrt(reaktoro_amount**2 + a**2), species that are not
+                    present sit at a, present species (amount n >> a) are shifted by only ~a**2/(2n).
+                    This allows a larger offset (e.g. 1e-4) that keeps absent phases further from
+                    their bounds (bound multipliers scale as barrier parameter / a) with a small error
+                    for species that are present.
+                    - None: no offset is applied (same as species_amount_zero_offset = 0)
+                    The offset is applied to the gray box outputs (values and jacobian), output
+                    constraints stay linear (output_var == gray box output). a is computed from the
+                    current scaling factor of output_var on every gray box evaluation, so scaling
+                    changes after initialization take effect on the next solve.""",
                 ),
             )
         return CONFIG

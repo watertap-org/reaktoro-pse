@@ -35,7 +35,10 @@ from reaktoro_pse.core.reaktoro_coupled_solver import ReaktoroCoupledSolver
 from reaktoro_pse.parallel_tools.reaktoro_block_manager import ReaktoroBlockManager
 
 from reaktoro_pse.reaktoro_block_config.jacobian_options import JacobianOptions
-from reaktoro_pse.reaktoro_block_config.hessian_options import HessianOptions
+from reaktoro_pse.reaktoro_block_config.hessian_options import (
+    HessianOptions,
+    resolve_deprecated_hessian_options,
+)
 from reaktoro_pse.reaktoro_block_config.reaktoro_solver_options import (
     ReaktoroSolverOptions,
 )
@@ -919,6 +922,7 @@ class ReaktoroBlockData(ProcessBlockData):
         else:
             presolve = self.config.reaktoro_presolve_options.presolve_property_block
 
+        resolve_deprecated_hessian_options(self.config.hessian_options)
         block.rkt_solver.set_solver_options(
             tolerance=self.config.reaktoro_solve_options.solver_tolerance,
             epsilon=self.config.reaktoro_solve_options.epsilon,
@@ -928,14 +932,16 @@ class ReaktoroBlockData(ProcessBlockData):
             max_iters=self.config.reaktoro_solve_options.max_iterations,
             presolve_max_iters=self.config.reaktoro_presolve_options.max_iterations,
             hessian_type=self.config.hessian_options.hessian_type,
-            bfgs_initialization_type=self.config.hessian_options.bfgs_initialization_type,
-            bfgs_init_min_hessian_value=self.config.hessian_options.bfgs_init_min_hessian_value,
-            bfgs_init_max_hessian_value=self.config.hessian_options.bfgs_init_max_hessian_value,
-            bfgs_init_const_hessian_value=self.config.hessian_options.bfgs_init_const_hessian_value,
-            bfgs_hessian_memory=self.config.hessian_options.bfgs_hessian_memory,
-            bfgs_epsilon=self.config.hessian_options.bfgs_epsilon,
+            quasi_newton_initialization_type=self.config.hessian_options.quasi_newton_initialization_type,
+            quasi_newton_init_min_value=self.config.hessian_options.quasi_newton_init_min_value,
+            quasi_newton_init_max_value=self.config.hessian_options.quasi_newton_init_max_value,
+            quasi_newton_init_const_value=self.config.hessian_options.quasi_newton_init_const_value,
+            lbfgs_memory=self.config.hessian_options.lbfgs_memory,
+            quasi_newton_epsilon=self.config.hessian_options.quasi_newton_epsilon,
             auto_scale_constraint=self.config.reaktoro_solve_options.auto_scale_constraints,
             sr1_skip_tolerance=self.config.hessian_options.sr1_skip_tolerance,
+            quasi_newton_update_cap=self.config.hessian_options.quasi_newton_update_cap,
+            quasi_newton_norm_cap=self.config.hessian_options.quasi_newton_norm_cap,
             hessian_input_scaling=self.config.hessian_options.hessian_input_scaling,
         )
 
@@ -1028,6 +1034,12 @@ class ReaktoroBlockData(ProcessBlockData):
                 jacobian_scaling_bounds=self.config.jacobian_options.jacobian_scale_bounds,
                 update_jacobian_scale_every_solve=self.config.jacobian_options.update_jacobian_scale_every_solve,
                 jacobian_scaling_bounds_output_based=self.config.jacobian_options.jacobian_scaling_bounds_output_based,
+            )
+            block.rkt_block_builder.configure_species_amount_offset(
+                self.config.reaktoro_solve_options.species_amount_zero_offset,
+                self.config.reaktoro_solve_options.species_amount_offset_type,
+                # speciation block species amounts feed the property block
+                speciation_block=speciation_block,
             )
 
             if self.config.reaktoro_block_manager is not None:
