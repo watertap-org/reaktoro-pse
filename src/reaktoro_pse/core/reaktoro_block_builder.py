@@ -358,7 +358,7 @@ class ReaktoroBlockBuilder:
                 self.species_amount_offset_type,
             )
 
-    def get_species_amount_offset_report(self):
+    def get_species_amount_offset_report(self, update_state=False):
         """compare reaktoro species amounts with floored outputs, returns
         output key -> dict with:
             reaktoro_value: amount from reaktoro (last gray box evaluation, or last
@@ -368,9 +368,31 @@ class ReaktoroBlockBuilder:
             offset: unscaled offset a
             scaling_factor: scaling factor of the output var
             scaled_amount: reaktoro_value * scaling_factor
-            error: floored_value - reaktoro_value
+            error: floored_value - reaktoro_value, amount added by the offset
             relative_error: error / reaktoro_value (inf if reaktoro_value <= 0)
+            elements: element -> dict with
+                coefficient: number of atoms of the element in the species
+                system_amount: total amount of the element in the reaktoro system
+                offset_fraction: coefficient * error / system_amount, fraction of the
+                    element that the offset artificially adds to (or removes from the
+                    rest of the system through) this species
+            max_element_fraction: largest offset_fraction (0 if no elements found)
+            limiting_element: element with the largest offset_fraction
+
+        Keywords:
+        update_state -- re-solve the reaktoro state at the current pyomo input values
+            before reading element amounts (needed when the state of this process is not
+            updated by the gray box, e.g. blocks solved by a parallel ReaktoroBlockManager)
         """
+        if update_state:
+            try:
+                self.solver.solve_reaktoro_block()
+            except Exception as e:
+                _log.warning(
+                    f"Could not update reaktoro state for species amount offset report, "
+                    f"element amounts are from the last solve: {e}"
+                )
+        element_amounts = self._get_offset_species_elements()
         external_model, block_index = self.get_gray_box_floor_target()
         report = {}
         for key in self.species_amount_offset_index:
@@ -399,7 +421,86 @@ class ReaktoroBlockBuilder:
                 "error": error,
                 "relative_error": error / raw if raw > 0 else float("inf"),
             }
+            elements = {}
+            for symbol, (coefficient, system_amount) in element_amounts.get(
+                key, {}
+            ).items():
+                elements[symbol] = {
+                    "coefficient": coefficient,
+                    "system_amount": system_amount,
+                    "offset_fraction": (
+                        coefficient * error / system_amount
+                        if system_amount > 0
+                        else float("inf")
+                    ),
+                }
+            limiting = max(
+                elements, key=lambda e: elements[e]["offset_fraction"], default=None
+            )
+            report[key]["elements"] = elements
+            report[key]["limiting_element"] = limiting
+            report[key]["max_element_fraction"] = (
+                elements[limiting]["offset_fraction"] if limiting else 0.0
+            )
         return report
+
+    @staticmethod
+    def get_species_amount_offset_element_report(species_report):
+        """sums the amount added by the offset over all offset species per element,
+        species_report is the output of get_species_amount_offset_report, returns
+        element -> dict with:
+            system_amount: total amount of the element in the reaktoro system
+            offset_amount: sum of coefficient * error over offset species with the element
+            offset_fraction: offset_amount / system_amount
+            species: output key -> coefficient * error of that species
+        """
+        elements = {}
+        for key, r in species_report.items():
+            for symbol, e in r["elements"].items():
+                el = elements.setdefault(
+                    symbol,
+                    {
+                        "system_amount": e["system_amount"],
+                        "offset_amount": 0.0,
+                        "species": {},
+                    },
+                )
+                amount = e["coefficient"] * r["error"]
+                el["offset_amount"] += amount
+                el["species"][key] = amount
+        for el in elements.values():
+            el["offset_fraction"] = (
+                el["offset_amount"] / el["system_amount"]
+                if el["system_amount"] > 0
+                else float("inf")
+            )
+        return elements
+
+    def _get_offset_species_elements(self):
+        """output key -> {element: (coefficient in species, total amount in system)}
+        from the reaktoro state of this process, species not found in the system are
+        skipped"""
+        # coupled solver: offset outputs belong to the property solver
+        solver = getattr(self.solver, "property_solver", self.solver)
+        try:
+            chem_state = solver.state.state
+            system_species = chem_state.system().species()
+            props = chem_state.props()
+        except AttributeError:
+            return {}
+        result = {}
+        for key in self.species_amount_offset_index:
+            try:
+                composition = system_species.get(key[1]).elements()
+            except Exception:
+                continue
+            result[key] = {
+                symbol: (float(coefficient), float(props.elementAmount(symbol)))
+                for symbol, coefficient in zip(
+                    composition.symbols(), composition.coefficients()
+                )
+            }
+        return result
 
     def initialize(self, presolve_during_initialization=False):
         """initialize reaktoro block

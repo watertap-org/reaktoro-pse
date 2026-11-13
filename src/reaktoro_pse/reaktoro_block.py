@@ -1097,41 +1097,79 @@ class ReaktoroBlockData(ProcessBlockData):
         _log.info("-----Displaying information for property block ------")
         self.rkt_block_builder.display_state()
 
-    def get_species_amount_offset_report(self):
+    def get_species_amount_offset_report(self, update_state=None):
         """Compares species amounts returned by Reaktoro with the floored values the
-        output vars are set to (species_amount_zero_offset), see
+        output vars are set to (species_amount_zero_offset), and the amount added by the
+        offset with the total amount of each element of the species in the system, see
         ReaktoroBlockBuilder.get_species_amount_offset_report for the fields.
         Only species with an offset are included (speciation block outputs never are).
+
+        Keywords:
+        update_state -- re-solve the reaktoro state at the current input values before
+            reading element amounts, None does this only for blocks solved by a parallel
+            ReaktoroBlockManager (their state in this process is not updated by solves)
         """
-        return self.rkt_block_builder.get_species_amount_offset_report()
+        if update_state is None:
+            manager = self.config.reaktoro_block_manager
+            update_state = manager is not None and manager.config.use_parallel_mode
+        return self.rkt_block_builder.get_species_amount_offset_report(
+            update_state=update_state
+        )
+
+    def get_species_amount_offset_element_report(self, update_state=None):
+        """Amount added by species_amount_zero_offset summed over all offset species for
+        each element, compared with the total amount of the element in the system, see
+        ReaktoroBlockBuilder.get_species_amount_offset_element_report for the fields.
+        update_state -- see get_species_amount_offset_report"""
+        return self.rkt_block_builder.get_species_amount_offset_element_report(
+            self.get_species_amount_offset_report(update_state=update_state)
+        )
 
     def check_species_amount_offsets(
         self,
         relative_tolerance=1e-2,
+        element_tolerance=1e-2,
         absent_scaled_amount=1e-8,
         raise_error=False,
         display=True,
+        update_state=None,
     ):
         """Checks error introduced by species_amount_zero_offset, use after a solve.
 
         Each species with an offset is classified as:
             absent: scaled reaktoro amount <= absent_scaled_amount (e.g. ~1e-40 from
                 Reaktoro), the output var sits at the offset a
-            ok: present, relative error of the output var <= relative_tolerance
             distorted: present, but the offset changes its amount by more than
-                relative_tolerance (amount is comparable to a), consider smaller
-                species_amount_zero_offset or a larger scaling factor for its output var
+                relative_tolerance (amount is comparable to a)
+            ok: present, relative error of the output var <= relative_tolerance
+        Each element of the offset species is classified as:
+            depleted: the amount added by the offsets of all species with this element
+                (a for absent species, times the number of atoms of the element) is more
+                than element_tolerance of the total amount of the element in the system,
+                e.g. absent Calcite and Dolomite at a remove a noticeable part of the C
+                from the rest of the flowsheet
+            ok: otherwise
+        For distorted species or depleted elements consider a smaller
+        species_amount_zero_offset or larger scaling factors for the output vars.
 
         Keywords:
         relative_tolerance -- allowed relative error for present species
+        element_tolerance -- allowed fraction of an element taken up by the offsets
         absent_scaled_amount -- scaled amount below which a species is treated as absent
-        raise_error -- raise a RuntimeError if any species is distorted, otherwise log a warning
+        raise_error -- raise a RuntimeError if any species is distorted or element is
+            depleted, otherwise log a warning
         display -- log the comparison
+        update_state -- see get_species_amount_offset_report
 
         Returns:
-            dict of output key -> status (absent, ok, distorted)
+            dict with
+                species: output key -> status (absent, distorted, ok)
+                elements: element -> status (depleted, ok)
         """
-        report = self.get_species_amount_offset_report()
+        report = self.get_species_amount_offset_report(update_state=update_state)
+        element_report = (
+            self.rkt_block_builder.get_species_amount_offset_element_report(report)
+        )
         status = {}
         for key, r in report.items():
             if r["scaled_amount"] <= absent_scaled_amount:
@@ -1140,37 +1178,71 @@ class ReaktoroBlockData(ProcessBlockData):
                 status[key] = "distorted"
             else:
                 status[key] = "ok"
+        element_status = {
+            symbol: "depleted" if el["offset_fraction"] > element_tolerance else "ok"
+            for symbol, el in element_report.items()
+        }
         if display:
             _log.info(
-                f"{'output':<40}{'reaktoro':>14}{'floored':>14}{'output var':>14}"
-                f"{'offset':>14}{'rel. error':>14}  status"
+                f"{'output':<40}{'reaktoro':>12}{'floored':>12}{'output var':>12}"
+                f"{'offset':>12}{'error %':>12}  status"
             )
             for key, r in report.items():
                 var_value = r["output_var_value"]
                 var_value = float("nan") if var_value is None else var_value
                 # relative error of absent species (~1e-40) is meaningless
                 rel_error = (
-                    f"{'-':>14}"
+                    f"{'-':>12}"
                     if status[key] == "absent"
-                    else f"{r['relative_error']:>14.4e}"
+                    else f"{100 * r['relative_error']:>11.3g}%"
                 )
                 _log.info(
-                    f"{str(key):<40}{r['reaktoro_value']:>14.4e}{r['floored_value']:>14.4e}"
-                    f"{var_value:>14.4e}{r['offset']:>14.4e}"
-                    f"{rel_error}  {status[key]}"
+                    f"{str(key):<40}{r['reaktoro_value']:>12.3e}{r['floored_value']:>12.3e}"
+                    f"{var_value:>12.3e}{r['offset']:>12.3e}{rel_error}  {status[key]}"
                 )
+            _log.info(
+                f"{'element':<10}{'system amount':>16}{'offset amount':>16}"
+                f"{'% of system':>14}  status    largest contributor"
+            )
+            for symbol, el in sorted(
+                element_report.items(), key=lambda x: -x[1]["offset_fraction"]
+            ):
+                largest = max(el["species"], key=el["species"].get)
+                _log.info(
+                    f"{symbol:<10}{el['system_amount']:>16.4e}{el['offset_amount']:>16.4e}"
+                    f"{100 * el['offset_fraction']:>13.3g}%  {element_status[symbol]:<10}"
+                    f"{largest[1]}"
+                )
+        messages = []
+        depleted = [e for e, s in element_status.items() if s == "depleted"]
+        if depleted:
+            details = ", ".join(
+                f"{e}: {100 * element_report[e]['offset_fraction']:.3g}% "
+                f"(from {', '.join(k[1] for k in element_report[e]['species'])})"
+                for e in depleted
+            )
+            messages.append(
+                f"species_amount_zero_offset takes up more than {100 * element_tolerance:g}% of the "
+                f"system amount of elements {details}"
+            )
         distorted = [key for key, s in status.items() if s == "distorted"]
         if distorted:
+            messages.append(
+                f"species_amount_zero_offset changes the amount of present species "
+                f"{distorted} by more than {100 * relative_tolerance:g}%, their amounts "
+                f"are comparable to the offset"
+            )
+        if messages:
             msg = (
-                f"{self.name}: species_amount_zero_offset changes the amount of present species "
-                f"{distorted} by more than {relative_tolerance} (relative), their amounts are "
-                f"comparable to the offset, consider a smaller species_amount_zero_offset or "
-                f"larger scaling factors for these outputs"
+                f"{self.name}: "
+                + "; ".join(messages)
+                + ". Consider a smaller species_amount_zero_offset or larger scaling "
+                "factors for these outputs"
             )
             if raise_error:
                 raise RuntimeError(msg)
             _log.warning(msg)
-        return status
+        return {"species": status, "elements": element_status}
 
     def update_block_scaling(self, update_on_speciation_block=True):
         """This will update the scaling of input and output constraints on all blocks, can be

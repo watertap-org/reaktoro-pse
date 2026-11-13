@@ -556,8 +556,9 @@ def test_species_amount_zero_offset(build_rkt_state_with_species, offset, offset
     status = m.property_block.check_species_amount_offsets()
     assert set(report) == set(offset_index)
     if disabled:
-        assert status == {}
+        assert status == {"species": {}, "elements": {}}
         return
+    calcite = ("speciesAmount", "Calcite")
     for key, r in report.items():
         assert r["reaktoro_value"] == pytest.approx(raw[key].value, rel=1e-12)
         assert r["offset"] == pytest.approx(a, rel=1e-12)
@@ -565,13 +566,45 @@ def test_species_amount_zero_offset(build_rkt_state_with_species, offset, offset
             _offset_value(raw[key].value, a, offset_type), rel=1e-12
         )
         assert r["output_var_value"] == m.mineral_outputs[key].value
-    assert status == {brucite: "absent", ("speciesAmount", "Calcite"): "ok"}
+    assert status["species"] == {brucite: "absent", calcite: "ok"}
+    assert status["elements"] == {e: "ok" for e in ["Mg", "O", "H", "Ca", "C"]}
     # calcite is shifted by more than a tiny tolerance
-    calcite_rel_error = report[("speciesAmount", "Calcite")]["relative_error"]
+    calcite_rel_error = report[calcite]["relative_error"]
     assert calcite_rel_error > 0
     with pytest.raises(RuntimeError, match="Calcite"):
         m.property_block.check_species_amount_offsets(
             relative_tolerance=calcite_rel_error / 2, raise_error=True
+        )
+    # offset amount is compared with the system amount of each element of the species
+    props = m.property_block.rkt_solver.state.state.props()
+    mg_total = float(props.elementAmount("Mg"))
+    brucite_elements = report[brucite]["elements"]
+    assert set(brucite_elements) == {"Mg", "O", "H"}
+    assert brucite_elements["Mg"]["coefficient"] == 1
+    assert brucite_elements["Mg"]["system_amount"] == pytest.approx(mg_total)
+    assert set(report[calcite]["elements"]) == {"Ca", "C", "O"}
+    # per element, offsets of all species with the element are summed (O: 3 in
+    # calcite, 2 in brucite)
+    elements = m.property_block.get_species_amount_offset_element_report()
+    assert elements["Mg"]["offset_fraction"] == pytest.approx(
+        report[brucite]["error"] / mg_total, rel=1e-9
+    )
+    o_amount = 3 * report[calcite]["error"] + 2 * report[brucite]["error"]
+    assert elements["O"]["offset_amount"] == pytest.approx(o_amount, rel=1e-12)
+    assert elements["O"]["offset_fraction"] == pytest.approx(
+        o_amount / float(props.elementAmount("O")), rel=1e-9
+    )
+    assert set(elements["O"]["species"]) == {brucite, calcite}
+    # an element that the offsets take a noticeable part of is flagged
+    mg_fraction = elements["Mg"]["offset_fraction"]
+    assert 0 < mg_fraction < 1e-2
+    status = m.property_block.check_species_amount_offsets(
+        element_tolerance=mg_fraction / 2
+    )
+    assert status["elements"]["Mg"] == "depleted"
+    with pytest.raises(RuntimeError, match="Mg.*from Brucite"):
+        m.property_block.check_species_amount_offsets(
+            element_tolerance=mg_fraction / 2, raise_error=True
         )
     # value based rescaling keeps the user scaling factor of offset outputs
     m.property_block.update_block_scaling()

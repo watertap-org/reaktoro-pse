@@ -259,9 +259,11 @@ def test_species_amount_offset_with_manager(
         for key, r in report.items():
             assert pytest.approx(r["output_var_value"], rel=1e-9) == r["floored_value"]
         assert report[keys[1]]["reaktoro_value"] < 1e-30
-        assert m.property_block.check_species_amount_offsets() == {
-            keys[0]: "ok",
-            keys[1]: "absent",
-        }
+        # element amounts are available in both modes (re-solved locally in parallel mode)
+        assert report[keys[1]]["limiting_element"] == "Mg"
+        assert 0 < report[keys[1]]["max_element_fraction"] < 1e-2
+        status = m.property_block.check_species_amount_offsets()
+        assert status["species"] == {keys[0]: "ok", keys[1]: "absent"}
+        assert set(status["elements"].values()) == {"ok"}
     finally:
         m.reaktoro_manager.terminate_workers()
