@@ -222,6 +222,10 @@ def display_results(m):
     for key, var in m.solids.items():
         if raw[key].value > 1e-12:
             print(f"{key[1]} precipitated: {var.value:.4e} mol/s")
+    if m.crystallizer.rkt_block_builder.species_amount_offset_index:
+        # error introduced by the offset, per species and per element (logged), warns if
+        # a present mineral or an element is changed by more than 1%
+        m.crystallizer.check_species_amount_offsets()
 
 
 if __name__ == "__main__":

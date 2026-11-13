@@ -585,8 +585,9 @@ class ReaktoroBlockBuilder:
                 output_constraint = self.block.output_constraints[key]
                 if key in self.species_amount_offset_index:
                     # the offset is set from the user scaling factor, rescaling from values
-                    # (use_default_scaling=False) would scale absent species by 1/offset
-                    # and shrink the offset to ~epsilon, so keep a user scaling factor.
+                    # (use_default_scaling=False) would scale absent species by 1/epsilon
+                    # (capped at 1e32) and shrink the offset to ~1e-36, so keep a user
+                    # scaling factor.
                     # Scaling factors set here from values (no user scaling factor)
                     # are recorded and still follow values on rescale.
                     user_sf = iscale.get_scaling_factor(obj.get_pyomo_var())
@@ -617,10 +618,12 @@ class ReaktoroBlockBuilder:
             )
 
     def get_species_amount_offset(self, key, sf=None):
-        """unscaled offset a = species_amount_zero_offset / sf of the output var"""
+        """unscaled offset a = species_amount_zero_offset / sf of the output var, sf
+        defaults to the current scaling factor of the output var (1 if not set, same as
+        ReaktoroGrayBox.get_output_floor_offsets)"""
         if sf is None:
-            sf = self.get_rkt_scale(
-                self.solver.output_specs.user_outputs[key], use_default_scaling=True
+            sf = iscale.get_scaling_factor(
+                self.solver.output_specs.user_outputs[key].get_pyomo_var(), default=1
             )
         return self.species_amount_zero_offset / sf
 

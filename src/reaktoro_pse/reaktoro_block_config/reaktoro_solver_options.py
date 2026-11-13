@@ -10,7 +10,13 @@
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
 
-from pyomo.common.config import ConfigValue, IsInstance, ConfigDict, In
+from pyomo.common.config import (
+    ConfigValue,
+    IsInstance,
+    ConfigDict,
+    In,
+    NonNegativeFloat,
+)
 
 
 class ReaktoroSolverOptions:
@@ -128,19 +134,31 @@ class ReaktoroSolverOptions:
                 "species_amount_zero_offset",
                 ConfigValue(
                     default=1e-4,
-                    domain=float,
+                    domain=NonNegativeFloat,
                     description="Scaled offset added to speciesAmount outputs",
-                    doc="""Offset added to user provided speciesAmount output variables, in scaled units
-                    (output_var = reaktoro_amount + species_amount_zero_offset / scaling_factor of output_var).
+                    doc="""Offset applied to user provided speciesAmount output variables, in scaled units,
+                    the unscaled offset is a = species_amount_zero_offset / scaling_factor of output_var, how
+                    it is applied is set by species_amount_offset_type.
                     When a species or phase is not present Reaktoro returns its amount as epsilon (e.g. 1e-40)
                     with zero derivatives. If the output variable (or a variable linked to it through
                     equality constraints) has a lower bound of 0, it then sits at epsilon from the bound, which
                     makes the problem degenerate and can prevent Ipopt from converging dual infeasibility.
-                    The offset keeps these variables away from the bound, at the cost of a mass balance error of
-                    offset/scaling_factor. Relies on user provided scaling factors on output variables, without
-                    them the scaling factor is computed from the output value and the offset has no effect for
-                    species that are not present. Set to 0 to disable. Species amounts passed from a
-                    speciation block to the property block are never offset.""",
+                    The offset keeps these variables at a away from the bound, at the cost of a mass balance
+                    error of a for every absent species, and for present species (amount n) of a with
+                    additive or ~a**2/(2n) with smooth_floor.
+                    Relies on user provided scaling factors on output variables (e.g. 1 / amount of the
+                    limiting element of the species), without them the scaling factor is computed from the
+                    output value and the offset has no effect for species that are not present. Set to 0 to
+                    disable. Species amounts passed from a speciation block to the property block are
+                    never offset.
+                    To check the error introduced by the offset after a solve, use
+                    ReaktoroBlock.check_species_amount_offsets(), it compares Reaktoro amounts with the
+                    offset outputs, flags present species whose amount changes by more than
+                    relative_tolerance (default 1%) and elements of which the offsets of all species take
+                    up more than element_tolerance (default 1%) of the system amount, e.g.
+                        status = m.reaktoro_block.check_species_amount_offsets(raise_error=True)
+                    ReaktoroBlock.get_species_amount_offset_report() and
+                    get_species_amount_offset_element_report() return the underlying values.""",
                 ),
             )
             CONFIG.declare(

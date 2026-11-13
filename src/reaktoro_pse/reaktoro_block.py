@@ -1137,11 +1137,13 @@ class ReaktoroBlockData(ProcessBlockData):
         """Checks error introduced by species_amount_zero_offset, use after a solve.
 
         Each species with an offset is classified as:
-            absent: scaled reaktoro amount <= absent_scaled_amount (e.g. ~1e-40 from
-                Reaktoro), the output var sits at the offset a
+            absent: scaled reaktoro amount <= absent_scaled_amount, or the amount is at
+                the Reaktoro epsilon (<= 1e4 * reaktoro_solve_options epsilon, e.g. ~1e-40),
+                the output var sits at the offset a
             distorted: present, but the offset changes its amount by more than
                 relative_tolerance (amount is comparable to a)
-            ok: present, relative error of the output var <= relative_tolerance
+            ok: present, relative error of the floored value
+                ((floored - reaktoro) / reaktoro) <= relative_tolerance
         Each element of the offset species is classified as:
             depleted: the amount added by the offsets of all species with this element
                 (a for absent species, times the number of atoms of the element) is more
@@ -1170,9 +1172,15 @@ class ReaktoroBlockData(ProcessBlockData):
         element_report = (
             self.rkt_block_builder.get_species_amount_offset_element_report(report)
         )
+        # species amounts Reaktoro returns for absent species, the scaled amount alone
+        # is not enough when the scaling factor was computed from that value (1/epsilon)
+        epsilon_amount = 1e4 * self.config.reaktoro_solve_options.epsilon
         status = {}
         for key, r in report.items():
-            if r["scaled_amount"] <= absent_scaled_amount:
+            if (
+                r["scaled_amount"] <= absent_scaled_amount
+                or r["reaktoro_value"] <= epsilon_amount
+            ):
                 status[key] = "absent"
             elif r["relative_error"] > relative_tolerance:
                 status[key] = "distorted"

@@ -657,6 +657,15 @@ def test_species_amount_offset_value_based_scaling(build_rkt_state_with_species)
         == calcite_sf / 10
     )
     assert iscale.get_scaling_factor(m.mineral_outputs[brucite]) == sf
+    # a value based scaling factor of an absent species (1/epsilon, capped at 1e32) puts
+    # its scaled amount at ~1e-8, it is still classified as absent, not distorted
+    iscale.set_scaling_factor(m.mineral_outputs[brucite], 1e32)
+    report = m.property_block.get_species_amount_offset_report()
+    assert report[brucite]["reaktoro_value"] < 1e-30
+    status = m.property_block.check_species_amount_offsets(
+        absent_scaled_amount=report[brucite]["scaled_amount"] / 2, raise_error=True
+    )
+    assert status["species"][brucite] == "absent"
 
 
 @pytest.mark.parametrize("coupling_type", [True, False])

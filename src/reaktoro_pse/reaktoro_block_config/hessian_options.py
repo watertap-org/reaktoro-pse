@@ -23,12 +23,13 @@ from reaktoro_pse.core.util_classes.hessian_functions import (
 def resolve_deprecated_hessian_options(config):
     """copy values given with deprecated (bfgs_*) names in a hessian_options config
     block to their current names, the deprecated entries are reset to None"""
+    user_set = {v.name() for v in config.user_values()}
     for old, new in DEPRECATED_HESSIAN_OPTIONS.items():
         value = config[old]
         if value is None:
             continue
         _warn_deprecated_option(old, new)
-        if config[new] != HESSIAN_DEFAULTS[new] and config[new] != value:
+        if new in user_set and config[new] != value:
             raise ValueError(
                 f"Both '{old}' (deprecated) and '{new}' were given with different values"
             )
@@ -83,10 +84,12 @@ class HessianOptions:
                 - scalar2 - yTy/sTy
                 - scalar3 - average of scalar1 and scalar2
                 - scalar4 - geometric mean of scalar1 and scalar2
-                - constant - quasi_newton_init_const_value
+                - constant - quasi_newton_init_const_value times identity
                 - zero - start from zero matrix (SR1, PSB), adds no curvature in
                   directions that were not explored
-                where s is change in step, and y is change in gradient
+                where s is change in step, and y is change in gradient. Except for zero,
+                the diagonal is bounded by quasi_newton_init_min_value and
+                quasi_newton_init_max_value
                     """,
             ),
         )
@@ -96,7 +99,7 @@ class HessianOptions:
                 default=HESSIAN_DEFAULTS["quasi_newton_init_min_value"],
                 domain=float,
                 description="Minimum value of quasi-Newton initial matrix",
-                doc="""Minimum absolute value of quasi-Newton initial matrix diagonal (scalar initializations)
+                doc="""Minimum absolute value of quasi-Newton initial matrix diagonal (all initialization types except zero)
                     """,
             ),
         )
@@ -106,7 +109,7 @@ class HessianOptions:
                 default=HESSIAN_DEFAULTS["quasi_newton_init_max_value"],
                 domain=float,
                 description="Maximum value of quasi-Newton initial matrix",
-                doc="""Maximum absolute value of quasi-Newton initial matrix diagonal (scalar initializations)
+                doc="""Maximum absolute value of quasi-Newton initial matrix diagonal (all initialization types except zero)
                     """,
             ),
         )
@@ -116,8 +119,9 @@ class HessianOptions:
                 default=HESSIAN_DEFAULTS["quasi_newton_init_const_value"],
                 domain=float,
                 description="Diagonal value of constant quasi-Newton initial matrix",
-                doc="""Diagonal value of initial matrix for the constant initialization, also used
-                before the first valid step
+                doc="""Diagonal value of initial matrix for the constant initialization (bounded by
+                quasi_newton_init_min_value and quasi_newton_init_max_value), also used, unbounded,
+                before the first valid step (except for the zero initialization)
                     """,
             ),
         )

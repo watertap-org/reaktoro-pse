@@ -458,6 +458,10 @@ def test_deprecated_option_names_config_and_solver():
     )
     with pytest.raises(ValueError):
         resolve_deprecated_hessian_options(cfg)
+    # new name explicitly set to its default value still conflicts
+    cfg = HessianOptions().get_dict()({"lbfgs_memory": 6, "bfgs_hessian_memory": 3})
+    with pytest.raises(ValueError):
+        resolve_deprecated_hessian_options(cfg)
 
     # solver keyword alias, without building a reaktoro solver
     solver = ReaktoroSolver.__new__(ReaktoroSolver)

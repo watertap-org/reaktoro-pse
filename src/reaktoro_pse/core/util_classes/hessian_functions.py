@@ -662,8 +662,11 @@ class HessianApproximation:
             s_last, y_last, g_last = pairs[-1]
             initial_matrix = self.get_initial_matrix(s_last, y_last, g_last)
             el.matrix = initial_matrix.copy()
+            curvatures = [self._curvature(s, y) for s, y, _ in pairs]
             # only update if current step is good
             if not self._ipopt_update_test(s_last, y_last, initial_matrix):
+                # initial matrix is still capped
+                self._apply_norm_cap(el, curvatures)
                 continue
             ak = []
             bk = []
@@ -680,7 +683,7 @@ class HessianApproximation:
                         bk.append(b)
             for a, b in zip(ak, bk):
                 el.matrix = el.matrix + np.outer(b, b) - np.outer(a, a)
-            self._apply_norm_cap(el, [self._curvature(s, y) for s, y, _ in pairs])
+            self._apply_norm_cap(el, curvatures)
 
     def _reset_non_finite(self):
         """reset elements whose matrix became non finite"""
