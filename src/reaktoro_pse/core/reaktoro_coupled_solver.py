@@ -41,6 +41,10 @@ class ReaktoroCoupledSolver:
         if not isinstance(speciation_solvers, list):
             speciation_solvers = [speciation_solvers]
         self.speciation_solvers = speciation_solvers
+        # property solver state has not been equilibrated yet, so the first solve
+        # equilibrates it even if equilibrate_state was never called (e.g. when the
+        # model state is loaded from file instead of running initialize)
+        self.prop_block_not_equilibrated = True
         self.get_master_inputs()
         self.get_speciation_outputs()
 
@@ -122,18 +126,24 @@ class ReaktoroCoupledSolver:
         # register hessian options for proerty solver, these will be used
         # as master options for our graybox
         self.hessian_type = self.property_solver.hessian_type
-        self.bfgs_initialization_type = self.property_solver.bfgs_initialization_type
-        self.bfgs_init_min_hessian_value = (
-            self.property_solver.bfgs_init_min_hessian_value
+        self.quasi_newton_initialization_type = (
+            self.property_solver.quasi_newton_initialization_type
         )
-        self.bfgs_init_max_hessian_value = (
-            self.property_solver.bfgs_init_max_hessian_value
+        self.quasi_newton_init_min_value = (
+            self.property_solver.quasi_newton_init_min_value
         )
-        self.bfgs_init_const_hessian_value = (
-            self.property_solver.bfgs_init_const_hessian_value
+        self.quasi_newton_init_max_value = (
+            self.property_solver.quasi_newton_init_max_value
         )
-        self.bfgs_hessian_memory = self.property_solver.bfgs_hessian_memory
-        self.bfgs_epsilon = self.property_solver.bfgs_epsilon
+        self.quasi_newton_init_const_value = (
+            self.property_solver.quasi_newton_init_const_value
+        )
+        self.lbfgs_memory = self.property_solver.lbfgs_memory
+        self.quasi_newton_epsilon = self.property_solver.quasi_newton_epsilon
+        self.sr1_skip_tolerance = self.property_solver.sr1_skip_tolerance
+        self.quasi_newton_update_cap = self.property_solver.quasi_newton_update_cap
+        self.quasi_newton_norm_cap = self.property_solver.quasi_newton_norm_cap
+        self.hessian_input_scaling = self.property_solver.hessian_input_scaling
 
     def modify_key(self, index, key):
         """utility for generating single tuple key"""
