@@ -299,6 +299,46 @@ def test_blockBuild_with_dissolved_O2(build_rkt_state_with_species):
     assert pytest.approx(m.O2_outputs[("pE", None)].value - pE_low_O2, 1e-3) == 0.5
 
 
+@pytest.mark.parametrize(
+    "concentration_input",
+    ["dissolved_O2", "composition"],
+)
+def test_blockBuild_concentration_input_raises(
+    build_rkt_state_with_species, concentration_input
+):
+    """concentrations (e.g. mg/L) would otherwise be silently treated as amounts"""
+    m = build_rkt_state_with_species
+    build_O2_outputs(m)
+    m.DO_concentration = Var(initialize=8, units=pyunits.mg / pyunits.L)
+    m.DO_concentration.fix()
+    m.composition_concentration = Var(
+        ["H2O", "Na", "Cl"], initialize=1, units=pyunits.mol / pyunits.L
+    )
+    m.composition_concentration.fix()
+    if concentration_input == "dissolved_O2":
+        composition = m.composition
+        dissolved_O2 = m.DO_concentration
+    else:
+        composition = m.composition_concentration
+        dissolved_O2 = m.dissolved_O2
+    with pytest.raises(ValueError, match="is a concentration"):
+        m.property_block = ReaktoroBlock(
+            aqueous_phase={
+                "composition": composition,
+                "convert_to_rkt_species": True,
+            },
+            system_state={
+                "temperature": m.temp,
+                "pressure": m.pressure,
+                "pH": m.pH,
+                "dissolved_O2": dissolved_O2,
+            },
+            database="PhreeqcDatabase",
+            database_file="phreeqc.dat",
+            outputs=m.O2_outputs,
+        )
+
+
 def test_blockBuild_multiple_redox_specs_raise(build_rkt_state_with_species_and_pE):
     m = build_rkt_state_with_species_and_pE
     build_O2_outputs(m)

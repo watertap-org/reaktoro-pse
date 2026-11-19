@@ -254,13 +254,32 @@ class RktInput:
     def get_pyomo_var_value(self):
         return self.pyomo_var.value
 
+    def check_not_concentration(self, pyomo_unit):
+        """raise if unit is a concentration (amount per volume, e.g. mg/L or mol/m**3),
+        units are split as main_unit/time_unit, so a concentration would otherwise be
+        silently treated as an amount (e.g. mg/L as mg)"""
+        if pyomo_unit is None:
+            return
+        dimensionality = pyomo_unit._get_pint_unit().dimensionality
+        if dimensionality.get("[length]", 0) == -3 and (
+            "[mass]" in dimensionality or "[substance]" in dimensionality
+        ):
+            raise ValueError(
+                f"Input {self.var_name} has units of {pyomo_unit}, which is a concentration. "
+                "Concentrations are not supported, provide amounts or flows on the same basis "
+                "as the composition (e.g. mol, kg, mol/s, kg/s), for example by multiplying "
+                "concentration by volumetric flow."
+            )
+
     def check_unit(self):
         """this checks if unit has a time component to it (e.g mol/s)
         reaktoro is "batch" and has no flow, so here we will isolate
         the primary mass unit from time unit and
         also convert them to string"""
         if self.pyomo_var is not None:
-            default_unit = str(pyunits.get_units(self.pyomo_var))
+            pyomo_unit = pyunits.get_units(self.pyomo_var)
+            self.check_not_concentration(pyomo_unit)
+            default_unit = str(pyomo_unit)
 
         elif self.dummy_var is not None:
             default_unit = self.dummy_var.main_unit
