@@ -322,7 +322,11 @@ class SystemInput:
                     - On system_state of a speciation block (or block without exact speciation), defines redox state as O2 saturation.
                     - On system_state_modifier (property block built after speciation block), models aeration (or degassing) of
                     the water in the process step, e.g. lime softening open to atmosphere.
-                    - On system_state of a block with exact speciation, models aeration of provided composition.""",
+                    - On system_state of a block with exact speciation, models aeration of provided composition.
+                Note: 0.21 bar is a good default for an open basin at sea level and moderate temperature. The fugacity
+                might need to be adjusted for temperature (water vapor lowers O2 partial pressure, ~7% at 40 C,
+                ~20% at 60 C), elevation, and salinity (salting out of O2 is only approximately captured by activity
+                models). See examples/oxygen_tracking.py for a table of predicted vs. tabulated O2 saturation.""",
             ),
         )
         system_input.declare(

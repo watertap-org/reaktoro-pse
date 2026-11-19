@@ -48,6 +48,43 @@ import idaes.core.util.scaling as iscale
 #     Mn(IV) solids are gone) is poorly poised: its pE is set by trace species, and adding
 #     chemicals to it can be numerically fragile regardless of which redox state is passed.
 #     This is why the sealed case stops after softening.
+#
+# Note on O2_fugacity (bar) as a model of aeration:
+#   Fixing O2 fugacity models equilibrium with an unlimited air reservoir (open basin),
+#   DO then follows Henry's law, DO ~ K_H(T, P, salinity) * f_O2.
+#   - Temperature: K_H is computed by Reaktoro at the block temperature from the database.
+#   - pH: does not change O2 saturation (O2 does not hydrolyze), but it does change the pE
+#     implied by air (pE ~ 20.75 - pH + 0.25 * log10(f_O2)) and how strongly O2 oxidizes
+#     Mn and Fe.
+#   - Pressure: f_O2 is the O2 partial pressure of the gas in contact with water, not the
+#     liquid pressure, so it does not follow the block pressure. For air,
+#     f_O2 ~ 0.2095 * (P_air - p_H2O(T)), where P_air drops with elevation
+#     (~ 1 atm * exp(-elevation / 8400 m)) and p_H2O(T) is the water vapor pressure
+#     (gas at the water surface is saturated with vapor).
+#   - Partial aeration: DO is linear in f_O2, so an aerator reaching e.g. 80% of
+#     saturation can be modeled as 0.8 * f_O2 of air.
+#   - Salinity: salting out of O2 is captured only approximately by the activity model
+#     (pitzer.dat does not contain O2).
+#
+#   DO at saturation (mg/L) with phreeqc.dat or wateq4f.dat and ActivityModelPhreeqc,
+#   at 1 atm, compared to standard tables for fresh water in moist air
+#   (APHA / Benson and Krause, approximate values):
+#
+#   T (C)  | f_O2 = 0.2123 bar | f_O2 corrected for | standard
+#          | (dry air)         | water vapor        | table
+#   -------+-------------------+--------------------+---------
+#   0      | 14.91             | 14.82              | 14.6
+#   10     | 11.65             | 11.51              | 11.3
+#   20     | 9.50              | 9.28               | 9.09
+#   30     | 8.04              | 7.70               | 7.56
+#   40     | 7.04              | 6.53               | 6.41
+#   60     | 5.86              | 4.71               | ~4.7
+#   20, 0.6 M NaCl (~seawater) | 8.27   | 8.08      | ~7.4
+#
+#   With the water vapor correction, Reaktoro is within ~2% of tabulated values from 0 to
+#   60 C. Fixed f_O2 of 0.21 overestimates DO in warm water (by ~7% at 40 C, ~20% at
+#   60 C), and the activity model underestimates salting out (~9% high DO at seawater
+#   salinity, more for brines).
 
 feed = {
     "H2O": 55.5,  # mol/s, ~1 kg/s
@@ -133,7 +170,7 @@ def build_model(aerate=True):
 
 
 def build_neutralization(m):
-    """ softened water composition, precipitated solids are removed """
+    """softened water composition, precipitated solids are removed"""
     m.softened_composition = Var(
         list(feed.keys()), initialize=feed, units=pyunits.mol / pyunits.s
     )

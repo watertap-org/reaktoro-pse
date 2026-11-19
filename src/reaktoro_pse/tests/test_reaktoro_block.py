@@ -371,8 +371,7 @@ def test_blockBuild_with_aeration_in_property_block(
     result = cy_solver.solve(m, tee=True)
     assert_optimal_termination(result)
     assert (
-        pytest.approx(m.O2_outputs[("speciesAmount", "O2")].value, 1e-4)
-        == o2_saturated
+        pytest.approx(m.O2_outputs[("speciesAmount", "O2")].value, 1e-4) == o2_saturated
     )
     # lower O2 fugacity (less O2 in gas) lowers dissolved O2
     m.O2_fugacity.fix(0.021)
