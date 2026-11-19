@@ -18,7 +18,24 @@ from reaktoro_pse.examples import (
     simple_ion_exchange,
     thermal_precipitation,
     redox_tracking,
+    oxygen_tracking,
 )
+
+
+def test_oxygen_tracking():
+    results = oxygen_tracking.main()
+    sealed, aerated = results[False], results[True]
+    # sealed softening, incoming DO (3e-7 mol/s) oxidizes 2x as much Mn (1e-5 mol/s feed)
+    assert pytest.approx(sealed["Mn removed (%)"], 1e-2) == 6.0
+    assert sealed["softened DO (mg/L)"] < 1e-20
+    # aerated softening saturates water with O2 (~9.4 mg/L at 20 C) and removes all Mn
+    assert pytest.approx(aerated["softened DO (mg/L)"], 1e-2) == 9.382
+    assert pytest.approx(aerated["Mn removed (%)"], 1e-3) == 100
+    # DO is carried into neutralization
+    assert pytest.approx(aerated["final DO (mg/L)"], 1e-2) == 9.382
+    assert pytest.approx(aerated["final pH"], 1e-3) == 8.5
+    assert pytest.approx(aerated["acid dose (mol/s)"], 1e-2) == 5.21e-4
+    assert pytest.approx(aerated["final pE"], 1e-2) == 12.56
 
 
 def test_redox_couples():

@@ -25,6 +25,10 @@ class RktInputTypes:
     pOH = "pOH"
     pE = "pE"
     Eh = "Eh"
+    # amount of dissolved O2 (redox spec when H and O are open, e.g. speciation block)
+    dissolved_O2 = "dissolved_O2"
+    # fugacity of O2 gas in bar (reaktoro input name), equilibrates system with O2 gas
+    O2_fugacity = "f[O2]"
     temperature = "temperature"
     enthalpy = "enthalpy"
     pressure = "pressure"
@@ -53,7 +57,17 @@ class RktInputTypes:
         condensed_phase,
         liquid_phase,
     ]
-    non_species_types = [pH, pE, Eh, enthalpy, pressure, temperature, pOH]
+    non_species_types = [
+        pH,
+        pE,
+        Eh,
+        dissolved_O2,
+        O2_fugacity,
+        enthalpy,
+        pressure,
+        temperature,
+        pOH,
+    ]
 
 
 # imitator for pyomo object, passed as input to speciation block

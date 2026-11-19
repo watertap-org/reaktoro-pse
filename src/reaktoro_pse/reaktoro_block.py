@@ -562,6 +562,17 @@ class ReaktoroBlockData(ProcessBlockData):
         config_eh_index = get_indexing(pH_state.Eh_indexed)
         config_pe = return_none_option(pH_state.pE)
         config_pe_index = get_indexing(pH_state.pE_indexed)
+        config_do = return_none_option(pH_state.dissolved_O2)
+        config_do_index = get_indexing(pH_state.dissolved_O2_indexed)
+        # O2 fugacity on property block built after speciation comes only from the
+        # state modifier (e.g. aeration in the process step), initial state O2 fugacity
+        # defines the redox state of the speciation block
+        if building_prop_block_after_speciation():
+            o2_fug_state = self.config.system_state_modifier
+        else:
+            o2_fug_state = self.config.system_state
+        config_o2_fug = o2_fug_state.O2_fugacity
+        config_o2_fug_index = get_indexing(o2_fug_state.O2_fugacity_indexed)
 
         # setup aqueous inputs
         aqueous_input_composition = self.config.aqueous_phase.composition
@@ -581,6 +592,10 @@ class ReaktoroBlockData(ProcessBlockData):
             pE_index=config_pe_index,
             Eh=config_eh,
             Eh_index=config_eh_index,
+            dissolved_O2=config_do,
+            dissolved_O2_index=config_do_index,
+            O2_fugacity=config_o2_fug,
+            O2_fugacity_index=config_o2_fug_index,
         )
 
         if building_prop_block_after_speciation():

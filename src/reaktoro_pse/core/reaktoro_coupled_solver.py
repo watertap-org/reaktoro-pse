@@ -115,9 +115,16 @@ class ReaktoroCoupledSolver:
                     self.prop_jac_propagation_keys[
                         self.output_key_order[obj.dummy_var_key]
                     ] = key
+        # speciation outputs that are not an input to property block (e.g. O2 when
+        # property block is open to O2 gas) do not propagate, their jacobian is zero
+        self.prop_jac_propagation_mask = np.array(
+            [key is not None for key in self.prop_jac_propagation_keys], dtype=bool
+        )
         # rkt_inputs are not used in property solver, so we do not register them
         self.get_master_outputs()
         for key in self.prop_jac_propagation_keys:
+            if key is None:
+                continue
             new_key = self.modify_key("prop", key)
             self.input_specs.user_inputs[new_key] = (
                 self.property_solver.input_specs.user_inputs[key]
@@ -259,6 +266,9 @@ class ReaktoroCoupledSolver:
             )
         )
         prop_prop_jac = property_jac.T[[self.prop_jac_propagation_idx]][0].T
+        # unmapped speciation outputs have no property input, zero their columns
+        # (their placeholder index would otherwise pick up column 0)
+        prop_prop_jac[:, ~self.prop_jac_propagation_mask] = 0
         end_idx = 0
         start_idx = 0
         for i, spc in enumerate(self.speciation_solvers):

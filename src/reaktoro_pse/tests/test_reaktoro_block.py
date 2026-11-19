@@ -248,6 +248,142 @@ def test_blockBuild_with_pE(build_rkt_state_with_species_and_pE):
     assert pytest.approx(m.outputs[("pE", None)].value, 1e-3) == -9.675807527465942
 
 
+def build_O2_outputs(m):
+    m.O2_outputs = Var(
+        [("pH", None), ("pE", None), ("speciesAmount", "O2")],
+        initialize=1,
+    )
+    m.dissolved_O2 = Var(initialize=1e-6, units=pyunits.mol / pyunits.s)
+    m.dissolved_O2.fix()
+    m.O2_fugacity = Var(initialize=0.21, units=pyunits.dimensionless)
+    m.O2_fugacity.fix()
+
+
+def test_blockBuild_with_dissolved_O2(build_rkt_state_with_species):
+    """dissolved O2 defines redox state of block with open H and O"""
+    m = build_rkt_state_with_species
+    build_O2_outputs(m)
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+            "dissolved_O2": m.dissolved_O2,
+        },
+        database="PhreeqcDatabase",
+        database_file="phreeqc.dat",
+        outputs=m.O2_outputs,
+    )
+    assert (
+        "dissolved_O2_constraint"
+        in m.property_block.rkt_solver.input_specs.equilibrium_specs.namesConstraints()
+    )
+    m.property_block.initialize()
+    cy_solver = get_cyipopt_watertap_solver()
+    cy_solver.options["max_iter"] = 20
+    assert degrees_of_freedom(m) == 0
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    assert pytest.approx(m.O2_outputs[("speciesAmount", "O2")].value, 1e-6) == 1e-6
+    pE_low_O2 = m.O2_outputs[("pE", None)].value
+    # more O2 is more oxidizing
+    m.dissolved_O2.fix(1e-4)
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    assert pytest.approx(m.O2_outputs[("speciesAmount", "O2")].value, 1e-6) == 1e-4
+    # O2 + 4H+ + 4e- = 2H2O, 100x O2 raises pE by log10(100)/4
+    assert pytest.approx(m.O2_outputs[("pE", None)].value - pE_low_O2, 1e-3) == 0.5
+
+
+def test_blockBuild_multiple_redox_specs_raise(build_rkt_state_with_species_and_pE):
+    m = build_rkt_state_with_species_and_pE
+    build_O2_outputs(m)
+    with pytest.raises(ValueError, match="Only one redox specification"):
+        m.property_block = ReaktoroBlock(
+            aqueous_phase={
+                "composition": m.composition,
+                "convert_to_rkt_species": True,
+            },
+            system_state={
+                "temperature": m.temp,
+                "pressure": m.pressure,
+                "pH": m.pH,
+                "pE": m.pE,
+                "dissolved_O2": m.dissolved_O2,
+            },
+            database="PhreeqcDatabase",
+            database_file="phreeqc.dat",
+            outputs=m.O2_outputs,
+        )
+
+
+@pytest.mark.parametrize(
+    "coupling_type",
+    [True, False],
+)
+def test_blockBuild_with_aeration_in_property_block(
+    build_rkt_state_with_species, coupling_type
+):
+    """water with low dissolved O2 is aerated in property block (open to O2 gas)"""
+    m = build_rkt_state_with_species
+    build_O2_outputs(m)
+    m.dissolved_O2.fix(1e-8)
+    m.CaO = Var(["CaO"], initialize=0.001, units=pyunits.mol / pyunits.s)
+    m.CaO.fix()
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+            "dissolved_O2": m.dissolved_O2,
+        },
+        system_state_modifier={"O2_fugacity": m.O2_fugacity},
+        database="PhreeqcDatabase",
+        database_file="phreeqc.dat",
+        chemistry_modifier=m.CaO,
+        outputs=m.O2_outputs,
+        direct_speciation_to_property_block_coupling=coupling_type,
+        build_speciation_block=True,
+    )
+    assert (
+        "f[O2]"
+        in m.property_block.rkt_solver.input_specs.equilibrium_specs.namesConstraints()
+    )
+    m.property_block.initialize()
+    cy_solver = get_cyipopt_watertap_solver()
+    cy_solver.options["max_iter"] = 20
+    assert degrees_of_freedom(m) == 0
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    o2_saturated = m.O2_outputs[("speciesAmount", "O2")].value
+    # ~50 mol of water (0.9 kg) at 20 C in equilibrium with air holds ~2.5e-4 mol O2
+    assert 2e-4 < o2_saturated < 3e-4
+    # inlet dissolved O2 does not change the aerated state
+    m.dissolved_O2.fix(1e-6)
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    assert (
+        pytest.approx(m.O2_outputs[("speciesAmount", "O2")].value, 1e-4)
+        == o2_saturated
+    )
+    # lower O2 fugacity (less O2 in gas) lowers dissolved O2
+    m.O2_fugacity.fix(0.021)
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    assert (
+        pytest.approx(m.O2_outputs[("speciesAmount", "O2")].value, 1e-2)
+        == o2_saturated / 10
+    )
+
+
 @pytest.mark.parametrize(
     "scaling_type",
     [

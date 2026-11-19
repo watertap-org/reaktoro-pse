@@ -206,7 +206,9 @@ class PhaseManager:
             system = rkt.ChemicalSystem(active_database, phases)
             spc_list = []
             for specie in system.species():
-                if specie.name() not in str(self.exclude_species_list):
+                # exact name match, a substring match on str(list) would also drop
+                # e.g. O2 when NO2- is excluded, or H2 when H2S is excluded
+                if specie.name() not in self.exclude_species_list:
                     spc_list.append(specie.name())
             if non_speciate_phase_list is not None:
                 for phase in non_speciate_phase_list:
@@ -320,6 +322,10 @@ class ReaktoroState:
         pE_index=None,
         Eh_index=None,
         enthalpy_index=None,
+        dissolved_O2=None,
+        dissolved_O2_index=None,
+        O2_fugacity=None,
+        O2_fugacity_index=None,
     ):
         """registers inputs
 
@@ -331,6 +337,10 @@ class ReaktoroState:
         enthalpy -- pyomo var that contains specific enthalpy (default None)
         pE -- pyomo var that contains solution pe (default None)
         Eh -- pyomo var that contains solution eh (default None)
+        dissolved_O2 -- pyomo var with amount of dissolved O2 (same basis as composition, e.g. mol/s or kg/s),
+            used as redox specification when H and O are open (default None)
+        O2_fugacity -- pyomo var with fugacity of O2 gas in bar that system is equilibrated with,
+            e.g. 0.21 for atmosphere (default None)
         temperature_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[temperature_index])
         pressure_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[pressure_index])
         pH_index -- defines index for supplied input to use in configuring rkt inputs (e.g. input[pH_index])
@@ -368,6 +378,20 @@ class ReaktoroState:
         if Eh is not None:
             self.inputs[RktInputTypes.Eh] = self.process_input(Eh, Eh_index)
             self.inputs[RktInputTypes.Eh].set_input_type(RktInputTypes.aqueous_phase)
+        if dissolved_O2 is not None:
+            self.inputs[RktInputTypes.dissolved_O2] = self.process_input(
+                dissolved_O2, dissolved_O2_index
+            )
+            self.inputs[RktInputTypes.dissolved_O2].set_input_type(
+                RktInputTypes.aqueous_phase
+            )
+        if O2_fugacity is not None:
+            self.inputs[RktInputTypes.O2_fugacity] = self.process_input(
+                O2_fugacity, O2_fugacity_index
+            )
+            self.inputs[RktInputTypes.O2_fugacity].set_input_type(
+                RktInputTypes.aqueous_phase
+            )
 
     def set_input_options(
         self,

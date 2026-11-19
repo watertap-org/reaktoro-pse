@@ -209,6 +209,18 @@ def test_build_rkt_state_with_species_and_pE(build_rkt_state_with_species):
     assert pytest.approx(float(aprops.pE()), 1e-3) == -12.046791540217814
 
 
+def test_exclude_species_exact_match(build_rkt_state_with_species):
+    """excluding a species must not drop species whose name is a substring of it
+    (e.g. H+ in MgOH+, O2 in NO2-, H2 in H2S)"""
+    m, rkt_state = build_rkt_state_with_species
+    rkt_state.register_species_to_exclude(["MgOH+"])
+    rkt_state.build_state()
+    names = [s.name() for s in rkt_state.state.system().species()]
+    assert "MgOH+" not in names
+    assert "H+" in names
+    assert "OH-" in names
+
+
 def test_state_with_species(build_rkt_state_with_species):
     m, rkt_state = build_rkt_state_with_species
     rkt_state.build_state()
