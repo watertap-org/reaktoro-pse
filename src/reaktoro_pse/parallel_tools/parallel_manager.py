@@ -386,9 +386,7 @@ def ReaktoroActor(
                     reaktoro_worker.initialize(presolve=option)
                     result = WorkerMessages.success
                 except (cyipopt.CyIpoptEvaluationError, RuntimeError) as e:
-                    _log.warning(
-                        f"Worker failed to initialize: {type(e).__name__} {e}"
-                    )
+                    _log.warning(f"Worker failed to initialize: {type(e).__name__} {e}")
                     result = WorkerMessages.failed
             if command == WorkerMessages.solve:
                 result = reaktoro_worker.solve()
