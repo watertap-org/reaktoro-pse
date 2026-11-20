@@ -291,8 +291,15 @@ class ReaktoroBlockData(ProcessBlockData):
             default=None,
             domain=IsInstance((dict, IndexedVar)),
             description="Chemicals being added to reaktoro",
-            doc="""This should be a dictionary, or indexed var that defines type of chemical (key) and pyomo var that defines 
-            amount being added""",
+            doc="""This should be a dictionary, or indexed var that defines type of chemical (key) and pyomo var that defines
+            amount being added. Available by default: HCl, H2SO4, CaO, Ca(OH)2, Na2CO3, CO2, O2, NaOH, H, OH,
+            H2O_evaporation, others can be added with register_new_chemistry_modifiers.
+            O2 adds oxygen that fully dissolves into water (e.g. an aerator with known O2 transfer, or
+            pure O2 dosing), dissolved O2 leaving the block is then found from equilibrium (O2 consumed by
+            oxidation of Fe, Mn, etc.); with no gas phase, O2 is not stripped if water is supersaturated
+            (use O2_fugacity in system_state_modifier for equilibrium with air instead).
+            O2 dose (like any modifier) only changes the state when O is not left open, e.g.
+            in property block built after speciation (build_speciation_block=True)""",
         ),
     )
     CONFIG.declare(

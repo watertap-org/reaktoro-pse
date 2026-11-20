@@ -365,6 +365,57 @@ def test_blockBuild_multiple_redox_specs_raise(build_rkt_state_with_species_and_
     "coupling_type",
     [True, False],
 )
+def test_blockBuild_with_O2_dose_in_property_block(
+    build_rkt_state_with_species, coupling_type
+):
+    """O2 added as chemistry modifier dissolves into water, dissolved O2 leaving
+    block is found from equilibrium, and O2 dose can be solved for target dissolved O2
+    """
+    m = build_rkt_state_with_species
+    build_O2_outputs(m)
+    m.O2_dose = Var(initialize=1e-4, units=pyunits.mol / pyunits.s)
+    m.O2_dose.fix()
+    m.property_block = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": True,
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+            "dissolved_O2": m.dissolved_O2,
+        },
+        database="PhreeqcDatabase",
+        database_file="phreeqc.dat",
+        chemistry_modifier={"O2": m.O2_dose},
+        outputs=m.O2_outputs,
+        direct_speciation_to_property_block_coupling=coupling_type,
+        build_speciation_block=True,
+    )
+    m.property_block.initialize()
+    cy_solver = get_cyipopt_watertap_solver()
+    cy_solver.options["max_iter"] = 20
+    assert degrees_of_freedom(m) == 0
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    # nothing in water consumes O2, so dose adds to inlet dissolved O2
+    assert (
+        pytest.approx(m.O2_outputs[("speciesAmount", "O2")].value, 1e-4) == 1e-6 + 1e-4
+    )
+    # solve for O2 dose that gives target dissolved O2
+    m.O2_dose.unfix()
+    m.O2_outputs[("speciesAmount", "O2")].fix(5e-5)
+    assert degrees_of_freedom(m) == 0
+    result = cy_solver.solve(m, tee=True)
+    assert_optimal_termination(result)
+    assert pytest.approx(m.O2_dose.value, 1e-4) == 5e-5 - 1e-6
+
+
+@pytest.mark.parametrize(
+    "coupling_type",
+    [True, False],
+)
 def test_blockBuild_with_aeration_in_property_block(
     build_rkt_state_with_species, coupling_type
 ):

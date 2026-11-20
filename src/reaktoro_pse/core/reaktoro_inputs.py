@@ -569,6 +569,8 @@ class ReaktoroInputSpec:
             "Ca(OH)2": {"Ca": 1, "O": 2, "H": 2},
             "Na2CO3": {"Na": 2, "C": 1, "O": 3},
             "CO2": {"C": 1, "O": 2},
+            # O2 gas dissolved into water (e.g. aerator with known O2 transfer)
+            "O2": {"O": 2},
             "NaOH": {"Na": 1, "O": 1, "H": 1},
             "H": {"H": 1},
             "OH": {"O": 1, "H": 1},
