@@ -1,0 +1,25 @@
+# .readthedocs.yaml
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+    configuration: docs/conf.py
+    fail_on_warning: true
+
+# Reaktoro and cyipopt are only available from conda-forge, so docs are built in a
+# conda environment (autodoc imports reaktoro_pse to document ReaktoroBlock options)
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "miniconda-latest"
+
+conda:
+  environment: docs/environment.yml
+
+python:
+  install:
+   - requirements: requirements-dev.txt

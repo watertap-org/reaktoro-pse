@@ -40,6 +40,31 @@ jobs:
         run: |
           black --check .
 
+  build-docs:
+    name: Build docs (Sphinx)
+    runs-on: ubuntu-22.04
+    needs: [code-formatting]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: conda-incubator/setup-miniconda@v4
+        with:
+          python-version: "3.12"
+          miniforge-version: latest
+          channels: conda-forge
+          conda-remove-defaults: 'true'
+          activate-environment: reaktoro-pse-docs
+      - name: Install
+        run: |
+          conda install cyipopt reaktoro pandoc
+          pip install -r requirements-dev.txt
+          idaes get-extensions
+      - name: Build docs (warnings are errors, as on Read the Docs)
+        run: |
+          make -C docs html SPHINXOPTS="-W --keep-going"
+      - name: Test documentation code
+        run: |
+          SKIP_APIDOC=1 make -C docs doctest
+
   pytest:
     name: pytest (${{ matrix.os }}/${{ matrix.python-version }}/${{ matrix.install-mode }})
     runs-on: ${{ matrix.os-version }}

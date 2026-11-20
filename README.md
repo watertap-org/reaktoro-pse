@@ -1,194 +1,52 @@
 
 <img src="docs\images\reaktoro_pse.png" width="400"/>
 
-## 1. Overview
-This is a package for configuring [Reaktoro](https://reaktoro.org/index.html) as a gray box model in [Pyomo](https://pyomo.readthedocs.io/en/stable/), [IDAES-PSE](https://idaes-pse.readthedocs.io/en/stable/), and [WaterTAP](https://watertap.readthedocs.io/en/stable/) modeling libraries. This package is not meant to replace or act as a higher level API for Reaktoro - it is only meant to enable setting up Reaktoro equilibrium problems as blocks on Pyomo models and automate transferring Reaktoro data into Pyomo variables. 
+## Overview
+This is a package for configuring [Reaktoro](https://reaktoro.org/index.html) as a gray box model in [Pyomo](https://pyomo.readthedocs.io/en/stable/), [IDAES-PSE](https://idaes-pse.readthedocs.io/en/stable/), and [WaterTAP](https://watertap.readthedocs.io/en/stable/) modeling libraries. This package is not meant to replace or act as a higher level API for Reaktoro - it is only meant to enable setting up Reaktoro equilibrium problems as blocks on Pyomo models and automate transferring Reaktoro data into Pyomo variables.
+
+**Documentation: [reaktoro-pse.readthedocs.io](https://reaktoro-pse.readthedocs.io/)** - installation, getting started, tutorials, how-to guides (inputs, outputs, chemical additions, redox tracking, scaling, parallel solves, troubleshooting), and the full options reference.
 
 If you find this tool useful for your research, please consider citing the [paper](https://pubs.acs.org/doi/abs/10.1021/acsestengg.5c01008):
 > Akkor, I., Amusat, O. O., Vecchiarelli, P., Gounaris, C. E., Knueven, B., & Dudchenko, A. V. “Optimization of Desalination Systems with Detailed Water Chemistry through Integration of Reaktoro in WaterTAP.” ACS ES&T Engineering, vol. 6, no. 5, 2026, pp. 1464–1477.
 
-## 2. Prerequisites
-**The user must familiarize thyself with Reaktoro options and usage, especially when selecting Reaktoro provided databases, database files, and activity models for aqueous, solid, and gas phases. This package does not automatically select any of these options, and will use ideal models by default.**
+## Installation
+Reaktoro and CyIpopt are distributed through conda-forge, use a conda distribution such as [Miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#download):
 
-* Please refer here for information on [Reaktoro supported databases](https://reaktoro.org/tutorials/basics/loading-databases.html) (all are supported) 
-* Please refer here for information on [Reaktoro supported activity models](https://reaktoro.org/tutorials/basics/specifying-activity-models.html) (all are supported, included chain operations, or passing in pre-configured activity models)
+```sh
+conda create --name reaktoro-pse --yes -c conda-forge python=3.12 cyipopt reaktoro
+conda activate reaktoro-pse
+pip install reaktoro-pse
+```
 
-**By default the package will use:**
+**Familiarize yourself with Reaktoro options, especially databases, database files, and activity models. Reaktoro-PSE does not select these for you, and uses ideal activity models by default.** See [Choosing databases and activity models](https://reaktoro-pse.readthedocs.io/en/latest/getting_started/prerequisites.html).
 
-* **Database:** [PhreeqcDatabase](https://reaktoro.org/api/classReaktoro_1_1PhreeqcDatabase.html) 
-* **Data file:** [pitzer.dat](https://reaktoro.org/api/classReaktoro_1_1PhreeqcDatabase.html) 
-* **Aqueous activity models:** [ActivityModelIdealAqueous](https://reaktoro.org/api/namespaceReaktoro.html#ae431d4c8a1f283910ae1cf35024091b8)
-* **Gas activity models:** [ActivityModelIdealGas](https://reaktoro.org/api/namespaceReaktoro.html#a7a0788a5a863d987a88b81303d80b427)
-* **Solid activity models:** [ActivityModelIdealSolution](https://reaktoro.org/api/namespaceReaktoro.html#a6581d5c0cde36cae6d9c46dbc32d56f8)
-* **Ion exchange activity models:** [ActivityModelIonExchange](https://reaktoro.org/api/namespaceReaktoro.html#a6581d5c0cde36cae6d9c46dbc32d56f8)
+## Tutorials and examples
+* [Tutorials](https://github.com/watertap-org/reaktoro-pse/tree/main/src/reaktoro_pse/tutorials) (Jupyter notebooks): interacting with ReaktoroBlock, integration with WaterTAP RO and NF models, and a softening, acid addition, and desalination treatment train.
+* [Examples](https://github.com/watertap-org/reaktoro-pse/tree/main/src/reaktoro_pse/examples): desalination, thermal precipitation, ion exchange, biogas combustion, redox and oxygen tracking, evaporative crystallization, and comparisons with PHREEQC.
 
-## 3. Inputs and outputs of the Reaktoro blocks
-The Reaktoro blocks built by this package are designed to solve an equilibrium problem using user provided apparent species or true species, temperature, pressure, and pH, which are broken down to base elements and equilibrated within Reaktoro to provide exact speciation and equilibrium state. Using this state the block can return various information supported by Reaktoro:
-
-* Converted Property Types - used by default as they provide exact derivatives for common properties:
-  * vaporPressure - vapor pressure for specie in Pa
-  * osmoticPressure - osmotic pressure for specie in Pa 
-  * elementAmount - amount of element in system in mol
-  * charge - solution charge balance
-  * alkalinityAsCaCO3 - solution alkalinity as CaCO3
-  * scalingTendencySaturationIndex - Saturation index of a phase 
-  * scalingTendency - scaling tendencies of a phase (10^saturation index)
-  * pH - solution pH
-
-If a property is not available in converted property types, reaktoro-pse can access any property from reaktoro which will use numerical derivatives when exact derivatives are not available:
-* [Chemical properties](https://reaktoro.org/api/classReaktoro_1_1ChemicalProps.html)
-* [Aqueous properties](https://reaktoro.org/api/classReaktoro_1_1AqueousProps.html)
-* Pyomo build properties, which are custom properties built in Pyomo that use chemical properties or aqueous properties as inputs 
-
-Note: Only Reaktoro properties that return a single floating point or real value are supported, as they will be directly matched to a [Pyomo Var](https://pyomo.readthedocs.io/en/stable/pyomo_modeling_components/Variables.html). Reaktoro functions that return arrays or strings are not supported.
-
-## 4. Tutorials, Examples, and Comparisons
-Currently, repo includes several tutorials and examples.
-
-*Tutorials:*
-
-1. [Demonstration of working with Reaktoro block that shows](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/basic_reaktoro_block_interaction.ipynb)
-    * How to balance feed charge with ReaktoroBlock
-    * Provide exact speciation 
-    * Build reaktoro block with speciation_block option 
-
-2. [Demonstration add ReaktoroBlock to 1D Reverse Osmosis model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_ro.ipynb)
-    * How to add indexed ReaktoroBlocks [WaterTAP RO1D model](https://watertap.readthedocs.io/en/stable/technical_reference/unit_models/reverse_osmosis_1D.html) for calculation of osmotic pressure and scaling tendencies
-
-3. [Demonstration add ReaktoroBlock to Nano filtration model](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/integration_with_nf.ipynb)
-    * How to add indexed ReaktoroBlocks to WaterTAP NF ZO model for calculation of osmotic pressure and scaling tendencies
-
-4. [Treatment train with Softening -> acid -> desalination process modeling with Reaktoro-PSE](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/tutorials/softening_acid_ro_example.ipynb)
-    * How to model softening 
-    * How to model acid addition
-    * How to model scaling tendencies
-    * How to optimize softening and acid addition to control scaling and minimize chemical dosing costs.
-
-*Examples:*
-
-1. [Example of adding ReaktoroBlock to basic desalination problem](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/simple_desalination.py) that demonstrates how to:
-    * Setup up basic ReaktoroBlock
-    * Calculate basic properties for Scaling Tendency, pH, and Osmotic pressure 
-    * Optimize system pH for operation at target Scaling Tendency
-2. [Example of thermal precipitation](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/thermal_precipitation.py) that demonstrates how to:
-    * Configure different database from default
-    * Get enthalpy and vapor pressure from Reaktoro
-    * Setup precipitation calculation 
-    * Setup simulation for removal of Calcite over different temperatures and estimate required energy input
-3. [Example of ion exchange calculations](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/simple_ion_exchange.py) that demonstrates how to:
-    * Set up ReaktoroBlock for charge neutralizing the feed composition 
-    * Use outputs from speciation block as inputs into a second property block
-    * Add Ion Exchange phase and species into ReaktoroBlock
-    * Optimize addition of acid and bases for maximizing Calcium removal selectivity over Magnesium
-4. [Example of biogas combustion](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/biogas_combustion.py) that demonstrates how to:
-    * Set up ReaktoroBlock for customized database
-    * Use Condensed phase
-
-*Comparisons of Reaktoro-pse to PhreeqC when simulating*
-
-These comparisons further demonstrate how to setup Reaktoro-pse for each type of calculation.
-
-1. [Water removal from solution (e.g., evaporative processes)](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/water_removal_comparison.py)
-2. [Vapor pressure calculation at different temperatures](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/vapor_pressure_comparison.py)
-3. [Precipitation of mineral phases](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/precipitation_comparison.py)
-4. [Mixing of two solutions](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/reaktoro_pse_to_phreeqc_comparison/solution_mixing_comparison.py)
-
-## 5. Solvers 
-To date, this has only been tested with [cyipopt](https://cyipopt.readthedocs.io/en/stable/) - other solvers have not been tested. 
-* For accessing other [HSL linear solvers](http://www.hsl.rl.ac.uk/ipopt/) beyond MUMPS (such as MA27, MA57, etc., solvers common to WaterTAP and IDAES-PSE) follow [these instructions](https://cyipopt.readthedocs.io/en/latest/install.html) for adding them to cyipopt.
-
-## 6. Known issues
-
-### Closing dual infeasibility 
-In some cases Ipopt might struggle to close unscaled dual infeasibility even when primal is reduced to <1e-8. This will be typically seen in the solver trace, that shows **inf_pr** being reduced to <1e-8 and **inf_du** stops being reduced and solver does not terminate or terminates with **Solved to Acceptable level**. [This is a result of using approximated hessian in the GrayBox model causing issues in calculations of dual infeasibility error.](https://list.coin-or.org/pipermail/ipopt/2007-February/000700.html)
-
-#### Solutions
-A. Set Ipopt solver option "recalc_y" to "yes"
-
-This option will force Ipopt to use least squares method to calculate dual infeasibility, potentially improving accuracy of its estimates and reduce it to below tolerance level. Details on the [recalc_y](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_recalc_y) and [recalc_y_feas_tol](https://coin-or.github.io/Ipopt/OPTIONS.html#OPT_recalc_y_feas_tol). 
-
-    cy_solver = get_solver(solver="cyipopt-watertap")
-    cy_solver.options['recalc_y']='yes'
-    cy_solver.options["recalc_y_feas_tol"] = 1e-2
-
-
-B. Use exact derivatives instead of numeric
-
-The numeric derivatives carry additional errors that reduce accuracy in estimates of dual infeasibility. You can check which outputs in your Reaktoro block are exact, calculated, or numeric by using **your_reaktoro_block.display_jacobian_outputs()**. 
-
-If option "A" did not work, using exact derivatives can potentially solve this issue. This can be accomplished by using properties with exact derivatives listed in [JacobianRows class](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/core/reaktoro_jacobian.py). These properties can be used to write Pyomo constraints that calculate the desired property. These derivatvies can be used in two ways:
-- through use of ConvertedPropTypes, here we apply chain rule to calculate exact derivatives for desired function
-- through use of PyomoProperties, where we pass outputs with exact derivatives to a Pyomo constraint. 
-
-Examples and available properties can be found in */src/reaktoro_pse/core/reaktoro_outputs.py* 
-
-### Failing due to iterates diverging
-In some cases you might experience a failed solve with error
-
-    EXIT: Iterates diverging; problem might be unbounded.
-    
-This, in general, is a result of bad scaling. If your model solves with out a ReaktoroBlock, then the likely culprit is autoscaling for Jacobian (and possibly variables as well). In this case, it's recommended to provide manual scaling for the jacobian via user scaling option when building Reaktoro, for example as follows (check thermal_precipitation.py example): 
-
-    jacobian_options={
-        "user_scaling": {
-            ("molarEnthalpy", None): 1,
-            ("specificHeatCapacityConstP", None): 1,
-        },
-    }
-
-You can check the jacobian scaling by calling: 
-
-    your_reaktoro_block.display_jacobian_scaling()
-
-An alternative is to increase the divergence tolerance: 
-
-    solver.options["diverging_iterates_tol"] = 1e30
-
-## 7. Requesting new features or issues
-Please include a minimal example using Reaktoro for your specific feature or issue request if possible. Please also include full traceback for errors that occur. 
-
-## 8. Compatibility
-Reaktoro-pse depends on the following packages and/or versions:
-
+## Compatibility
 - Python 3.9 through 3.12
 - Reaktoro>=2.12.3
 - CyIpopt 1.4.1
 - Pyomo>=6.8.0
 - idaes-pse>=2.5.0
 
+## Requesting new features or issues
+Please include a minimal example using Reaktoro for your specific feature or issue request if possible. Please also include full traceback for errors that occur.
 
-## 9. Getting started
-
-### Prerequisites
-
-- A conda or miniforge distribution compatible with `conda-forge`, e.g. [Miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#download)
-- Git (needed by [setuptools_scm](https://setuptools-scm.readthedocs.io/en/latest/) to set the version dynamically during installation of the Python package distribution)
-
-### Installation (Conda)
-```sh
-conda activate $YOUR_ENV
-pip install reaktoro-pse
-conda install -c conda-forge cyipopt reaktoro
-```
-
-## For Contributors
-### Installation
+## For contributors
 ```sh
 git clone https://github.com/watertap-org/reaktoro-pse.git
-conda create --name reaktoro-pse-dev --yes python=3.12
+cd reaktoro-pse
+conda create --name reaktoro-pse-dev --yes -c conda-forge python=3.12 cyipopt reaktoro pandoc
 conda activate reaktoro-pse-dev
-conda install -c conda-forge cyipopt reaktoro
-install -e .
+pip install -r requirements-dev.txt
 ```
-### Running tests
+
+Run tests, format code, and build docs:
 
 ```sh
-conda activate reaktoro-pse-dev
 pytest --pyargs reaktoro_pse --verbose
-```
-
-### Before committing
-
-```sh
 black .
+make -C docs html   # output in docs/_build/html
 ```

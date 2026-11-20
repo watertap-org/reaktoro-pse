@@ -1,0 +1,13 @@
+# conda environment used to build documentation on Read the Docs,
+# python packages (including reaktoro-pse and sphinx) are installed from
+# requirements-dev.txt
+name: reaktoro-pse-docs
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.12
+  - reaktoro
+  - cyipopt
+  - pandoc  # needed by nbsphinx
+  - pip
