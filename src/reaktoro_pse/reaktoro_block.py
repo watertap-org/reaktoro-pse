@@ -35,7 +35,10 @@ from reaktoro_pse.core.reaktoro_coupled_solver import ReaktoroCoupledSolver
 from reaktoro_pse.parallel_tools.reaktoro_block_manager import ReaktoroBlockManager
 
 from reaktoro_pse.reaktoro_block_config.jacobian_options import JacobianOptions
-from reaktoro_pse.reaktoro_block_config.hessian_options import HessianOptions
+from reaktoro_pse.reaktoro_block_config.hessian_options import (
+    HessianOptions,
+    resolve_deprecated_hessian_options,
+)
 from reaktoro_pse.reaktoro_block_config.reaktoro_solver_options import (
     ReaktoroSolverOptions,
 )
@@ -919,6 +922,7 @@ class ReaktoroBlockData(ProcessBlockData):
         else:
             presolve = self.config.reaktoro_presolve_options.presolve_property_block
 
+        resolve_deprecated_hessian_options(self.config.hessian_options)
         block.rkt_solver.set_solver_options(
             tolerance=self.config.reaktoro_solve_options.solver_tolerance,
             epsilon=self.config.reaktoro_solve_options.epsilon,
@@ -928,13 +932,17 @@ class ReaktoroBlockData(ProcessBlockData):
             max_iters=self.config.reaktoro_solve_options.max_iterations,
             presolve_max_iters=self.config.reaktoro_presolve_options.max_iterations,
             hessian_type=self.config.hessian_options.hessian_type,
-            bfgs_initialization_type=self.config.hessian_options.bfgs_initialization_type,
-            bfgs_init_min_hessian_value=self.config.hessian_options.bfgs_init_min_hessian_value,
-            bfgs_init_max_hessian_value=self.config.hessian_options.bfgs_init_max_hessian_value,
-            bfgs_init_const_hessian_value=self.config.hessian_options.bfgs_init_const_hessian_value,
-            bfgs_hessian_memory=self.config.hessian_options.bfgs_hessian_memory,
-            bfgs_epsilon=self.config.hessian_options.bfgs_epsilon,
+            quasi_newton_initialization_type=self.config.hessian_options.quasi_newton_initialization_type,
+            quasi_newton_init_min_value=self.config.hessian_options.quasi_newton_init_min_value,
+            quasi_newton_init_max_value=self.config.hessian_options.quasi_newton_init_max_value,
+            quasi_newton_init_const_value=self.config.hessian_options.quasi_newton_init_const_value,
+            lbfgs_memory=self.config.hessian_options.lbfgs_memory,
+            quasi_newton_epsilon=self.config.hessian_options.quasi_newton_epsilon,
             auto_scale_constraint=self.config.reaktoro_solve_options.auto_scale_constraints,
+            sr1_skip_tolerance=self.config.hessian_options.sr1_skip_tolerance,
+            quasi_newton_update_cap=self.config.hessian_options.quasi_newton_update_cap,
+            quasi_newton_norm_cap=self.config.hessian_options.quasi_newton_norm_cap,
+            hessian_input_scaling=self.config.hessian_options.hessian_input_scaling,
         )
 
     def build_gray_box(self, block, speciation_block=False):
@@ -1027,6 +1035,12 @@ class ReaktoroBlockData(ProcessBlockData):
                 update_jacobian_scale_every_solve=self.config.jacobian_options.update_jacobian_scale_every_solve,
                 jacobian_scaling_bounds_output_based=self.config.jacobian_options.jacobian_scaling_bounds_output_based,
             )
+            block.rkt_block_builder.configure_species_amount_offset(
+                self.config.reaktoro_solve_options.species_amount_zero_offset,
+                self.config.reaktoro_solve_options.species_amount_offset_type,
+                # speciation block species amounts feed the property block
+                speciation_block=speciation_block,
+            )
 
             if self.config.reaktoro_block_manager is not None:
                 if self.direct_coupling_mode:
@@ -1082,6 +1096,161 @@ class ReaktoroBlockData(ProcessBlockData):
             self.speciation_block.rkt_block_builder.display_state()
         _log.info("-----Displaying information for property block ------")
         self.rkt_block_builder.display_state()
+
+    def get_species_amount_offset_report(self, update_state=None):
+        """Compares species amounts returned by Reaktoro with the floored values the
+        output vars are set to (species_amount_zero_offset), and the amount added by the
+        offset with the total amount of each element of the species in the system, see
+        ReaktoroBlockBuilder.get_species_amount_offset_report for the fields.
+        Only species with an offset are included (speciation block outputs never are).
+
+        Keywords:
+        update_state -- re-solve the reaktoro state at the current input values before
+            reading element amounts, None does this only for blocks solved by a parallel
+            ReaktoroBlockManager (their state in this process is not updated by solves)
+        """
+        if update_state is None:
+            manager = self.config.reaktoro_block_manager
+            update_state = manager is not None and manager.config.use_parallel_mode
+        return self.rkt_block_builder.get_species_amount_offset_report(
+            update_state=update_state
+        )
+
+    def get_species_amount_offset_element_report(self, update_state=None):
+        """Amount added by species_amount_zero_offset summed over all offset species for
+        each element, compared with the total amount of the element in the system, see
+        ReaktoroBlockBuilder.get_species_amount_offset_element_report for the fields.
+        update_state -- see get_species_amount_offset_report"""
+        return self.rkt_block_builder.get_species_amount_offset_element_report(
+            self.get_species_amount_offset_report(update_state=update_state)
+        )
+
+    def check_species_amount_offsets(
+        self,
+        relative_tolerance=1e-2,
+        element_tolerance=1e-2,
+        absent_scaled_amount=1e-8,
+        raise_error=False,
+        display=True,
+        update_state=None,
+    ):
+        """Checks error introduced by species_amount_zero_offset, use after a solve.
+
+        Each species with an offset is classified as:
+            absent: scaled reaktoro amount <= absent_scaled_amount, or the amount is at
+                the Reaktoro epsilon (<= 1e4 * reaktoro_solve_options epsilon, e.g. ~1e-40),
+                the output var sits at the offset a
+            distorted: present, but the offset changes its amount by more than
+                relative_tolerance (amount is comparable to a)
+            ok: present, relative error of the floored value
+                ((floored - reaktoro) / reaktoro) <= relative_tolerance
+        Each element of the offset species is classified as:
+            depleted: the amount added by the offsets of all species with this element
+                (a for absent species, times the number of atoms of the element) is more
+                than element_tolerance of the total amount of the element in the system,
+                e.g. absent Calcite and Dolomite at a remove a noticeable part of the C
+                from the rest of the flowsheet
+            ok: otherwise
+        For distorted species or depleted elements consider a smaller
+        species_amount_zero_offset or larger scaling factors for the output vars.
+
+        Keywords:
+        relative_tolerance -- allowed relative error for present species
+        element_tolerance -- allowed fraction of an element taken up by the offsets
+        absent_scaled_amount -- scaled amount below which a species is treated as absent
+        raise_error -- raise a RuntimeError if any species is distorted or element is
+            depleted, otherwise log a warning
+        display -- log the comparison
+        update_state -- see get_species_amount_offset_report
+
+        Returns:
+            dict with
+                species: output key -> status (absent, distorted, ok)
+                elements: element -> status (depleted, ok)
+        """
+        report = self.get_species_amount_offset_report(update_state=update_state)
+        element_report = (
+            self.rkt_block_builder.get_species_amount_offset_element_report(report)
+        )
+        # species amounts Reaktoro returns for absent species, the scaled amount alone
+        # is not enough when the scaling factor was computed from that value (1/epsilon)
+        epsilon_amount = 1e4 * self.config.reaktoro_solve_options.epsilon
+        status = {}
+        for key, r in report.items():
+            if (
+                r["scaled_amount"] <= absent_scaled_amount
+                or r["reaktoro_value"] <= epsilon_amount
+            ):
+                status[key] = "absent"
+            elif r["relative_error"] > relative_tolerance:
+                status[key] = "distorted"
+            else:
+                status[key] = "ok"
+        element_status = {
+            symbol: "depleted" if el["offset_fraction"] > element_tolerance else "ok"
+            for symbol, el in element_report.items()
+        }
+        if display:
+            _log.info(
+                f"{'output':<40}{'reaktoro':>12}{'floored':>12}{'output var':>12}"
+                f"{'offset':>12}{'error %':>12}  status"
+            )
+            for key, r in report.items():
+                var_value = r["output_var_value"]
+                var_value = float("nan") if var_value is None else var_value
+                # relative error of absent species (~1e-40) is meaningless
+                rel_error = (
+                    f"{'-':>12}"
+                    if status[key] == "absent"
+                    else f"{100 * r['relative_error']:>11.3g}%"
+                )
+                _log.info(
+                    f"{str(key):<40}{r['reaktoro_value']:>12.3e}{r['floored_value']:>12.3e}"
+                    f"{var_value:>12.3e}{r['offset']:>12.3e}{rel_error}  {status[key]}"
+                )
+            _log.info(
+                f"{'element':<10}{'system amount':>16}{'offset amount':>16}"
+                f"{'% of system':>14}  status    largest contributor"
+            )
+            for symbol, el in sorted(
+                element_report.items(), key=lambda x: -x[1]["offset_fraction"]
+            ):
+                largest = max(el["species"], key=el["species"].get)
+                _log.info(
+                    f"{symbol:<10}{el['system_amount']:>16.4e}{el['offset_amount']:>16.4e}"
+                    f"{100 * el['offset_fraction']:>13.3g}%  {element_status[symbol]:<10}"
+                    f"{largest[1]}"
+                )
+        messages = []
+        depleted = [e for e, s in element_status.items() if s == "depleted"]
+        if depleted:
+            details = ", ".join(
+                f"{e}: {100 * element_report[e]['offset_fraction']:.3g}% "
+                f"(from {', '.join(k[1] for k in element_report[e]['species'])})"
+                for e in depleted
+            )
+            messages.append(
+                f"species_amount_zero_offset takes up more than {100 * element_tolerance:g}% of the "
+                f"system amount of elements {details}"
+            )
+        distorted = [key for key, s in status.items() if s == "distorted"]
+        if distorted:
+            messages.append(
+                f"species_amount_zero_offset changes the amount of present species "
+                f"{distorted} by more than {100 * relative_tolerance:g}%, their amounts "
+                f"are comparable to the offset"
+            )
+        if messages:
+            msg = (
+                f"{self.name}: "
+                + "; ".join(messages)
+                + ". Consider a smaller species_amount_zero_offset or larger scaling "
+                "factors for these outputs"
+            )
+            if raise_error:
+                raise RuntimeError(msg)
+            _log.warning(msg)
+        return {"species": status, "elements": element_status}
 
     def update_block_scaling(self, update_on_speciation_block=True):
         """This will update the scaling of input and output constraints on all blocks, can be

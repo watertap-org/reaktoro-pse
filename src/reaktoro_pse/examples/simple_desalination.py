@@ -30,7 +30,6 @@ from reaktoro_pse.parallel_tools.reaktoro_block_manager import (
     ReaktoroBlockManager,
 )
 
-
 __author__ = "Alexander V. Dudchenko"
 
 # This examples demonstrates how Reaktoro graybox can be used to estimates
