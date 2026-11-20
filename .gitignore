@@ -166,3 +166,7 @@ src/reaktoro_pse/copyright.txt
 
 # local benchmark scripts and results
 /dev/
+
+# generated on docs build
+docs/apidoc/
+docs/tutorials/notebooks/
