@@ -25,13 +25,14 @@ from reaktoro_pse.core.reaktoro_coupled_solver import (
 )
 from reaktoro_pse.core.reaktoro_gray_box import (
     ReaktoroGrayBox,
+    SpeciesAmountOffsetTypes,
+    floor_species_amount,
 )
 
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
 
 import idaes.core.util.scaling as iscale
 import idaes.logger as idaeslog
-import math
 
 __author__ = "Alexander V. Dudchenko"
 
@@ -68,6 +69,10 @@ class ReaktoroBlockBuilder:
         ):
             raise TypeError("Reaktoro block builder requires a ReaktoroSolver class")
         self.configure_jacobian_scaling()
+        self.configure_species_amount_offset()
+        self.species_amount_offset_index = {}  # filled in build_output_constraints
+        # scaling factors of offset outputs computed from values (not user provided)
+        self._value_based_sf = {}
         self.reaktoro_initialize_function = None  # used to provide external solve call
         self.get_jacobian_matrix_function = None
         self.display_reaktoro_state_function = (
@@ -144,6 +149,60 @@ class ReaktoroBlockBuilder:
         self.jacobian_scaling_bounds = jacobian_scaling_bounds
         self.update_jacobian_scale_every_solve = update_jacobian_scale_every_solve
         self.jacobian_scaling_bounds_output_based = jacobian_scaling_bounds_output_based
+
+    def configure_species_amount_offset(
+        self,
+        species_amount_zero_offset=0.0,
+        species_amount_offset_type=SpeciesAmountOffsetTypes.additive,
+        speciation_block=False,
+    ):
+        """define offset applied to user provided speciesAmount output variables
+
+        Keyword:
+        species_amount_zero_offset -- offset (a) in scaled units, keeps output vars (and vars
+            linked to them) away from a lower bound of 0 when Reaktoro returns epsilon for
+            species that are not present (default: 0, off)
+        species_amount_offset_type -- how the offset is applied to the gray box output (the
+            output constraint stays output_var == gray box output), with
+            a = offset / sf(output_var), read from the current scaling factor on each evaluation:
+            additive: reaktoro_output + a
+            smooth_floor: sqrt(reaktoro_output**2 + a**2), absent species sit at a, present
+                species (n >> a) are shifted by only ~a**2/(2n)
+            None: no offset
+        speciation_block -- True when building a speciation block, its species amounts are
+            passed to the property block and are never offset
+        """
+        if species_amount_offset_type not in SpeciesAmountOffsetTypes.all:
+            raise ValueError(
+                f"species_amount_offset_type must be one of {SpeciesAmountOffsetTypes.all}, "
+                f"got {species_amount_offset_type}"
+            )
+        self.species_amount_zero_offset = float(species_amount_zero_offset)
+        self.species_amount_offset_type = species_amount_offset_type
+        self.speciation_block = speciation_block
+
+    def get_species_amount_offset_keys(self):
+        """keys of outputs that receive the offset, only speciesAmount outputs written to
+        user provided variables (vars built by reaktoro-pse have no user bounds).
+
+        Species amounts passed between Reaktoro blocks are never offset: a speciation
+        block's outputs feed the property block (through pyomo constraints when not
+        directly coupled, or inside ReaktoroCoupledSolver when directly coupled, where they
+        never reach pyomo, ReaktoroCoupledSolver user outputs are only the property
+        solver outputs), offsetting them would change the property block composition."""
+        if (
+            self.species_amount_zero_offset == 0
+            or self.species_amount_offset_type is SpeciesAmountOffsetTypes.none
+            or self.speciation_block
+        ):
+            return []
+        return [
+            key
+            for key, obj in self.solver.output_specs.user_outputs.items()
+            if obj.property_name == "speciesAmount"
+            and obj.property_type != PropTypes.pyomo_built_prop
+            and key not in self.new_output_vars
+        ]
 
     def build_input_constraints(self):
         """build input constraints for reaktoro model"""
@@ -243,6 +302,12 @@ class ReaktoroBlockBuilder:
                         pyoPropObj.set_pyomo_var(
                             self.block.reaktoro_model.outputs[pyoPropKey]
                         )
+        # offsets are applied to gray box outputs (see ReaktoroGrayBox.register_output_floor)
+        # output key -> position, kept for introspection
+        self.species_amount_offset_index = {
+            key: i for i, key in enumerate(self.get_species_amount_offset_keys())
+        }
+        self.register_output_floors()
 
         @self.block.Constraint(self.solver.output_specs.user_outputs)
         def output_constraints(fs, prop, prop_index, sub_prop_index=None):
@@ -251,29 +316,191 @@ class ReaktoroBlockBuilder:
                 prop_index,
                 sub_prop_index,
             ) not in self.solver.output_specs.user_outputs:
-                prop_object = self.solver.output_specs.user_outputs[(prop, prop_index)]
+                key = (prop, prop_index)
             else:
-                prop_object = self.solver.output_specs.user_outputs[
-                    (prop, prop_index, sub_prop_index)
-                ]
+                key = (prop, prop_index, sub_prop_index)
+            prop_object = self.solver.output_specs.user_outputs[key]
             if prop_object.property_type == PropTypes.pyomo_built_prop:
                 return prop_object.pyomo_build_options.build_constraint_function(
                     prop_object
                 )
             else:
-                if (
-                    prop,
-                    prop_index,
-                    sub_prop_index,
-                ) not in self.solver.output_specs.user_outputs:
-                    rkt_model_object = self.block.reaktoro_model.outputs[
-                        (prop, prop_index)
-                    ]
-                else:
-                    rkt_model_object = self.block.reaktoro_model.outputs[
-                        (prop, prop_index, sub_prop_index)
-                    ]
+                rkt_model_object = self.block.reaktoro_model.outputs[key]
                 return prop_object.get_pyomo_var() == rkt_model_object
+
+    def get_gray_box_floor_target(self):
+        """returns (gray box external model, block index) that floors this block's outputs,
+        block index is None for unmanaged blocks, for blocks managed by
+        ReaktoroBlockManager the outputs of all blocks are in one gray box with
+        (block index, key) output keys"""
+        gray_box = self.block.reaktoro_model
+        if isinstance(gray_box, ExternalGreyBoxBlock):
+            return gray_box.get_external_model(), None
+        return getattr(gray_box, "external_model", None), getattr(
+            gray_box, "block_index", None
+        )
+
+    def register_output_floors(self):
+        """register species amount offsets with the gray box that returns the outputs"""
+        if not self.species_amount_offset_index:
+            return
+        external_model, block_index = self.get_gray_box_floor_target()
+        if external_model is None:
+            raise RuntimeError(
+                "species_amount_zero_offset requires access to the gray box model"
+            )
+        for key in self.species_amount_offset_index:
+            output_key = key if block_index is None else (block_index, key)
+            external_model.register_output_floor(
+                output_key,
+                self.solver.output_specs.user_outputs[key].get_pyomo_var(),
+                self.species_amount_zero_offset,
+                self.species_amount_offset_type,
+            )
+
+    def get_species_amount_offset_report(self, update_state=False):
+        """compare reaktoro species amounts with floored outputs, returns
+        output key -> dict with:
+            reaktoro_value: amount from reaktoro (last gray box evaluation, or last
+                reaktoro solve, e.g. initialize, if the gray box was not evaluated yet)
+            floored_value: value returned by the gray box
+            output_var_value: current value of the user output var
+            offset: unscaled offset a
+            scaling_factor: scaling factor of the output var
+            scaled_amount: reaktoro_value * scaling_factor
+            error: floored_value - reaktoro_value, amount added by the offset
+            relative_error: error / reaktoro_value (inf if reaktoro_value <= 0)
+            elements: element -> dict with
+                coefficient: number of atoms of the element in the species
+                system_amount: total amount of the element in the reaktoro system
+                offset_fraction: coefficient * error / system_amount, fraction of the
+                    element that the offset artificially adds to (or removes from the
+                    rest of the system through) this species
+            max_element_fraction: largest offset_fraction (0 if no elements found)
+            limiting_element: element with the largest offset_fraction
+
+        Keywords:
+        update_state -- re-solve the reaktoro state at the current pyomo input values
+            before reading element amounts (needed when the state of this process is not
+            updated by the gray box, e.g. blocks solved by a parallel ReaktoroBlockManager)
+        """
+        if update_state:
+            try:
+                self.solver.solve_reaktoro_block()
+            except Exception as e:
+                _log.warning(
+                    f"Could not update reaktoro state for species amount offset report, "
+                    f"element amounts are from the last solve: {e}"
+                )
+        element_amounts = self._get_offset_species_elements()
+        external_model, block_index = self.get_gray_box_floor_target()
+        report = {}
+        for key in self.species_amount_offset_index:
+            obj = self.solver.output_specs.user_outputs[key]
+            var = obj.get_pyomo_var()
+            # same scaling factor (and default) as the gray box floor
+            sf = iscale.get_scaling_factor(var, default=1)
+            a = self.species_amount_zero_offset / sf
+            raw = None
+            if external_model is not None:
+                gb_key = key if block_index is None else (block_index, key)
+                raw = external_model.get_raw_output(gb_key)
+            if raw is None:
+                raw = obj.value
+            floored = float(
+                floor_species_amount(raw, a, self.species_amount_offset_type)
+            )
+            error = floored - raw
+            report[key] = {
+                "reaktoro_value": raw,
+                "floored_value": floored,
+                "output_var_value": var.value,
+                "offset": a,
+                "scaling_factor": sf,
+                "scaled_amount": raw * sf,
+                "error": error,
+                "relative_error": error / raw if raw > 0 else float("inf"),
+            }
+            elements = {}
+            for symbol, (coefficient, system_amount) in element_amounts.get(
+                key, {}
+            ).items():
+                elements[symbol] = {
+                    "coefficient": coefficient,
+                    "system_amount": system_amount,
+                    "offset_fraction": (
+                        coefficient * error / system_amount
+                        if system_amount > 0
+                        else float("inf")
+                    ),
+                }
+            limiting = max(
+                elements, key=lambda e: elements[e]["offset_fraction"], default=None
+            )
+            report[key]["elements"] = elements
+            report[key]["limiting_element"] = limiting
+            report[key]["max_element_fraction"] = (
+                elements[limiting]["offset_fraction"] if limiting else 0.0
+            )
+        return report
+
+    @staticmethod
+    def get_species_amount_offset_element_report(species_report):
+        """sums the amount added by the offset over all offset species per element,
+        species_report is the output of get_species_amount_offset_report, returns
+        element -> dict with:
+            system_amount: total amount of the element in the reaktoro system
+            offset_amount: sum of coefficient * error over offset species with the element
+            offset_fraction: offset_amount / system_amount
+            species: output key -> coefficient * error of that species
+        """
+        elements = {}
+        for key, r in species_report.items():
+            for symbol, e in r["elements"].items():
+                el = elements.setdefault(
+                    symbol,
+                    {
+                        "system_amount": e["system_amount"],
+                        "offset_amount": 0.0,
+                        "species": {},
+                    },
+                )
+                amount = e["coefficient"] * r["error"]
+                el["offset_amount"] += amount
+                el["species"][key] = amount
+        for el in elements.values():
+            el["offset_fraction"] = (
+                el["offset_amount"] / el["system_amount"]
+                if el["system_amount"] > 0
+                else float("inf")
+            )
+        return elements
+
+    def _get_offset_species_elements(self):
+        """output key -> {element: (coefficient in species, total amount in system)}
+        from the reaktoro state of this process, species not found in the system are
+        skipped"""
+        # coupled solver: offset outputs belong to the property solver
+        solver = getattr(self.solver, "property_solver", self.solver)
+        try:
+            chem_state = solver.state.state
+            system_species = chem_state.system().species()
+            props = chem_state.props()
+        except AttributeError:
+            return {}
+        result = {}
+        for key in self.species_amount_offset_index:
+            try:
+                composition = system_species.get(key[1]).elements()
+            except Exception:
+                continue
+            result[key] = {
+                symbol: (float(coefficient), float(props.elementAmount(symbol)))
+                for symbol, coefficient in zip(
+                    composition.symbols(), composition.coefficients()
+                )
+            }
+        return result
 
     def initialize(self, presolve_during_initialization=False):
         """initialize reaktoro block
@@ -356,8 +583,30 @@ class ReaktoroBlockBuilder:
                 obj.set_pyomo_var_value(obj.value)
                 rkt_var = self.block.reaktoro_model.outputs[key]
                 output_constraint = self.block.output_constraints[key]
-                calculate_variable_from_constraint(rkt_var, output_constraint)
-                sf = self.get_rkt_scale(obj, use_default_scaling)
+                if key in self.species_amount_offset_index:
+                    # the offset is set from the user scaling factor, rescaling from values
+                    # (use_default_scaling=False) would scale absent species by 1/epsilon
+                    # (capped at 1e32) and shrink the offset to ~1e-36, so keep a user
+                    # scaling factor.
+                    # Scaling factors set here from values (no user scaling factor)
+                    # are recorded and still follow values on rescale.
+                    user_sf = iscale.get_scaling_factor(obj.get_pyomo_var())
+                    if user_sf is not None and user_sf != self._value_based_sf.get(key):
+                        sf = user_sf
+                    else:
+                        sf = self.get_rkt_scale(obj, use_default_scaling)
+                        self._value_based_sf[key] = sf
+                    floored = floor_species_amount(
+                        obj.value,
+                        self.get_species_amount_offset(key, sf),
+                        self.species_amount_offset_type,
+                    )
+                    # output constraint is output_var == gray box output
+                    obj.get_pyomo_var().set_value(floored)
+                    rkt_var.set_value(floored)
+                else:
+                    sf = self.get_rkt_scale(obj, use_default_scaling)
+                    calculate_variable_from_constraint(rkt_var, output_constraint)
                 iscale.constraint_scaling_transform(
                     output_constraint,
                     sf,
@@ -367,6 +616,16 @@ class ReaktoroBlockBuilder:
                 obj.get_pyomo_var(),
                 sf,
             )
+
+    def get_species_amount_offset(self, key, sf=None):
+        """unscaled offset a = species_amount_zero_offset / sf of the output var, sf
+        defaults to the current scaling factor of the output var (1 if not set, same as
+        ReaktoroGrayBox.get_output_floor_offsets)"""
+        if sf is None:
+            sf = iscale.get_scaling_factor(
+                self.solver.output_specs.user_outputs[key].get_pyomo_var(), default=1
+            )
+        return self.species_amount_zero_offset / sf
 
     def initialize_output_variables_and_constraints(self):
         self.set_output_vars_and_scale(True)

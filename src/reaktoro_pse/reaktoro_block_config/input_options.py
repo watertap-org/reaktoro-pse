@@ -289,6 +289,57 @@ class SystemInput:
                     - If false, all indexed blocks will get same input""",
                 ),
             )
+            system_input.declare(
+                "dissolved_O2",
+                ConfigValue(
+                    default=None,
+                    domain=IsInstance((VarData, Var, dict, IndexedVar)),
+                    description="Input dissolved O2 amount for reaktoro block",
+                    doc="""Var or IndexedVar with amount of dissolved O2, on same basis as composition (e.g. mol/s or kg/s).
+                    Defines redox state when exact speciation is not provided (alternative to pE or Eh), the
+                    equilibrium amount of O2(aq) is fixed to this value. Only one of pE, Eh, dissolved_O2, or O2_fugacity can be used.""",
+                ),
+            )
+            system_input.declare(
+                "dissolved_O2_indexed",
+                ConfigValue(
+                    default=True,
+                    domain=bool,
+                    description="dissolved_O2 is indexed",
+                    doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
+                    - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
+                    - If false, all indexed blocks will get same input""",
+                ),
+            )
+        system_input.declare(
+            "O2_fugacity",
+            ConfigValue(
+                default=None,
+                domain=IsInstance((VarData, Var, dict, IndexedVar)),
+                description="Fugacity of O2 gas (bar) the system is equilibrated with",
+                doc="""Var or IndexedVar with O2 gas fugacity in bar (e.g. 0.21 for atmosphere). The system is opened to O2,
+                which is added or removed until equilibrium with given fugacity is reached.
+                    - On system_state of a speciation block (or block without exact speciation), defines redox state as O2 saturation.
+                    - On system_state_modifier (property block built after speciation block), models aeration (or degassing) of
+                    the water in the process step, e.g. lime softening open to atmosphere.
+                    - On system_state of a block with exact speciation, models aeration of provided composition.
+                Note: 0.21 bar is a good default for an open basin at sea level and moderate temperature. The fugacity
+                might need to be adjusted for temperature (water vapor lowers O2 partial pressure, ~7% at 40 C,
+                ~20% at 60 C), elevation, and salinity (salting out of O2 is only approximately captured by activity
+                models). See examples/oxygen_tracking.py for a table of predicted vs. tabulated O2 saturation.""",
+            ),
+        )
+        system_input.declare(
+            "O2_fugacity_indexed",
+            ConfigValue(
+                default=True,
+                domain=bool,
+                description="O2_fugacity is indexed",
+                doc="""Option that defines how to treat input variable when building indexed reaktoroBlock":
+                    - If true, the input has same indexing as block, and each indexed input will be passed into respective indexed reaktoroBlock
+                    - If false, all indexed blocks will get same input""",
+            ),
+        )
         system_input.declare(
             "temperature_bounds",
             ConfigValue(

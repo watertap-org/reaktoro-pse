@@ -12,7 +12,6 @@
 import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.standard_model as standardModel
 import reaktoro_pse.examples.reaktoro_pse_to_phreeqc_comparison.comparison_utils as compUtils
 
-
 __author__ = "Alexander V. Dudchenko"
 
 

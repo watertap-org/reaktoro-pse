@@ -41,6 +41,10 @@ class ReaktoroCoupledSolver:
         if not isinstance(speciation_solvers, list):
             speciation_solvers = [speciation_solvers]
         self.speciation_solvers = speciation_solvers
+        # property solver state has not been equilibrated yet, so the first solve
+        # equilibrates it even if equilibrate_state was never called (e.g. when the
+        # model state is loaded from file instead of running initialize)
+        self.prop_block_not_equilibrated = True
         self.get_master_inputs()
         self.get_speciation_outputs()
 
@@ -111,9 +115,16 @@ class ReaktoroCoupledSolver:
                     self.prop_jac_propagation_keys[
                         self.output_key_order[obj.dummy_var_key]
                     ] = key
+        # speciation outputs that are not an input to property block (e.g. O2 when
+        # property block is open to O2 gas) do not propagate, their jacobian is zero
+        self.prop_jac_propagation_mask = np.array(
+            [key is not None for key in self.prop_jac_propagation_keys], dtype=bool
+        )
         # rkt_inputs are not used in property solver, so we do not register them
         self.get_master_outputs()
         for key in self.prop_jac_propagation_keys:
+            if key is None:
+                continue
             new_key = self.modify_key("prop", key)
             self.input_specs.user_inputs[new_key] = (
                 self.property_solver.input_specs.user_inputs[key]
@@ -122,18 +133,24 @@ class ReaktoroCoupledSolver:
         # register hessian options for proerty solver, these will be used
         # as master options for our graybox
         self.hessian_type = self.property_solver.hessian_type
-        self.bfgs_initialization_type = self.property_solver.bfgs_initialization_type
-        self.bfgs_init_min_hessian_value = (
-            self.property_solver.bfgs_init_min_hessian_value
+        self.quasi_newton_initialization_type = (
+            self.property_solver.quasi_newton_initialization_type
         )
-        self.bfgs_init_max_hessian_value = (
-            self.property_solver.bfgs_init_max_hessian_value
+        self.quasi_newton_init_min_value = (
+            self.property_solver.quasi_newton_init_min_value
         )
-        self.bfgs_init_const_hessian_value = (
-            self.property_solver.bfgs_init_const_hessian_value
+        self.quasi_newton_init_max_value = (
+            self.property_solver.quasi_newton_init_max_value
         )
-        self.bfgs_hessian_memory = self.property_solver.bfgs_hessian_memory
-        self.bfgs_epsilon = self.property_solver.bfgs_epsilon
+        self.quasi_newton_init_const_value = (
+            self.property_solver.quasi_newton_init_const_value
+        )
+        self.lbfgs_memory = self.property_solver.lbfgs_memory
+        self.quasi_newton_epsilon = self.property_solver.quasi_newton_epsilon
+        self.sr1_skip_tolerance = self.property_solver.sr1_skip_tolerance
+        self.quasi_newton_update_cap = self.property_solver.quasi_newton_update_cap
+        self.quasi_newton_norm_cap = self.property_solver.quasi_newton_norm_cap
+        self.hessian_input_scaling = self.property_solver.hessian_input_scaling
 
     def modify_key(self, index, key):
         """utility for generating single tuple key"""
@@ -249,6 +266,9 @@ class ReaktoroCoupledSolver:
             )
         )
         prop_prop_jac = property_jac.T[[self.prop_jac_propagation_idx]][0].T
+        # unmapped speciation outputs have no property input, zero their columns
+        # (their placeholder index would otherwise pick up column 0)
+        prop_prop_jac[:, ~self.prop_jac_propagation_mask] = 0
         end_idx = 0
         start_idx = 0
         for i, spc in enumerate(self.speciation_solvers):
