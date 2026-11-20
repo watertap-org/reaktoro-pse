@@ -7,9 +7,14 @@ dose that keeps calcite below saturation.
 
 .. testsetup::
 
+   # silence logs (idaes logs to stdout, which doctest compares to expected output),
+   # setting logger levels does not work as importing idaes resets them
    import logging
-   logging.getLogger("idaes").setLevel(logging.CRITICAL)
-   logging.getLogger("pyomo").setLevel(logging.CRITICAL)
+   logging.disable(logging.WARNING)
+
+.. testcleanup::
+
+   logging.disable(logging.NOTSET)
 
 Define the inputs
 -----------------
