@@ -174,15 +174,41 @@ def test_biogas(hess_type):
 
 
 def test_evaporative_crystallizer_needs_species_amount_offset():
-    """absent minerals pin bounded solids vars at their bound without an offset, the
-    optimization does not converge, with the default offset it does"""
-    m, converged = evaporative_crystallizer.main(
+    """absent minerals pin bounded solids vars at their bound without an offset, with the
+    default offset they sit at a = offset / scaling factor away from it and the
+    optimization converges.
+    Without an offset, whether the optimization fails or only needs many more iterations
+    depends on platform (e.g. 41 iterations on linux vs not converged in 300 on windows),
+    so it is not asserted, the pinning that causes it is."""
+
+    def scaled_absent_solids(m):
+        """scaled distance from bound of solids vars for minerals absent in reaktoro"""
+        raw = m.crystallizer.rkt_solver.output_specs.user_outputs
+        return [
+            var.value * iscale.get_scaling_factor(var)
+            for key, var in m.solids.items()
+            if raw[key].value < 1e-30
+        ]
+
+    # without offset, absent minerals are pinned at their bound of 0 (Ipopt keeps them
+    # only ~1e-11 away in scaled units)
+    m = evaporative_crystallizer.build_crystallizer(
         species_amount_zero_offset=0, species_amount_offset_type=None
     )
-    assert not converged
+    evaporative_crystallizer.initialize(m)
+    absent = scaled_absent_solids(m)
+    assert len(absent) > len(m.solids) / 2
+    assert max(absent) < 1e-8
 
-    m, converged = evaporative_crystallizer.main()
-    assert converged
+    # with default offset, absent minerals sit at offset (1e-4 scaled) from their bound,
+    # and optimization converges
+    m = evaporative_crystallizer.build_crystallizer()
+    evaporative_crystallizer.initialize(m)
+    absent = scaled_absent_solids(m)
+    assert len(absent) > len(m.solids) / 2
+    assert pytest.approx(min(absent), 1e-2) == 1e-4
+    evaporative_crystallizer.setup_optimization(m)
+    assert evaporative_crystallizer.solve(m)
     assert pytest.approx(m.evaporation.value, 1e-3) == 0.9122
     raw = m.crystallizer.rkt_solver.output_specs.user_outputs
     present = {key[1] for key in m.solids if raw[key].value > 1e-12}

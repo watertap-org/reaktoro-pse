@@ -39,7 +39,8 @@ from reaktoro_pse.core.util_classes.cyipopt_solver import (
 # Without an offset, every absent mineral pins its solids variable at its bound, Ipopt
 # keeps it a tiny distance from the bound, and the bound multipliers grow as
 # barrier parameter / distance. The optimization (maximize evaporation, subject to a
-# slurry solids limit, with lime and soda ash dosing) then fails to converge.
+# slurry solids limit, with lime and soda ash dosing) then fails to converge, or on some
+# platforms needs many more iterations than with an offset.
 # With the default offset (smooth_floor, 1e-4 in scaled units) absent minerals sit at
 # a = 1e-4 / scaling factor away from the bound, present minerals are shifted by only
 # ~a**2/(2n), and the same optimization converges.
