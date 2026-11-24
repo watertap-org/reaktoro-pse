@@ -19,7 +19,6 @@ from pyomo.environ import (
     Var,
 )
 
-
 __author__ = "Alexander V. Dudchenko"
 
 

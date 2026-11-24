@@ -67,7 +67,6 @@ def get_cyipopt_watertap_solver(
     cy_solver.options["dual_inf_tol"] = dual_inf_tol
     cy_solver.options["constr_viol_tol"] = constr_viol_tol
     cy_solver.options["tol"] = tol
-
     # Ensure we never accept a "acceptable solution", which will be treated as infeasible"
     cy_solver.options["acceptable_dual_inf_tol"] = dual_inf_tol / 10
     cy_solver.options["acceptable_tol"] = tol / 10

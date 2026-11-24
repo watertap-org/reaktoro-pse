@@ -125,6 +125,8 @@ class ReaktoroInputSpec:
             self.fixed_solvent_speciation = {}
             self.fixed_solvent_type = {}
             self.fixed_species = {}
+            # set to dissolved_O2 or O2_fugacity when either is used as O2 spec
+            self.redox_O2_spec = None
             # execute default configuration options, user can update settings
             self.register_charge_neutrality()
             self.default_speciation()
@@ -281,6 +283,7 @@ class ReaktoroInputSpec:
         # ignore elements for constraints
         pressure_not_set = True
         temperature_not_set = True
+        self.redox_O2_spec = None
         for input_name, _ in self.state.inputs.items():
             if input_name == RktInputTypes.temperature:
                 specs_object.temperature()
@@ -324,8 +327,53 @@ class ReaktoroInputSpec:
                 ]
                 self.rkt_inputs[RktInputTypes.pOH].set_lower_bound(-1)
                 self.rkt_inputs[RktInputTypes.pOH].set_upper_bound(14)
+            elif input_name == RktInputTypes.dissolved_O2:
+                # constraint is written with open solvent constraints, it replaces
+                # the empty constraint on O, which is open when exact speciation is
+                # not provided
+                if self.exact_speciation:
+                    raise ValueError(
+                        "dissolved_O2 can only be used when exact speciation is not provided "
+                        "(H and O are open), with exact speciation provide O2 in composition"
+                    )
+                self.rkt_inputs[RktInputTypes.dissolved_O2] = self.state.inputs[
+                    RktInputTypes.dissolved_O2
+                ]
+                self.rkt_inputs[RktInputTypes.dissolved_O2].set_lower_bound(0)
+                mw, mw_unit = self.state.get_molar_mass_specie("O2")
+                self.state.verify_unit(
+                    self.rkt_inputs[RktInputTypes.dissolved_O2], mw, mw_unit
+                )
+                self.redox_O2_spec = RktInputTypes.dissolved_O2
+            elif input_name == RktInputTypes.O2_fugacity:
+                # system is open to O2 gas, O2 is added or removed until O2 fugacity
+                # matches input, this replaces O element constraint (exact
+                # speciation, e.g. aeration on property block) or empty constraint on
+                # open O (e.g. saturation based redox spec on speciation block)
+                specs_object.fugacity("O2")
+                self.rkt_inputs[RktInputTypes.O2_fugacity] = self.state.inputs[
+                    RktInputTypes.O2_fugacity
+                ]
+                self.rkt_inputs[RktInputTypes.O2_fugacity].set_lower_bound(0)
+                if "O" not in self.ignore_elements_for_constraints:
+                    self.ignore_elements_for_constraints.append("O")
+                self.redox_O2_spec = RktInputTypes.O2_fugacity
             else:
                 pass
+        redox_specs = [
+            spec
+            for spec in [
+                RktInputTypes.pE,
+                RktInputTypes.Eh,
+                RktInputTypes.dissolved_O2,
+                RktInputTypes.O2_fugacity,
+            ]
+            if spec in self.state.inputs
+        ]
+        if len(redox_specs) > 1:
+            raise ValueError(
+                f"Only one redox specification can be provided, got {redox_specs}"
+            )
         if pressure_not_set:
             specs_object.unknownPressure()
             # self.write_empty_con(specs_object, "open_pressure")
@@ -521,6 +569,8 @@ class ReaktoroInputSpec:
             "Ca(OH)2": {"Ca": 1, "O": 2, "H": 2},
             "Na2CO3": {"Na": 2, "C": 1, "O": 3},
             "CO2": {"C": 1, "O": 2},
+            # O2 gas dissolved into water (e.g. aerator with known O2 transfer)
+            "O2": {"O": 2},
             "NaOH": {"Na": 1, "O": 1, "H": 1},
             "H": {"H": 1},
             "OH": {"O": 1, "H": 1},
@@ -698,8 +748,39 @@ class ReaktoroInputSpec:
             for element, coeff in self.fixed_solvent_speciation[phase].items():
                 if element not in opened_elements:
                     opened_elements.append(element)
+                    if (
+                        element == "O"
+                        and self.redox_O2_spec == RktInputTypes.O2_fugacity
+                    ):
+                        # O2 titrant (from fugacity spec) replaces open O
+                        continue
                     spec_object.openTo(element)
-                    self.write_empty_con(spec_object, element)
+                    if (
+                        element == "O"
+                        and self.redox_O2_spec == RktInputTypes.dissolved_O2
+                    ):
+                        self.write_dissolved_O2_constraint(spec_object)
+                    else:
+                        self.write_empty_con(spec_object, element)
+
+    def write_dissolved_O2_constraint(self, spec_object):
+        """fixes amount of dissolved O2, used in place of empty constraint on open O
+        so the redox state is defined by dissolved O2"""
+        rkt_input = self.rkt_inputs[RktInputTypes.dissolved_O2]
+        idx = spec_object.addInput(RktInputTypes.dissolved_O2)
+        rkt_input.set_rkt_input_name(RktInputTypes.dissolved_O2)
+        self.rkt_constraints.register_constraint(
+            "dissolved_O2_constraint",
+            rkt_inputs=[rkt_input],
+        )
+        idx_o2 = self.state.system.species().index("O2")
+        constraint = rkt.EquationConstraint()
+        constraint.id = "dissolved_O2_constraint"
+        constraint.fn = (
+            lambda props, w: (props.speciesAmount(idx_o2) - w[idx])
+            * self.rkt_constraints["dissolved_O2_constraint"].scaling_factor
+        )
+        spec_object.addConstraint(constraint)
 
     def write_phase_volume_constraint(self, spec_object, phase):
         # spec_object.openTo(f"volume_{phase}")

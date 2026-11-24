@@ -24,7 +24,10 @@ from pyomo.contrib.pynumero.interfaces.external_grey_box import (
 import numpy as np
 from idaes.core.base.process_base import declare_process_block_class, ProcessBlockData
 from pyomo.common.config import ConfigValue, IsInstance
-from reaktoro_pse.reaktoro_block_config.hessian_options import HessianOptions
+from reaktoro_pse.reaktoro_block_config.hessian_options import (
+    HessianOptions,
+    resolve_deprecated_hessian_options,
+)
 
 from pyomo.environ import (
     Constraint,
@@ -122,6 +125,14 @@ class AggregateSolverState:
             output_end + 1,
         )  # need to offset by 1
 
+    def get_hessian_support(self):
+        """for each aggregated output, indexes of aggregated inputs of same block"""
+        input_blocks = np.array(self.input_blk_indexes)
+        return [
+            np.flatnonzero(input_blocks == block_idx)
+            for block_idx in self.output_blk_indexes
+        ]
+
     def register_scaling_vals(self, scaling_func, input_scaling_func):
         self.jacobian_scaling_obj.append(scaling_func)
         self.input_scaling_obj.append(input_scaling_func)
@@ -203,9 +214,13 @@ class AggregateSolverState:
 
 
 class PseudoGrayBox:
-    def __init__(self):
+    def __init__(self, external_model=None, block_index=None):
         self.inputs = {}
         self.outputs = {}
+        # shared gray box and this block's index in it, used to register output floors
+        # (outputs are keyed as (block_index, output_key) in the shared gray box)
+        self.external_model = external_model
+        self.block_index = block_index
 
     def register_input(self, aggregate_inputs, input_keys, block_idx):
         for input_key in input_keys:
@@ -338,22 +353,30 @@ class ReaktoroBlockManagerData(ProcessBlockData):
     def build_reaktoro_blocks(self):
         self.aggregate_inputs_and_outputs()
         external_model = ReaktoroGrayBox()
+        resolve_deprecated_hessian_options(self.config.hessian_options)
         external_model.configure(
             self.aggregate_solver_state,
             inputs=self.aggregate_solver_state.inputs,
             input_dict=self.aggregate_solver_state.input_dict,
             outputs=self.aggregate_solver_state.outputs,
             hessian_type=self.config.hessian_options.hessian_type,
-            bfgs_initialization_type=self.config.hessian_options.bfgs_initialization_type,
-            bfgs_init_min_hessian_value=self.config.hessian_options.bfgs_init_min_hessian_value,
-            bfgs_init_max_hessian_value=self.config.hessian_options.bfgs_init_max_hessian_value,
-            bfgs_init_const_hessian_value=self.config.hessian_options.bfgs_init_const_hessian_value,
-            bfgs_hessian_memory=self.config.hessian_options.bfgs_hessian_memory,
-            bfgs_epsilon=self.config.hessian_options.bfgs_epsilon,
+            quasi_newton_initialization_type=self.config.hessian_options.quasi_newton_initialization_type,
+            quasi_newton_init_min_value=self.config.hessian_options.quasi_newton_init_min_value,
+            quasi_newton_init_max_value=self.config.hessian_options.quasi_newton_init_max_value,
+            quasi_newton_init_const_value=self.config.hessian_options.quasi_newton_init_const_value,
+            lbfgs_memory=self.config.hessian_options.lbfgs_memory,
+            quasi_newton_epsilon=self.config.hessian_options.quasi_newton_epsilon,
+            sr1_skip_tolerance=self.config.hessian_options.sr1_skip_tolerance,
+            quasi_newton_update_cap=self.config.hessian_options.quasi_newton_update_cap,
+            quasi_newton_norm_cap=self.config.hessian_options.quasi_newton_norm_cap,
+            hessian_input_scaling=self.config.hessian_options.hessian_input_scaling,
+            # outputs of a block only depend on inputs of the same block, restricting
+            # hessian to block diagonal avoids spurious coupling between blocks
+            hessian_support=self.aggregate_solver_state.get_hessian_support(),
         )
         self.reaktoro_model = ExternalGreyBoxBlock(external_model=external_model)
         for block_idx, block in enumerate(self.registered_blocks):
-            pseudo_gray_box_model = PseudoGrayBox()
+            pseudo_gray_box_model = PseudoGrayBox(external_model, block_idx)
             pseudo_gray_box_model.register_input(
                 self.reaktoro_model.inputs,
                 block.inputs.rkt_inputs.keys(),
@@ -371,6 +394,7 @@ class ReaktoroBlockManagerData(ProcessBlockData):
             else:
                 init_func = self.aggregate_solver_state.solver_functions[block_idx]
                 disp_func = None
+                jac_func = None  # builder uses the block solver jacobian
             block.builder.build_reaktoro_block(
                 gray_box_model=pseudo_gray_box_model,
                 reaktoro_initialize_function=init_func,
