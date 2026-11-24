@@ -229,7 +229,7 @@ class TrustRegionOptions:
                 doc="""If an inner solve fails (subproblem infeasible for any reaktoro inputs,
                 e.g. a fixed spec far from the expansion point while an input is at its
                 bound), it is retried with l1 penalized slack on surrogate equations (in
-                scaled residual units, same penalty as elastic trust region gap). Steps with
+                units relative to output magnitude, same penalty as elastic trust region gap). Steps with
                 slack are restoration steps, slack is fixed at zero again once it is not
                 needed, and trust region can only terminate optimal with zero slack""",
             ),

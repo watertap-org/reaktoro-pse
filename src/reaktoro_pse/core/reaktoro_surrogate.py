@@ -382,9 +382,17 @@ class ReaktoroSurrogateBlockData(BlockData):
         ):
             for i in self._in_idx:
                 self.delta[i].set_value(self.h[i] * s[i])
-        # model slack, in units of scaled surrogate equation residual, fixed at zero
-        # until enabled (when the subproblem is infeasible for any input, e.g. a
-        # fixed spec far from the expansion point with an input at its bound)
+        # model slack, relative to output magnitude (or 1/scaling factor for outputs
+        # near zero, same as trust region theta), fixed at zero until enabled (when the
+        # subproblem is infeasible for any input, e.g. a fixed spec far from the
+        # expansion point with an input at its bound). Surrogate equation scaling is
+        # not used, it comes from reaktoro jacobian and can be ~1e-6 for pH, which
+        # makes slack nearly free
+        y = self.output_values()
+        y = np.where(np.isfinite(y), y, 0.0)
+        osf = self.output_scaling()
+        osf[osf <= 0] = 1
+        out_scale = np.maximum(np.abs(y), 1 / osf)
         for base in ("tr_model_slack_pos", "tr_model_slack_neg"):
             self.add_component(
                 names[base],
@@ -397,9 +405,7 @@ class ReaktoroSurrogateBlockData(BlockData):
             mn[o].fix(0)
             iscale.set_scaling_factor(mp[o], 1)
             iscale.set_scaling_factor(mn[o], 1)
-            sf = iscale.get_scaling_factor(self.surrogate_eq[o], default=1)
-            sf = sf if sf is not None and sf > 0 else 1
-            self.out_slack[o].set_value((mp[o] - mn[o]) / sf)
+            self.out_slack[o].set_value(float(out_scale[o]) * (mp[o] - mn[o]))
         self.model_slack_enabled = False
         self._elastic_names = names
         self._penalty_expr = sum(ep[i] + en[i] for i in self._in_idx) + sum(
@@ -423,7 +429,7 @@ class ReaktoroSurrogateBlockData(BlockData):
         self.model_slack_enabled = enable
 
     def model_slack(self):
-        """sum of surrogate equation slack (scaled residual units)"""
+        """sum of surrogate equation slack (relative to output magnitude)"""
         if not self.elastic_mode:
             return 0.0
         mp = self.component(self._elastic_names["tr_model_slack_pos"])
