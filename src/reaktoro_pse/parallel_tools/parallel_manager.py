@@ -292,7 +292,7 @@ class LocalWorker:
             self.input_matrix[2][i] = np.float64(params[key])
 
     def get_solution(self):
-        if self.local_pipe.poll:
+        if self.local_pipe.poll(None):
             result = self.local_pipe.recv()
             if result == WorkerMessages.success:
                 return self.jacobian_matrix.copy(), self.output_matrix.copy()
@@ -305,6 +305,10 @@ class LocalWorker:
 
     def display_state(self):
         self.local_pipe.send(WorkerMessages.display_state)
+        # worker replies once it printed its state, the reply has to be read here,
+        # otherwise the next get_solution reads it as the reply to a new solve and
+        # returns results before the worker finished that solve
+        self.local_pipe.recv()
 
     def terminate(self):
         self.local_pipe.send(WorkerMessages.terminate)
@@ -380,8 +384,14 @@ def ReaktoroActor(
                 reaktoro_worker.update_inputs()
                 result = WorkerMessages.success
             if command == WorkerMessages.initialize:
-                reaktoro_worker.initialize(presolve=option)
-                result = WorkerMessages.success
+                # report failure to main process instead of exiting, otherwise main
+                # process blocks on pipe.recv() forever
+                try:
+                    reaktoro_worker.initialize(presolve=option)
+                    result = WorkerMessages.success
+                except (cyipopt.CyIpoptEvaluationError, RuntimeError) as e:
+                    _log.warning(f"Worker failed to initialize: {type(e).__name__} {e}")
+                    result = WorkerMessages.failed
             if command == WorkerMessages.solve:
                 result = reaktoro_worker.solve()
             if command == WorkerMessages.display_state:

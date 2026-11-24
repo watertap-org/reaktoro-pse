@@ -30,7 +30,6 @@ from reaktoro_pse.parallel_tools.reaktoro_block_manager import (
     ReaktoroBlockManager,
 )
 
-
 __author__ = "Alexander V. Dudchenko"
 
 # This examples demonstrates how Reaktoro graybox can be used to estimates
@@ -48,15 +47,17 @@ __author__ = "Alexander V. Dudchenko"
 
 def main(
     hess_type=None,
+    backend="graybox",
+    parallel_mode=False,
 ):
-    m = build_simple_desal(hess_type)
+    m = build_simple_desal(hess_type, parallel_mode=parallel_mode, backend=backend)
     initialize(m)
     setup_optimization(m)
     solve(m)
     return m
 
 
-def build_simple_desal(hess_type, parallel_mode=False):
+def build_simple_desal(hess_type, parallel_mode=False, backend="graybox"):
     m = ConcreteModel()
     m.feed_composition = Var(
         ["H2O", "Mg", "Na", "Cl", "SO4", "Ca", "HCO3"],
@@ -132,7 +133,7 @@ def build_simple_desal(hess_type, parallel_mode=False):
     )
 
     if parallel_mode:
-        m.parallel_block_manager = ReaktoroBlockManager()
+        m.parallel_block_manager = ReaktoroBlockManager(backend=backend)
     else:
         m.parallel_block_manager = None
     if hess_type is None:
@@ -157,6 +158,7 @@ def build_simple_desal(hess_type, parallel_mode=False):
         build_speciation_block=True,
         reaktoro_block_manager=m.parallel_block_manager,
         hessian_options=hess_options,
+        backend=backend,
     )
     # assert False
     if parallel_mode:

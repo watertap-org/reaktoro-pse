@@ -83,6 +83,10 @@ Currently, repo includes several tutorials and examples.
 4. [Example of biogas combustion](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/biogas_combustion.py) that demonstrates how to:
     * Set up ReaktoroBlock for customized database
     * Use Condensed phase
+5. [Example of oxygen tracking and aeration](https://github.com/watertap-org/reaktoro-pse/blob/main/src/reaktoro_pse/examples/oxygen_tracking.py) that demonstrates how to:
+    * Define the redox state of a feed with measured dissolved oxygen (`dissolved_O2`) instead of pE
+    * Equilibrate a process step (lime softening) with air using `O2_fugacity` on the system state modifier
+    * Pass dissolved oxygen from one ReaktoroBlock to the next, and see how oxygen limits Mn removal
 
 *Comparisons of Reaktoro-pse to PhreeqC when simulating*
 

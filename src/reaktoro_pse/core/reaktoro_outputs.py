@@ -446,209 +446,417 @@ class ConvertedPropTypes:
 
         return output
 
+    def pE(self, property_index=None):
+        """build pE from activities of a redox couple species (O2 or H2) with exact
+        derivatives. Reaktoro does not expose an electron activity we can
+        differentiate, but at equilibrium the couple formation reaction, e.g.
+        O2 = 2 H2O - 4 H+ - 4 e-, gives
+
+            log a(e-) = (log a(O2) - sum(nu_i log a_i) - log K(T, P)) / nu_e
+
+        Only a couple above the epsilon floor is at equilibrium (O2 in oxidizing and
+        H2 in reducing water), so the more abundant couple is used on each evaluation
+        (both give the same value where both are present). Falls back to Reaktoro pE
+        (numerical derivatives) when database has no couple species.
+        property_index is not used (pE has no index)"""
+        ref_temp = 25  # degC
+        ref_pressure = 1  # atm
+        system_species = [s.name() for s in self.state.state.system().species()]
+        primaries = {
+            s
+            for s in system_species
+            if not self.state.database.species().get(s).reaction().reactants()
+        }
+        couples = []
+        for couple in ("O2", "H2"):
+            if couple not in system_species:
+                continue
+            expanded = self._expand_reaction(couple, primaries)
+            if expanded is None or "e-" not in expanded[0]:
+                continue
+            reactants, logk_terms = expanded
+            nu_e = reactants.pop("e-")
+            if not all(s in system_species for s in reactants):
+                continue
+            volume = float(
+                self.state.system.species()
+                .get(couple)
+                .props(ref_temp, "C", ref_pressure, "atm")
+                .V0
+            )
+            for s, mol in reactants.items():
+                volume -= mol * float(
+                    self.state.system.species()
+                    .get(s)
+                    .props(ref_temp, "C", ref_pressure, "atm")
+                    .V0
+                )
+            couples.append(
+                {
+                    "couple": couple,
+                    "reactants": reactants,
+                    "nu_e": nu_e,
+                    "logk_terms": logk_terms,
+                    "delta_V": volume,
+                }
+            )
+        if not couples:
+            _log.warning(
+                "No redox couple (O2 or H2) available for exact pE derivatives, using numerical pE"
+            )
+            # get_prop_type moves on to Reaktoro aqueous props pE
+            raise AttributeError("no redox couple for exact pE")
+        output = PropOptions()
+        for c in couples:
+            output.register_property(
+                PropTypes.chem_prop, "speciesActivityLn", c["couple"]
+            )
+            for s in c["reactants"]:
+                output.register_property(PropTypes.chem_prop, "speciesActivityLn", s)
+        output.register_property(PropTypes.chem_prop, "temperature")
+        output.register_property(PropTypes.chem_prop, "pressure")
+        output.register_option("couples", couples)
+        output.register_option("gas_constant", rkt.universalGasConstant)
+        _log.info(
+            f"pE is calculated from {[c['couple'] for c in couples]} redox couple(s)"
+        )
+
+        def get_couple(x):
+            return max(
+                output.options["couples"],
+                key=lambda c: x[("speciesActivityLn", c["couple"])].value,
+            )
+
+        def calc_pE(x):
+            c = get_couple(x)
+            gas_constant = output.options["gas_constant"]
+            temperature = x["temperature", None].value
+            log_k = sum(
+                mult * self._log_k_value(t, prm, temperature, gas_constant)
+                for t, prm, mult in c["logk_terms"]
+            ) - c["delta_V"] * (x[("pressure", None)].value - 101325) / (
+                math.log(10) * gas_constant * temperature
+            )
+            log_a = (
+                x[("speciesActivityLn", c["couple"])].value
+                - sum(
+                    mol * x[("speciesActivityLn", s)].value
+                    for s, mol in c["reactants"].items()
+                )
+            ) / math.log(10)
+            return -(log_a - log_k) / c["nu_e"]
+
+        def calc_pE_derivative(x):
+            c = get_couple(x)
+            gas_constant = output.options["gas_constant"]
+            temperature = x["temperature", None].value
+            d_temperature = x["temperature", None].derivative
+            d_log_k = sum(
+                mult
+                * self._log_k_derivative(
+                    t, prm, temperature, d_temperature, gas_constant
+                )
+                for t, prm, mult in c["logk_terms"]
+            )
+            d_log_k -= (
+                c["delta_V"]
+                * x[("pressure", None)].derivative
+                / (math.log(10) * gas_constant * temperature)
+            )
+            d_log_k += (
+                c["delta_V"]
+                * (x[("pressure", None)].value - 101325)
+                / (math.log(10) * gas_constant * temperature**2)
+                * d_temperature
+            )
+            d_log_a = (
+                x[("speciesActivityLn", c["couple"])].derivative
+                - sum(
+                    mol * x[("speciesActivityLn", s)].derivative
+                    for s, mol in c["reactants"].items()
+                )
+            ) / math.log(10)
+            return -(d_log_a - d_log_k) / c["nu_e"]
+
+        output.calculate_value = calc_pE
+        output.calculate_derivative_conversion = calc_pE_derivative
+        return output
+
+    @staticmethod
+    def _get_logk_term(thermo_model):
+        """returns (logk_type, params) for a species standard thermo model, or None
+        when the model type is not supported"""
+        jsp_dict = json.loads(thermo_model.params().dumpJson())
+        if not isinstance(jsp_dict, list) or jsp_dict[0] is None:
+            return None
+        if jsp_dict[0].get("PhreeqcLgK", None) is not None:
+            return ("Analytical", jsp_dict[0]["PhreeqcLgK"])
+        if jsp_dict[0].get("VantHoff", None) is not None:
+            return ("VantHoff", jsp_dict[0]["VantHoff"])
+        return None
+
+    def _expand_reaction(self, species_name, keep, depth=0):
+        """Formation reaction of species_name written in terms of species in keep
+        (primary master species of the system) and e-, expanding secondary species
+        recursively through their own formation reactions. Species that can not be
+        expanded are kept as is.
+
+        returns (reactants dict, list of (logk_type, params, multiplier)) or None"""
+        spec = self.state.database.species().get(species_name)
+        term = self._get_logk_term(spec.standardThermoModel())
+        if term is None or depth > 10:
+            return None
+        reactants = {}
+        logk_terms = [term + (1.0,)]
+        for s, mol in spec.reaction().reactants():
+            name, mol = s.name(), float(mol)
+            sub = None
+            if name not in keep and name != "e-" and s.reaction().reactants():
+                sub = self._expand_reaction(name, keep, depth + 1)
+            if sub is None:
+                reactants[name] = reactants.get(name, 0.0) + mol
+                continue
+            sub_reactants, sub_terms = sub
+            for sub_name, sub_mol in sub_reactants.items():
+                reactants[sub_name] = reactants.get(sub_name, 0.0) + mol * sub_mol
+            logk_terms += [(t, prm, mult * mol) for t, prm, mult in sub_terms]
+        reactants = {k: v for k, v in reactants.items() if abs(v) > 1e-12}
+        return reactants, logk_terms
+
+    def _get_reaction_representations(self, property_index, system_species):
+        """Reaction representations of a mineral that only use activities of system
+        species, so scaling tendency has exact derivatives.
+
+        The reaction is expanded to primary master species, as secondary species
+        (e.g. H2S in oxic water) can sit at the Reaktoro epsilon floor, where their
+        activity is not at equilibrium. Reaktoro does not expose an electron activity
+        we can differentiate, so e- is replaced with a redox couple species (O2 or H2)
+        through its formation reaction (e.g. O2 = 2 H2O - 4 H+ - 4 e-):
+
+            reaction' = reaction - (nu_e / nu_e,couple) * couple reaction
+
+        At equilibrium both couples give the same saturation index, but only one of
+        them is above the epsilon floor (oxidizing water has O2, reducing water H2),
+        so a representation is built for each couple and the one with the larger
+        couple activity is used during evaluation.
+
+        returns list of (couple or None, reactants dict, logk terms), empty if exact
+        derivatives are not possible"""
+        primaries = {
+            s
+            for s in system_species
+            if not self.state.database.species().get(s).reaction().reactants()
+        }
+        expanded = self._expand_reaction(property_index, primaries)
+        if expanded is None:
+            return []
+        reactants, logk_terms = expanded
+        if "e-" not in reactants:
+            if all(s in system_species for s in reactants):
+                return [(None, reactants, logk_terms)]
+            return []
+        representations = []
+        for couple in ("O2", "H2"):
+            if couple not in system_species:
+                continue
+            couple_expanded = self._expand_reaction(couple, primaries)
+            if couple_expanded is None or "e-" not in couple_expanded[0]:
+                continue
+            couple_reactants, couple_terms = couple_expanded
+            factor = reactants["e-"] / couple_reactants["e-"]
+            new_reactants = dict(reactants)
+            for s, mol in couple_reactants.items():
+                new_reactants[s] = new_reactants.get(s, 0.0) - factor * mol
+            # couple species moves from product to reactant side of reaction
+            new_reactants[couple] = new_reactants.get(couple, 0.0) + factor
+            new_reactants.pop("e-")
+            new_reactants = {s: v for s, v in new_reactants.items() if abs(v) > 1e-12}
+            if not all(s in system_species for s in new_reactants):
+                continue
+            representations.append(
+                (
+                    couple,
+                    new_reactants,
+                    logk_terms
+                    + [(t, prm, -factor * mult) for t, prm, mult in couple_terms],
+                )
+            )
+        if representations:
+            _log.info(
+                f"Scaling tendency for {property_index} uses {[r[0] for r in representations]} redox couple(s) in place of e-"
+            )
+        return representations
+
+    @staticmethod
+    def _log_k_value(logk_type, params, temperature_value, gas_constant):
+        """log10 K at temperature for PhreeqcLgK (Analytical) or VantHoff params"""
+        if logk_type == "Analytical":
+            log_k = params["A1"]
+            if params["A2"] != 0:
+                log_k += params["A2"] * temperature_value
+            if params["A3"] != 0:
+                log_k += params["A3"] * temperature_value**-1
+            if params["A4"] != 0:
+                log_k += params["A4"] * math.log10(temperature_value)
+            if params["A5"] != 0:
+                log_k += params["A5"] * temperature_value**-2
+            if params["A6"] != 0:
+                log_k += params["A6"] * temperature_value**2
+            return log_k
+        return params["lgKr"] - params["dHr"] / gas_constant * (
+            1 / temperature_value - 1 / params["Tr"]
+        ) / math.log(10)
+
+    @staticmethod
+    def _log_k_derivative(logk_type, params, temperature_value, dT, gas_constant):
+        """derivative of log10 K given temperature derivative dT"""
+        if logk_type == "Analytical":
+            d_log_k = 0
+            if params["A2"] != 0:
+                d_log_k += params["A2"] * dT
+            if params["A3"] != 0:
+                d_log_k += -params["A3"] * temperature_value**-2 * dT
+            if params["A4"] != 0:
+                d_log_k += params["A4"] / (temperature_value * math.log(10)) * dT
+            if params["A5"] != 0:
+                d_log_k += -2 * params["A5"] * temperature_value**-3 * dT
+            if params["A6"] != 0:
+                d_log_k += 2 * params["A6"] * temperature_value * dT
+            return d_log_k
+        return (
+            params["dHr"]
+            / gas_constant
+            * (1 / temperature_value**2)
+            * dT
+            / math.log(10)
+        )
+
     def scalingTendency(self, property_index):
-        """build pyomo constraint for scaling index calculations directly form chem props
+        """build scaling tendency (10**saturation index) directly from species
+        activities, which have exact derivatives. Redox minerals (e- in reaction) are
+        supported through a redox couple (see _get_reaction_representations), falls back
+        to numerical saturation index when no representation is available
         #TODO: Need to add check for database being used as only PhreeqC is really supported at the
         moment"""
-        # print("building sc direct")
         output = PropOptions()
         ref_temp = 25  # degC
         ref_pressure = 1  # atm
         spec = self.aqueous_props.saturationSpecies().get(property_index)
-        reactant_species = spec.reaction().reactants()
-        thermo_model = spec.standardThermoModel()
         pr = spec.props(ref_temp, "C", ref_pressure, "atm")
         specie_volume = float(pr.V0)  # returns auto diff/not usable with pyomo
 
-        # get data from thermo prop
-        jsp = thermo_model.params().dumpJson()
-        jsp_dict = json.loads(jsp)
-        not_implemented = False
-        # TODO: need to add pE calculation to be able to calc scaling tendcies for these props.
         system_species = [s.name() for s in self.state.state.system().species()]
-        all_species_exists = True
-        for s, _ in reactant_species:
-            if s.name() not in system_species:
-                all_species_exists = False
-                _log.warning(
-                    f"Species {s.name()} not found in system species for index {property_index}, returning numerical scalingTendencySaturationIndex instead"
-                )
-        if isinstance(jsp_dict, list) and all_species_exists:
-            if jsp_dict[0].get("PhreeqcLgK", None) is not None:
-                output.register_option("logk_type", "Analytical")
-                output.register_option("logk_paramters", jsp_dict[0]["PhreeqcLgK"])
-            elif jsp_dict[0].get("VantHoff", None) is not None:
-                output.register_option("logk_type", "VantHoff")
-                output.register_option("logk_paramters", jsp_dict[0]["VantHoff"])
-            else:
-                not_implemented = True
-        else:
-            not_implemented = True
-        if not_implemented:
+        representations = self._get_reaction_representations(
+            property_index, system_species
+        )
+        if not representations:
             _log.warning(
                 f"Exact derivatives for scaling tendency of {property_index} not implemented, returning numerical scalingTendencySaturationIndex instead"
             )
             return self.scalingTendencySaturationIndex(property_index)
 
-        output.register_option("gas_constant", rkt.universalGasConstant)
-        volume_reactants = 0
-        for s, mol in reactant_species:
-            if s.name() in system_species:
-                spec = self.state.system.species().get(s.name())
-                thermo_model = spec.standardThermoModel()
-                _pr = spec.props(ref_temp, "C", ref_pressure, "atm")
-                volume_reactants += float(_pr.V0) * (mol)
-                output.register_property(
-                    PropTypes.chem_prop, "speciesActivityLn", s.name()
+        # each representation: couple, reactant coefficients, log K terms, delta V
+        reaction_options = []
+        for couple, reactants, logk_terms in representations:
+            volume_reactants = 0
+            for s, mol in reactants.items():
+                _pr = (
+                    self.state.system.species()
+                    .get(s)
+                    .props(ref_temp, "C", ref_pressure, "atm")
                 )
-                output.properties[
-                    ("speciesActivityLn", s.name())
-                ].stoichiometric_coeff = mol  # create on demand to track coefficients
-
-        output.register_option("delta_V", float(specie_volume - (volume_reactants)))
+                volume_reactants += float(_pr.V0) * mol
+                output.register_property(PropTypes.chem_prop, "speciesActivityLn", s)
+            reaction_options.append(
+                {
+                    "couple": couple,
+                    "reactants": reactants,
+                    "logk_terms": logk_terms,
+                    "delta_V": float(specie_volume - volume_reactants),
+                }
+            )
+        output.register_option("reactions", reaction_options)
+        output.register_option("gas_constant", rkt.universalGasConstant)
         output.register_property(PropTypes.chem_prop, "temperature")
         output.register_property(PropTypes.chem_prop, "pressure")
 
-        def calc_scaling_tendency(x):
-            build_options = output.options
-            temperature_value = x["temperature", None].value
-            if build_options["logk_type"] == "Analytical":
-                A_params = build_options["logk_paramters"]
-                log_k = [A_params["A1"]]
-                # temp dependence for phreeqc
-                if A_params["A2"] != 0:
-                    log_k.append(A_params["A2"] * temperature_value)
-                if A_params["A3"] != 0:
-                    log_k.append(A_params["A3"] * temperature_value**-1)
-                if A_params["A4"] != 0:
-                    log_k.append(A_params["A4"] * math.log10(temperature_value))
-                if A_params["A5"] != 0:
-                    log_k.append(A_params["A5"] * temperature_value**-2)
-                if A_params["A6"] != 0:
-                    log_k.append(A_params["A6"] * temperature_value**2)
-
-            if build_options["logk_type"] == "VantHoff":
-                vfparams = build_options["logk_paramters"]
-                log_k = [
-                    vfparams["lgKr"]
-                    - vfparams["dHr"]
-                    / build_options["gas_constant"]
-                    * (1 / temperature_value - 1 / vfparams["Tr"])
-                    / math.log(10)
-                ]
-            # pressure dependence
-            log_k.append(
-                -(
-                    build_options["delta_V"]
-                    * (x[("pressure", None)].value - 101325)
-                    / (math.log(10) * build_options["gas_constant"] * temperature_value)
-                )
+        def get_reaction(x):
+            """reaction with the most abundant redox couple (smooth switch, as both
+            give same value and derivatives at equilibrium)"""
+            reactions = output.options["reactions"]
+            if len(reactions) == 1:
+                return reactions[0]
+            return max(
+                reactions,
+                key=lambda r: x[("speciesActivityLn", r["couple"])].value,
             )
 
-            activities = []
-            for key, obj in x.items():
-                if "speciesActivityLn" in key:
-                    activities.append(
-                        obj.value * obj.stoichiometric_coeff / math.log(10)
-                    )
+        def calc_log_si(x, reaction):
+            gas_constant = output.options["gas_constant"]
+            temperature_value = x["temperature", None].value
+            log_k = sum(
+                multiplier
+                * self._log_k_value(logk_type, params, temperature_value, gas_constant)
+                for logk_type, params, multiplier in reaction["logk_terms"]
+            )
+            # pressure dependence
+            log_k -= (
+                reaction["delta_V"]
+                * (x[("pressure", None)].value - 101325)
+                / (math.log(10) * gas_constant * temperature_value)
+            )
+            activities = sum(
+                mol * x[("speciesActivityLn", s)].value / math.log(10)
+                for s, mol in reaction["reactants"].items()
+            )
+            # log K is in formation direction here, so we add instead of subtract
+            return activities + log_k
+
+        def calc_scaling_tendency(x):
             try:
-                si = 10 ** (
-                    sum(activities)
-                    + sum(
-                        log_k
-                    )  # this is positive here and in log10 form, so we add instead of subtract
-                )
+                return 10 ** calc_log_si(x, get_reaction(x))
             except OverflowError:
                 print("overflow error in scalingTendency calc_sat_dir")
-                si = 1e100
-
-            return si
+                return 1e100
 
         def calc_scaling_tendency_derivative(x):
-            build_options = output.options
+            reaction = get_reaction(x)
+            gas_constant = output.options["gas_constant"]
             temperature_value = x["temperature", None].value
             temperature_value_derivative = x["temperature", None].derivative
-            if build_options["logk_type"] == "Analytical":
-                # print("Analytical logk")
-                A_params = build_options["logk_paramters"]
-                log_k = [0]
-                # temp dependence for phreeqc
-                if A_params["A2"] != 0:
-                    log_k.append(A_params["A2"] * temperature_value_derivative)
-                if A_params["A3"] != 0:
-                    log_k.append(
-                        -A_params["A3"]
-                        * temperature_value**-2
-                        * temperature_value_derivative
-                    )
-                if A_params["A4"] != 0:
-                    log_k.append(
-                        A_params["A4"]
-                        / (temperature_value * math.log(10))
-                        * temperature_value_derivative
-                    )
-                if A_params["A5"] != 0:
-                    log_k.append(
-                        -2
-                        * A_params["A5"]
-                        * temperature_value**-3
-                        * temperature_value_derivative
-                    )
-                if A_params["A6"] != 0:
-                    log_k.append(
-                        2
-                        * A_params["A6"]
-                        * temperature_value
-                        * temperature_value_derivative
-                    )
-
-            if build_options["logk_type"] == "VantHoff":
-                # print("VantHoff logk")
-                vfparams = build_options["logk_paramters"]
-                log_k = [
-                    vfparams["dHr"]
-                    / build_options["gas_constant"]
-                    * (1 / temperature_value**2)
-                    * temperature_value_derivative
-                    / math.log(10)
-                ]
-            # pressure dependenance
-            pressure_derivative = x[("pressure", None)].derivative
-            log_k.append(
-                -(
-                    build_options["delta_V"]
-                    * pressure_derivative
-                    / (math.log(10) * build_options["gas_constant"] * temperature_value)
+            d_log_k = sum(
+                multiplier
+                * self._log_k_derivative(
+                    logk_type,
+                    params,
+                    temperature_value,
+                    temperature_value_derivative,
+                    gas_constant,
                 )
+                for logk_type, params, multiplier in reaction["logk_terms"]
             )
-            log_k.append(
-                (
-                    build_options["delta_V"]
-                    * (x[("pressure", None)].value - 101325)
-                    / (
-                        math.log(10)
-                        * build_options["gas_constant"]
-                        * temperature_value**2
-                    )
-                    * temperature_value_derivative
-                )
+            # pressure dependence
+            d_log_k -= (
+                reaction["delta_V"]
+                * x[("pressure", None)].derivative
+                / (math.log(10) * gas_constant * temperature_value)
             )
-            activities = []
-            for key, obj in x.items():
-                if "speciesActivityLn" in key:
-                    activities.append(
-                        x[key].derivative * obj.stoichiometric_coeff / math.log(10)
-                    )
+            d_log_k += (
+                reaction["delta_V"]
+                * (x[("pressure", None)].value - 101325)
+                / (math.log(10) * gas_constant * temperature_value**2)
+                * temperature_value_derivative
+            )
+            d_activities = sum(
+                mol * x[("speciesActivityLn", s)].derivative / math.log(10)
+                for s, mol in reaction["reactants"].items()
+            )
             try:
-                st = calc_scaling_tendency(x)
-                sum_derivatives = sum(activities) + sum(
-                    log_k
-                )  # this is postive here and in log10 fom, so we add instead of subtract
-                dir_st = sum_derivatives * st * math.log(10)
+                st = 10 ** calc_log_si(x, reaction)
+                return (d_activities + d_log_k) * st * math.log(10)
             except OverflowError:
                 print("overflow error in scalingTendency calc_sat_dir")
-                dir_st = 1e100
-            return dir_st
+                return 1e100
 
         output.calculate_value = calc_scaling_tendency
         output.calculate_derivative_conversion = calc_scaling_tendency_derivative
