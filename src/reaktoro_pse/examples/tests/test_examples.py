@@ -9,6 +9,7 @@
 # information, respectively. These files are also available online at the URL
 # "https://github.com/watertap-org/reaktoro-pse/"
 #################################################################################
+import numpy as np
 import pytest
 import idaes.core.util.scaling as iscale
 from reaktoro_pse.examples import (
@@ -96,6 +97,88 @@ def test_desal(hess_type):
     assert pytest.approx(m.desal_properties[("pH", None)].value, 1e-3) == 6.284055
     assert pytest.approx(m.water_recovery.value, 1e-3) == 0.899999
     assert pytest.approx(m.acid_addition.value, 1e-3) == 0.003043
+
+
+@pytest.mark.parametrize("hess_type", ["SR1", "BFGS"])
+@pytest.mark.parametrize("ipopt_multiplier_init", ["default", "least_squares"])
+def test_hessian_reinitialized_on_new_solve(
+    monkeypatch, hess_type, ipopt_multiplier_init
+):
+    """quasi-Newton matrices hold curvature of the previous solve, which is stale once the
+    problem changes (e.g. a new stage of a sweep), so they are re-initialized at the start
+    of every Ipopt solve. The trigger is the Hessian evaluation PyNumero does with zero
+    duals when it builds the NLP (to get the sparsity pattern), so it does not depend on
+    how Ipopt initializes its multipliers (constr_mult_init_max)"""
+    from pyomo.contrib.pynumero.interfaces.pyomo_grey_box_nlp import (
+        PyomoNLPWithGreyBoxBlocks,
+    )
+    from reaktoro_pse.core.util_classes.cyipopt_solver import (
+        get_cyipopt_watertap_solver,
+    )
+    from pyomo.environ import assert_optimal_termination
+
+    m = simple_desalination.build_simple_desal(hess_type)
+    simple_desalination.initialize(m)
+    simple_desalination.setup_optimization(m)
+    calc = m.eq_desal_properties.reaktoro_model.get_external_model().hessian_calculator
+
+    solve_number = [0]
+    original_nlp_init = PyomoNLPWithGreyBoxBlocks.__init__
+
+    def counting_nlp_init(self, *args, **kwargs):
+        solve_number[0] += 1
+        original_nlp_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(PyomoNLPWithGreyBoxBlocks, "__init__", counting_nlp_init)
+
+    reinitializations = [0]
+    original_initial_matrix = calc.get_initial_matrix
+
+    def counting_initial_matrix(*args, **kwargs):
+        reinitializations[0] += 1
+        return original_initial_matrix(*args, **kwargs)
+
+    monkeypatch.setattr(calc, "get_initial_matrix", counting_initial_matrix)
+
+    # (solve number, duals non zero, matrices re-initialized during this evaluation)
+    evaluations = []
+    original_get_hessian = calc.get_hessian
+
+    def recording_get_hessian(input_values, jacobian, dual_multipliers):
+        before = reinitializations[0]
+        result = original_get_hessian(input_values, jacobian, dual_multipliers)
+        evaluations.append(
+            (
+                solve_number[0],
+                bool(np.any(np.asarray(dual_multipliers) != 0)),
+                reinitializations[0] > before,
+            )
+        )
+        return result
+
+    monkeypatch.setattr(calc, "get_hessian", recording_get_hessian)
+
+    solver_options = None
+    if ipopt_multiplier_init == "least_squares":
+        # always start from least squares multiplier estimate (never reset to zero)
+        solver_options = {"constr_mult_init_max": 1e20}
+    solver = get_cyipopt_watertap_solver(solver_options=solver_options)
+    # optimization, then re-solve with tighter scaling limit, warm started from optimum
+    for calcite_limit in [1.0, 0.8]:
+        m.desal_properties[("scalingTendency", "Calcite")].setub(calcite_limit)
+        result = solver.solve(m)
+        assert_optimal_termination(result)
+    assert solve_number[0] == 2
+    for solve in [1, 2]:
+        solve_evaluations = [e for e in evaluations if e[0] == solve]
+        weighted = [e for e in solve_evaluations if e[1]]
+        assert len(weighted) > 0
+        # matrices are rebuilt before the first evaluation that uses them (non zero duals)
+        assert weighted[0][
+            2
+        ], f"solve {solve}: first weighted hessian used stale matrices"
+        # after that, the solve keeps updating the same matrices
+        assert not any(e[2] for e in weighted[1:])
 
 
 @pytest.mark.parametrize(

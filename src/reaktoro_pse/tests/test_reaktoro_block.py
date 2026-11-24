@@ -1338,3 +1338,284 @@ def test_blockBuild_element_amount_in_phase(build_rkt_state_with_species):
         )
         == m.CaO["CaO"].value + m.composition["Ca"].value
     )
+
+
+def _check_scaling_tendencies(database_file, composition, minerals, pH, pE):
+    """build property block with scalingTendency outputs, check values against
+    Reaktoro saturation index and jacobian against central finite difference.
+    returns jacobian types of each output"""
+    import numpy as np
+    import reaktoro as rkt
+
+    m = ConcreteModel()
+    m.temp = Var(initialize=293.15, units=pyunits.K)
+    m.temp.fix()
+    m.pressure = Var(initialize=1e5, units=pyunits.Pa)
+    m.pressure.fix()
+    m.pH = Var(initialize=pH)
+    m.pH.fix()
+    m.pE = Var(initialize=pE)
+    m.pE.fix()
+    m.composition = Var(list(composition), initialize=1, units=pyunits.mol / pyunits.s)
+    for k, v in composition.items():
+        m.composition[k].fix(v)
+    m.st = Var(minerals, initialize=1)
+    m.blk = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": False,
+            "activity_model": "ActivityModelPhreeqc",
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+            "pE": m.pE,
+        },
+        database="PhreeqcDatabase",
+        database_file=database_file,
+        outputs={("scalingTendency", s): m.st[s] for s in minerals},
+        reaktoro_solve_options={"solver_tolerance": 1e-12},
+    )
+    m.blk.initialize()
+    jac_types = {
+        s: m.blk.rkt_outputs.rkt_outputs[("scalingTendency", s)].jacobian_type
+        for s in minerals
+    }
+    gb = m.blk.reaktoro_model.get_external_model()
+    names_in, names_out = gb.input_names(), gb.output_names()
+    x0 = np.array([m.blk.reaktoro_model.inputs[n].value for n in names_in])
+    gb.set_input_values(x0)
+    y0 = np.array(gb.evaluate_outputs())
+    jac = gb.evaluate_jacobian_outputs().toarray()
+    aq_props = rkt.AqueousProps(m.blk.rkt_state.state)
+    for i, (_, s) in enumerate(names_out):
+        assert pytest.approx(y0[i], rel=1e-6) == 10 ** float(
+            aq_props.saturationIndex(s)
+        ), f"{database_file} {s}"
+    # compare with central finite difference, scaled by input magnitude
+    jac_fd = np.zeros_like(jac)
+    for j in range(len(names_in)):
+        if x0[j] == 0:
+            continue
+        step = abs(x0[j]) * 1e-5
+        x_up, x_down = x0.copy(), x0.copy()
+        x_up[j] += step
+        x_down[j] -= step
+        gb.set_input_values(x_up)
+        y_up = np.array(gb.evaluate_outputs())
+        gb.set_input_values(x_down)
+        y_down = np.array(gb.evaluate_outputs())
+        jac_fd[:, j] = (y_up - y_down) / (2 * step)
+    for i, (_, s) in enumerate(names_out):
+        exact = jac[i] * np.abs(x0) / y0[i]
+        numerical = jac_fd[i] * np.abs(x0) / y0[i]
+        assert (
+            np.linalg.norm(exact - numerical) / np.linalg.norm(numerical) < 1e-2
+        ), f"{database_file} {s}"
+    return jac_types
+
+
+@pytest.mark.parametrize(
+    "pH, pE, Mn",
+    [(9.5, 11.54, 4e-6), (8.5, 12.54, 1e-14), (7.57, 13.0, 4e-6)],
+)
+def test_redox_mineral_scaling_tendency_exact_derivatives(pH, pE, Mn):
+    """Birnessite and Manganite reactions contain e-, which is not a system species,
+    e- is replaced using the O2/H2O couple so scaling tendency has exact derivatives
+    and matches Reaktoro saturation index (including trace Mn)"""
+    comp = {
+        "H2O": 55.5,
+        "Na+": 7.6e-3,
+        "Cl-": 6.4e-3,
+        "Ca+2": 1.1e-3,
+        "Mg+2": 1.9e-3,
+        "HCO3-": 7.8e-3,
+        "SO4-2": 8.8e-4,
+        "Mn+2": Mn,
+    }
+    jac_types = _check_scaling_tendencies(
+        "wateq4f.dat", comp, ["Birnessite", "Manganite", "Calcite"], pH, pE
+    )
+    # exact (calculated from species activities), not numerical saturation index
+    assert all(t == "calculated" for t in jac_types.values())
+
+
+@pytest.mark.parametrize(
+    "database_file",
+    [
+        "phreeqc.dat",
+        "wateq4f.dat",
+        "minteq.dat",
+        "minteq.v4.dat",
+        "Amm.dat",
+        "Tipping_Hurley.dat",
+        "llnl.dat",
+    ],
+)
+@pytest.mark.parametrize("pH, pE", [(8.5, 12.5), (7.0, -2.0)])
+def test_scaling_tendency_matches_saturation_index_all_databases(database_file, pH, pE):
+    """for each database, scaling tendency of every redox mineral (e- in reaction) that
+    can form from system elements, plus Calcite, matches Reaktoro saturation index and
+    has correct derivatives, under oxidizing and reducing conditions"""
+    import json
+    import reaktoro as rkt
+
+    db = rkt.PhreeqcDatabase(database_file)
+    species = {s.name() for s in db.species()}
+    candidates = {
+        "H2O": 55.5,
+        "Na+": 7.6e-3,
+        "Cl-": 6.4e-3,
+        "Ca+2": 1.1e-3,
+        "Mg+2": 1.9e-3,
+        "HCO3-": 7.8e-3,
+        "SO4-2": 8.8e-4,
+        "Mn+2": 4e-6,
+        "Fe+2": 4e-6,
+    }
+    comp = {k: v for k, v in candidates.items() if k in species}
+    elements = set()
+    for k in comp:
+        elements.update(e.symbol() for e, _ in db.species().get(k).elements())
+
+    def supported(s):
+        js = json.loads(s.standardThermoModel().params().dumpJson())
+        return (
+            isinstance(js, list)
+            and js[0] is not None
+            and ("PhreeqcLgK" in js[0] or "VantHoff" in js[0])
+        )
+
+    redox_minerals = []
+    for s in db.species():
+        if s.aggregateState() in (rkt.AggregateState.Aqueous, rkt.AggregateState.Gas):
+            continue
+        reactants = [x.name() for x, _ in s.reaction().reactants()]
+        if "e-" not in reactants or not supported(s):
+            continue
+        if {e.symbol() for e, _ in s.elements()} <= elements:
+            redox_minerals.append(s.name())
+    minerals = redox_minerals + ["Calcite"]
+    jac_types = _check_scaling_tendencies(database_file, comp, minerals, pH, pE)
+    # all minerals (redox ones through O2 or H2 couple) get exact derivatives
+    assert all(t == "calculated" for t in jac_types.values()), jac_types
+
+
+@pytest.mark.parametrize(
+    "database_file",
+    [
+        "phreeqc.dat",
+        "wateq4f.dat",
+        "minteq.dat",
+        "minteq.v4.dat",
+        "Amm.dat",
+        "Tipping_Hurley.dat",
+        "llnl.dat",
+        "core10.dat",
+    ],
+)
+@pytest.mark.parametrize(
+    "pH, pE, temperature, pressure",
+    [
+        (8.5, 12.5, 293.15, 1e5),
+        (7.0, 2.0, 293.15, 1e5),
+        (7.0, 6.0, 293.15, 1e5),
+        (7.5, 12.0, 313.15, 10e5),
+    ],
+)
+def test_pE_matches_aqueous_props_all_databases(
+    database_file, pH, pE, temperature, pressure
+):
+    """pE output is calculated from O2/H2 couple activities (exact derivatives), check
+    against Reaktoro aqueous props pE in a property block (after speciation at given
+    pH and pE and HCl addition, so pE is not an input) for oxidizing, reducing, mixed
+    (both couples above epsilon floor), and elevated temperature/pressure conditions
+    (sit.dat is excluded as it needs SIT activity model)"""
+    if database_file == "core10.dat" and pE < 4:
+        # Reaktoro fails to converge on finite difference perturbations here
+        pytest.skip("Reaktoro solve fails for core10.dat reducing state perturbations")
+    import numpy as np
+    import reaktoro as rkt
+
+    db = rkt.PhreeqcDatabase(database_file)
+    species = {s.name() for s in db.species()}
+    candidates = {
+        "H2O": 55.5,
+        "Na+": 7.6e-3,
+        "Cl-": 6.4e-3,
+        "Ca+2": 1.1e-3,
+        "Mg+2": 1.9e-3,
+        "HCO3-": 7.8e-3,
+        "SO4-2": 8.8e-4,
+        "Mn+2": 4e-6,
+        "Fe+2": 4e-6,
+    }
+    comp = {k: v for k, v in candidates.items() if k in species}
+    m = ConcreteModel()
+    m.temp = Var(initialize=temperature, units=pyunits.K)
+    m.temp.fix()
+    m.pressure = Var(initialize=pressure, units=pyunits.Pa)
+    m.pressure.fix()
+    m.pH = Var(initialize=pH)
+    m.pH.fix()
+    m.pE = Var(initialize=pE)
+    m.pE.fix()
+    m.composition = Var(list(comp), initialize=1, units=pyunits.mol / pyunits.s)
+    for k, v in comp.items():
+        m.composition[k].fix(v)
+    m.HCl = Var(["HCl"], initialize=1e-3, units=pyunits.mol / pyunits.s)
+    m.HCl.fix()
+    m.outputs = Var([("pE", None), ("pH", None)], initialize=1)
+    m.blk = ReaktoroBlock(
+        aqueous_phase={
+            "composition": m.composition,
+            "convert_to_rkt_species": False,
+            "activity_model": "ActivityModelPhreeqc",
+        },
+        system_state={
+            "temperature": m.temp,
+            "pressure": m.pressure,
+            "pH": m.pH,
+            "pE": m.pE,
+        },
+        database="PhreeqcDatabase",
+        database_file=database_file,
+        chemistry_modifier=m.HCl,
+        outputs=m.outputs,
+        build_speciation_block=True,
+    )
+    m.blk.initialize()
+    # exact (calculated from couple activities), not numerical aqueous props pE
+    assert m.blk.rkt_outputs.rkt_outputs[("pE", None)].jacobian_type == "calculated"
+    gb = m.blk.reaktoro_model.get_external_model()
+    names_in, names_out = gb.input_names(), gb.output_names()
+    x0 = np.array([m.blk.reaktoro_model.inputs[n].value for n in names_in])
+    gb.set_input_values(x0)
+    y0 = np.array(gb.evaluate_outputs())
+    jac = gb.evaluate_jacobian_outputs().toarray()
+    i_pE = names_out.index(("pE", None))
+    rkt_pE = float(rkt.AqueousProps(m.blk.rkt_state.state).pE())
+    # pressure correction uses species volumes at 25 C and 1 atm (as in scaling
+    # tendency), Reaktoro uses volumes at T and P, small difference away from 1 atm
+    tolerance = 1e-6 if pressure == 1e5 else 1e-4
+    assert pytest.approx(y0[i_pE], abs=tolerance) == rkt_pE
+    # HCl addition changes pE (pE is not just passed through)
+    assert abs(rkt_pE - pE) > 1e-4
+    jac_fd = np.zeros(len(names_in))
+    for j in range(len(names_in)):
+        if x0[j] == 0:
+            continue
+        # pE is sensitive, larger step keeps Reaktoro solver tolerance noise small
+        step = abs(x0[j]) * 1e-4
+        x_up, x_down = x0.copy(), x0.copy()
+        x_up[j] += step
+        x_down[j] -= step
+        gb.set_input_values(x_up)
+        y_up = gb.evaluate_outputs()[i_pE]
+        gb.set_input_values(x_down)
+        y_down = gb.evaluate_outputs()[i_pE]
+        jac_fd[j] = (y_up - y_down) / (2 * step)
+    exact = jac[i_pE] * np.abs(x0)
+    numerical = jac_fd * np.abs(x0)
+    assert np.linalg.norm(exact - numerical) / np.linalg.norm(numerical) < 1e-2
