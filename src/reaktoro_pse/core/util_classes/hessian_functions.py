@@ -737,6 +737,36 @@ class HessianApproximation:
         self.hessian_matrix = H
 
     ########################################################################################
+    # per output access (used by trust region surrogates)
+    def reset(self):
+        """clear quasi-Newton matrices and step history, next call to get_hessian starts
+        from the initial matrix (input scaling and hessian support are kept)"""
+        self.elements = None
+        self.hessian_matrix = None
+        self.hessian_memory.reset_memory()
+        self.bfgs_matrix_not_initialized = True
+        self.iters = 0
+        self.new_point = True
+
+    def get_output_matrices(self):
+        """curvature of each output in unscaled inputs (not weighted by multipliers),
+        returns {output index: (support input indexes, matrix)}, only available for
+        per output quasi-Newton types (not for Lagrangian or diagonal types)"""
+        if self.hessian_matrix_type in _LAGRANGIAN_TYPES + _DIAGONAL_TYPES:
+            raise TypeError(
+                f"Per output curvature is not available for hessian type {self.hessian_matrix_type}"
+            )
+        result = {}
+        if self.elements is None:
+            return result
+        for el in self.elements:
+            if el.matrix is None:
+                continue
+            d = self.input_scaling[el.support]
+            result[el.outputs[0]] = (el.support, el.matrix * np.outer(d, d))
+        return result
+
+    ########################################################################################
     # main entry
     def get_hessian(self, input_values, jacobian, dual_multipliers):
         """return lower triangular hessian of sum_i lambda_i y_i(x) as coo matrix

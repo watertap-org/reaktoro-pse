@@ -574,3 +574,35 @@ def test_default_safeguards_only_for_sr1(hess_type, expected):
         hessian_type=hess_type, quasi_newton_update_cap=0, quasi_newton_norm_cap=5
     )
     assert (hc.update_cap, hc.norm_cap) == (0.0, 5.0)
+
+
+def test_output_matrices_and_reset():
+    """per output curvature used by trust region surrogates, and reset of history"""
+    calc = HessianApproximation(
+        hessian_type=HessTypes.SR1, hessian_support=[[0, 1], [1]]
+    )
+    x0 = np.array([1.0, 2.0])
+    j0 = np.array([[1.0, 0.0], [0.0, 1.0]])
+    calc.get_hessian(x0, j0, np.ones(2))
+    calc.get_hessian(
+        x0 + np.array([0.1, 0.2]), j0 + np.array([[0.1, 0.05], [0.0, 0.3]]), np.ones(2)
+    )
+    matrices = calc.get_output_matrices()
+    assert set(matrices) == {0, 1}
+    support, matrix = matrices[0]
+    assert list(support) == [0, 1]
+    assert matrix.shape == (2, 2)
+    assert np.any(matrix != 0)
+    support, matrix = matrices[1]
+    assert list(support) == [1]
+    assert matrix.shape == (1, 1)
+    calc.reset()
+    assert calc.get_output_matrices() == {}
+    assert calc.hessian_memory.inputs == []
+    assert calc.bfgs_matrix_not_initialized
+
+
+def test_output_matrices_not_available_for_lagrangian_type():
+    calc = HessianApproximation(hessian_type=HessTypes.SR1_lagrangian)
+    with pytest.raises(TypeError):
+        calc.get_output_matrices()

@@ -23,6 +23,8 @@ from reaktoro_pse.core.reaktoro_solver import (
 from reaktoro_pse.core.reaktoro_coupled_solver import (
     ReaktoroCoupledSolver,
 )
+from reaktoro_pse.core.reaktoro_surrogate import ReaktoroSurrogateBlock
+from reaktoro_pse.reaktoro_block_config.trust_region_options import BackendTypes
 from reaktoro_pse.core.reaktoro_gray_box import (
     ReaktoroGrayBox,
     SpeciesAmountOffsetTypes,
@@ -88,14 +90,32 @@ class ReaktoroBlockBuilder:
         reaktoro_initialize_function=None,
         display_reaktoro_state_function=None,
         get_jacobian_matrix_function=None,
+        backend=BackendTypes.graybox,
+        trust_region_options=None,
     ):
-        """build reaktoro model"""
+        """build reaktoro model
+        Args:
+            gray_box_model: externally built model (e.g. by ReaktoroBlockManager), if None
+                a gray box (or surrogate for trust_region backend) is built for this block
+            backend: graybox or trust_region (only used if gray_box_model is None)
+            trust_region_options: trust region options (trust_region backend)
+        """
         if gray_box_model is None:
             external_model = ReaktoroGrayBox()
             external_model.configure(self.solver)
-            self.block.reaktoro_model = ExternalGreyBoxBlock(
-                external_model=external_model
-            )
+            if backend == BackendTypes.trust_region:
+                self.block.reaktoro_model = ReaktoroSurrogateBlock()
+                self.block.reaktoro_model.build_surrogate(
+                    external_model,
+                    trust_region_options=trust_region_options,
+                    hessian_type=getattr(self.solver, "hessian_type", None),
+                )
+            elif backend == BackendTypes.graybox:
+                self.block.reaktoro_model = ExternalGreyBoxBlock(
+                    external_model=external_model
+                )
+            else:
+                raise ValueError(f"Unknown reaktoro backend {backend}")
         else:
             self.block.reaktoro_model = gray_box_model
         if reaktoro_initialize_function is not None:

@@ -75,4 +75,46 @@ def get_cyipopt_watertap_solver(
     if solver_options is not None:
         for opt, value in solver_options.items():
             cy_solver.options[opt] = value
-    return cy_solver
+    return ReaktoroSolverWrapper(cy_solver)
+
+
+class ReaktoroSolverWrapper:
+    """Wraps a pyomo solver, models with reaktoro trust region surrogates
+    (ReaktoroBlock(backend="trust_region") or ReaktoroBlockManager(backend="trust_region"))
+    are solved with the trust region method using the wrapped solver for subproblems,
+    all other models are solved directly with the wrapped solver.
+    All attributes (options, available, ...) are those of the wrapped solver."""
+
+    def __init__(self, solver):
+        self.__dict__["_solver"] = solver
+        self.__dict__["trust_region_stats"] = None
+
+    @property
+    def wrapped_solver(self):
+        return self._solver
+
+    def solve(self, model, *args, **kwds):
+        # imported here, trust region solver imports reaktoro block modules
+        from reaktoro_pse.core.util_classes.trust_region_solver import (
+            ReaktoroTrustRegionSolver,
+            find_surrogate_blocks,
+        )
+
+        if not find_surrogate_blocks(model):
+            return self._solver.solve(model, *args, **kwds)
+        tr_solver = ReaktoroTrustRegionSolver(self._solver)
+        result = tr_solver.solve(model, *args, **kwds)
+        self.__dict__["trust_region_stats"] = tr_solver.trust_region_stats
+        return result
+
+    def __getattr__(self, attr):
+        return getattr(self.__dict__["_solver"], attr)
+
+    def __setattr__(self, attr, value):
+        setattr(self._solver, attr, value)
+
+
+def get_reaktoro_solver(**kwargs):
+    """same as get_cyipopt_watertap_solver, solves models with reaktoro blocks on
+    graybox or trust_region backend"""
+    return get_cyipopt_watertap_solver(**kwargs)

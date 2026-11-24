@@ -51,14 +51,16 @@ __author__ = "Alexander V. Dudchenko"
 # assumption for evaporative processes.
 
 
-def main(hess_type="BFGS_mod"):
-    m = build_simple_precipitation(hess_type=hess_type)
+def main(hess_type="BFGS_mod", backend="graybox", parallel_mode=False):
+    m = build_simple_precipitation(
+        hess_type=hess_type, parallel_mode=parallel_mode, backend=backend
+    )
     initialize(m)
 
     return m
 
 
-def build_simple_precipitation(hess_type=None, parallel_mode=False):
+def build_simple_precipitation(hess_type=None, parallel_mode=False, backend="graybox"):
     m = ConcreteModel()
     m.feed_composition = Var(
         ["H2O", "Mg", "Na", "Cl", "SO4", "Ca", "HCO3"],
@@ -217,7 +219,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
     # PengRobinson EOS from forcing all of the water into vapor phase (refer to NOTE above)"""
 
     if parallel_mode:
-        m.parallel_block_manager = ReaktoroBlockManager()
+        m.parallel_block_manager = ReaktoroBlockManager(backend=backend)
     else:
         m.parallel_block_manager = None
     if hess_type is None:
@@ -250,6 +252,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         database_file="supcrtbl",
         dissolve_species_in_reaktoro=True,
         reaktoro_block_manager=m.parallel_block_manager,
+        backend=backend,
         build_speciation_block=False,
         assert_charge_neutrality_on_property_block=True,
         hessian_options=hess_options,
@@ -281,6 +284,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         dissolve_species_in_reaktoro=True,
         build_speciation_block=True,
         reaktoro_block_manager=m.parallel_block_manager,
+        backend=backend,
         assert_charge_neutrality_on_property_block=True,
         hessian_options=hess_options,
         reaktoro_solve_options=solver_options,
@@ -309,6 +313,7 @@ def build_simple_precipitation(hess_type=None, parallel_mode=False):
         database_file="supcrtbl",
         dissolve_species_in_reaktoro=True,
         reaktoro_block_manager=m.parallel_block_manager,
+        backend=backend,
         assert_charge_neutrality_on_property_block=True,
         build_speciation_block=False,
         hessian_options=hess_options,

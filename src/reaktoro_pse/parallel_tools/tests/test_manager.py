@@ -267,3 +267,34 @@ def test_species_amount_offset_with_manager(
         assert set(status["elements"].values()) == {"ok"}
     finally:
         m.reaktoro_manager.terminate_workers()
+
+
+def test_parallel_solver_collects_all_workers_on_error():
+    """a failed worker must not leave other workers uncollected (their reply would be
+    read as the reply to the next solve)"""
+    import numpy as np
+    import cyipopt
+    from reaktoro_pse.parallel_tools.reaktoro_block_manager import AggregateSolverState
+
+    state = AggregateSolverState(
+        parallel_mode=True, maximum_number_of_parallel_solves=2
+    )
+    state.registered_blocks = [0, 1, 2]
+    collected = []
+    state.solver_functions = {i: (lambda params: None) for i in range(3)}
+
+    def make_get(i):
+        def get():
+            collected.append(i)
+            if i == 0:
+                raise cyipopt.CyIpoptEvaluationError()
+            return np.zeros((1, 1)), np.zeros(1)
+
+        return get
+
+    state.get_solution_function = {i: make_get(i) for i in range(3)}
+    state.get_params = lambda blk, params: {}
+    state.update_solution = lambda blk, output, jacobian: None
+    with pytest.raises(cyipopt.CyIpoptEvaluationError):
+        state.parallel_solver({})
+    assert sorted(collected) == [0, 1, 2]

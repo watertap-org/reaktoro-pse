@@ -305,6 +305,10 @@ class LocalWorker:
 
     def display_state(self):
         self.local_pipe.send(WorkerMessages.display_state)
+        # worker replies once it printed its state, the reply has to be read here,
+        # otherwise the next get_solution reads it as the reply to a new solve and
+        # returns results before the worker finished that solve
+        self.local_pipe.recv()
 
     def terminate(self):
         self.local_pipe.send(WorkerMessages.terminate)

@@ -32,6 +32,12 @@ from reaktoro_pse.reaktoro_block_config.hessian_options import (
 from pyomo.environ import (
     Constraint,
 )
+from reaktoro_pse.core.reaktoro_surrogate import ReaktoroSurrogateBlock
+from reaktoro_pse.reaktoro_block_config.trust_region_options import (
+    BackendTypes,
+    TrustRegionOptions,
+    backend_config_value,
+)
 
 
 class ReaktoroBlockData:
@@ -177,26 +183,31 @@ class AggregateSolverState:
         else:
             return self.serial_solver(params)
 
+    def _collect(self, blk, errors):
+        """collect result of a worker, errors are stored so every started worker is
+        collected (a worker that is not collected would return its stale result on the
+        next solve)"""
+        try:
+            jacobian, output = self.get_solution_function[blk]()
+            self.update_solution(blk, output, jacobian)
+        except Exception as e:
+            errors.append(e)
+
     def parallel_solver(self, params):
         active_workers = []
+        errors = []
         for blk in self.registered_blocks:
             param_set = self.get_params(blk, params)
             self.solver_functions[blk](param_set)
             active_workers.append(blk)
-            # if we have more than max workers,
-            # collect any results that are ready first
+            # if we have more than max workers, collect first started worker
             while len(active_workers) >= self.maximum_number_of_parallel_solves:
-                for blk in active_workers:
-                    result = self.get_solution_function[active_workers[0]]()
-                    if result is not None:
-                        jacobian, output = result
-                        self.update_solution(blk, output, jacobian)
-                        active_workers.pop(0)  # remove first worker
-                        break
+                self._collect(active_workers.pop(0), errors)
         # collect any results that are still not collected
         for blk in active_workers:
-            jacobian, output = self.get_solution_function[blk]()
-            self.update_solution(blk, output, jacobian)
+            self._collect(blk, errors)
+        if errors:
+            raise errors[0]
         return (
             self.jacobian_matrix,
             self.output_matrix,
@@ -235,6 +246,8 @@ class PseudoGrayBox:
 class ReaktoroBlockManagerData(ProcessBlockData):
     CONFIG = ProcessBlockData.CONFIG()
     CONFIG.declare("hessian_options", HessianOptions().get_dict())
+    CONFIG.declare("backend", backend_config_value())
+    CONFIG.declare("trust_region_options", TrustRegionOptions().get_dict())
     CONFIG.declare(
         "use_parallel_mode",
         ConfigValue(
@@ -344,8 +357,13 @@ class ReaktoroBlockManagerData(ProcessBlockData):
                 )
                 self.aggregate_solver_state.register_get_function(block_idx, get_func)
             else:
+                # direct coupling blocks (speciation + property) register no solver,
+                # their builder holds the coupled solver
+                solver = (
+                    block.solver if block.solver is not None else block.builder.solver
+                )
                 self.aggregate_solver_state.register_solve_function(
-                    block_idx, block.solver.solve_reaktoro_block
+                    block_idx, solver.solve_reaktoro_block
                 )
         if self.config.use_parallel_mode:
             self.parallel_manager.start_workers()
@@ -374,7 +392,17 @@ class ReaktoroBlockManagerData(ProcessBlockData):
             # hessian to block diagonal avoids spurious coupling between blocks
             hessian_support=self.aggregate_solver_state.get_hessian_support(),
         )
-        self.reaktoro_model = ExternalGreyBoxBlock(external_model=external_model)
+        if self.config.backend == BackendTypes.trust_region:
+            # one aggregate surrogate, reaktoro blocks are evaluated in parallel by
+            # aggregate_solver_state on every trust region iteration
+            self.reaktoro_model = ReaktoroSurrogateBlock()
+            self.reaktoro_model.build_surrogate(
+                external_model,
+                trust_region_options=self.config.trust_region_options,
+                hessian_type=self.config.hessian_options.hessian_type,
+            )
+        else:
+            self.reaktoro_model = ExternalGreyBoxBlock(external_model=external_model)
         for block_idx, block in enumerate(self.registered_blocks):
             pseudo_gray_box_model = PseudoGrayBox(external_model, block_idx)
             pseudo_gray_box_model.register_input(

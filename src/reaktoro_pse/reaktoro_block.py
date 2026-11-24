@@ -35,6 +35,11 @@ from reaktoro_pse.core.reaktoro_coupled_solver import ReaktoroCoupledSolver
 from reaktoro_pse.parallel_tools.reaktoro_block_manager import ReaktoroBlockManager
 
 from reaktoro_pse.reaktoro_block_config.jacobian_options import JacobianOptions
+from reaktoro_pse.reaktoro_block_config.trust_region_options import (
+    BackendTypes,
+    TrustRegionOptions,
+    backend_config_value,
+)
 from reaktoro_pse.reaktoro_block_config.hessian_options import (
     HessianOptions,
     resolve_deprecated_hessian_options,
@@ -368,6 +373,8 @@ class ReaktoroBlockData(ProcessBlockData):
             Build external reaktoro block and then pass them into this option. .""",
         ),
     )
+    CONFIG.declare("backend", backend_config_value())
+    CONFIG.declare("trust_region_options", TrustRegionOptions().get_dict())
     CONFIG.declare("jacobian_options", JacobianOptions().get_dict())
     CONFIG.declare("hessian_options", HessianOptions().get_dict())
     CONFIG.declare(
@@ -1065,6 +1072,15 @@ class ReaktoroBlockData(ProcessBlockData):
             )
 
             if self.config.reaktoro_block_manager is not None:
+                manager_backend = self.config.reaktoro_block_manager.config.backend
+                if (
+                    self.config.backend != BackendTypes.graybox
+                    and self.config.backend != manager_backend
+                ):
+                    raise ValueError(
+                        f"ReaktoroBlock backend {self.config.backend} differs from "
+                        f"ReaktoroBlockManager backend {manager_backend}, set backend on the manager"
+                    )
                 if self.direct_coupling_mode:
                     managed_block = self.config.reaktoro_block_manager.register_block(
                         inputs=solver.input_specs,
@@ -1084,7 +1100,10 @@ class ReaktoroBlockData(ProcessBlockData):
                     )
                 block.managed_block = managed_block
             else:
-                block.rkt_block_builder.build_reaktoro_block()
+                block.rkt_block_builder.build_reaktoro_block(
+                    backend=self.config.backend,
+                    trust_region_options=self.config.trust_region_options,
+                )
 
     # TODO: Update to provide output location (e.g. StringIO)
     def display_jacobian_outputs(self):
